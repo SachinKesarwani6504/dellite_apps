@@ -1,8 +1,8 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, ScrollViewProps, StyleProp, View, ViewStyle } from 'react-native';
+import { ScrollView, ScrollViewProps, StyleProp, View, ViewStyle, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '@/utils/theme';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 type GradientScreenProps = PropsWithChildren<{
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -19,13 +19,14 @@ export function GradientScreen({
   children,
   contentContainerStyle,
   useGradient = false,
-  gradientColors = theme.gradients.brandDefault,
+  gradientColors = theme.gradients.app,
   gradientStart = { x: 0, y: 0 },
   gradientEnd = { x: 1, y: 1 },
   stickyFooter,
   stickyFooterContainerStyle,
   refreshControl,
 }: GradientScreenProps) {
+  const isDark = useColorScheme() === 'dark';
   const content = (
     <View className="flex-1">
       <ScrollView
@@ -40,8 +41,11 @@ export function GradientScreen({
       </ScrollView>
       {stickyFooter ? (
         <View
-          className="absolute bottom-0 left-0 right-0 border-t border-brandYellow/30 bg-white/95 px-4 pb-5 pt-3 dark:border-white/10 dark:bg-[#111111]/95"
-          style={stickyFooterContainerStyle}
+          className="absolute bottom-0 left-0 right-0 border-t border-accent/30 px-4 pb-5 pt-3 dark:border-white/10"
+          style={[
+            { backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95 },
+            stickyFooterContainerStyle,
+          ]}
         >
           {stickyFooter}
         </View>
@@ -50,7 +54,7 @@ export function GradientScreen({
   );
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-white dark:bg-brandBlack">
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
       {useGradient ? (
         <LinearGradient
           colors={gradientColors}
@@ -66,3 +70,4 @@ export function GradientScreen({
     </SafeAreaView>
   );
 }
+

@@ -1,3 +1,5 @@
+const tokens = require('./src/utils/theme.tokens.json');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   presets: [require('nativewind/preset')],
@@ -6,12 +8,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brandOrange: '#FF7A00',
-        brandRed: '#FF3D5A',
-        brandYellow: '#FFC53D',
-        brandCream: '#FFF7E8',
-        brandText: '#2D1B00',
-        brandBlack: '#0F0F10',
+        primary: tokens.colors.primary,
+        secondary: tokens.colors.secondary,
+        accent: tokens.colors.accent,
+        surfaceSoft: tokens.colors.surfaceSoft,
+        textPrimary: tokens.colors.textPrimary,
+        baseDark: tokens.colors.baseDark,
+        positive: tokens.colors.positive,
+        caution: tokens.colors.caution,
+        negative: tokens.colors.negative,
       },
     },
   },

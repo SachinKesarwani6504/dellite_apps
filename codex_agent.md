@@ -693,23 +693,30 @@ AppNavigator
       └─ ProfileNavigator (nested stack for profile pages)
 ```
 
-## 12) Theme Rules (Orange + Yellow Brand)
+## 12) Theme Rules (Single Source of Truth)
 
-Brand color tokens:
+Use semantic color keys only (no color-name keys, no hardcoded hex in components/screens).
 
-- `brandOrange`: `#FF7A00`
-- `brandYellow`: `#FFC53D`
-- `brandBlack`: `#0F0F10`
-- `brandCream`: `#FFF7E8`
-- `brandText`: `#2D1B00`
+Single source:
 
-Where to add colors:
+1. `src/utils/theme.tokens.json` (all raw color values and gradients)
+2. `src/utils/theme.ts` (typed runtime exports for app usage)
+3. `tailwind.config.js` (must read values from `theme.tokens.json`)
 
-1. Tailwind theme: `tailwind.config.js` (`theme.extend.colors`)
-2. TypeScript tokens: `src/utils/theme.ts`
-3. Navigation theme: `src/navigation/AppNavigator.tsx`
-4. Tab active state: `src/navigation/MainTabsNavigator.tsx`
-5. Gradient backgrounds: reusable wrapper with `expo-linear-gradient`
+Mandatory rules:
+
+- Always use semantic keys like `primary`, `secondary`, `accent`, `textPrimary`, `baseDark`.
+- Never add `brand*` color keys in code or tailwind config.
+- Never hardcode `#...` or `rgba(...)` inside screens/components.
+- For new UI, consume colors only via:
+  - Tailwind classes mapped from token keys (`text-primary`, `bg-accent`, etc.)
+  - `theme`, `palette`, `uiColors` from `src/utils/theme.ts`
+
+Also keep these in sync:
+
+1. Navigation theme: `src/navigation/AppNavigator.tsx`
+2. Tab state colors: `src/navigation/MainTabsNavigator.tsx`
+3. Gradient wrapper: `src/components/common/GradientScreen.tsx`
 
 ## 13) Tailwind + Gradient Setup (React Native)
 

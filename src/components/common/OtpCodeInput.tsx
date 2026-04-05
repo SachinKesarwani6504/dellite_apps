@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { TextInput, View, useColorScheme } from 'react-native';
+import { palette, uiColors } from '@/utils/theme';
 
 type OtpCodeInputProps = {
   value: string;
@@ -13,6 +14,7 @@ function sanitizeDigits(input: string) {
 }
 
 export function OtpCodeInput({ value, onChange, length = 4, disabled = false }: OtpCodeInputProps) {
+  const isDark = useColorScheme() === 'dark';
   const refs = useRef<Array<TextInput | null>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -87,14 +89,24 @@ export function OtpCodeInput({ value, onChange, length = 4, disabled = false }: 
           onFocus={() => setActiveIndex(index)}
           onChangeText={text => updateFromIndex(index, text)}
           onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
-          style={{ marginRight: index === length - 1 ? 0 : 8 }}
-          className={`h-14 w-14 rounded-xl border text-center text-xl font-semibold text-brandText dark:text-white ${
+          selectionColor={uiColors.refresh.lightSpinner}
+          style={{
+            marginRight: index === length - 1 ? 0 : 8,
+            backgroundColor:
+              activeIndex === index
+                ? undefined
+                : isDark
+                  ? palette.dark.card
+                  : palette.light.card,
+          }}
+          className={`h-14 w-14 rounded-xl border text-center text-xl font-semibold text-textPrimary dark:text-white ${
             activeIndex === index
-              ? 'border-brandOrange bg-brandYellow/10 dark:bg-white/5'
-              : 'border-brandYellow dark:border-white/15 bg-white dark:bg-[#1A1A1A]'
+              ? 'border-primary bg-accent/10 dark:bg-white/5'
+              : 'border-accent dark:border-white/15 bg-white'
           }`}
         />
       ))}
     </View>
   );
 }
+

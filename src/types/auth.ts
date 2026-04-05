@@ -81,23 +81,22 @@ export interface WorkerServiceUpdatePayload {
   priceOverride?: number;
 }
 
+export interface WorkerCertificateWriteItem {
+  certificateId?: string;
+  certificateType: string;
+  serviceIds: string[];
+  fileId?: string;
+  fileName?: string;
+  fileType?: string;
+  fileUrl?: string;
+}
+
 export interface WorkerCertificateCreatePayload {
-  certificates: Array<{
-    workerServiceId: string;
-    fileId?: string;
-  }>;
+  certificates: WorkerCertificateWriteItem[];
 }
 
 export interface WorkerCertificateUpdatePayload {
-  certificateId: string;
-  title?: string;
-  description?: string;
-  workerServiceId?: string;
-  certificateNumber?: string;
-  issuingAuthority?: string;
-  issuedAt?: string;
-  expiresAt?: string;
-  fileId?: string;
+  certificates: WorkerCertificateWriteItem[];
 }
 
 export interface CategoryService {
@@ -133,18 +132,38 @@ export interface CategoriesQuery {
   includeTask?: boolean;
 }
 
-export interface WorkerStatusCertificateItem {
-  title?: string;
-  description?: string;
-  buttonText?: string;
-  certificateStatus?: string;
-  serviceId?: string;
-  workerServiceId?: string;
-  latestCertificateId?: string;
-  latestFileId?: string;
-}
+export type WorkerCertificateStatus = 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string;
 
-export interface WorkerStatusData {
-  worker?: unknown;
-  requiredCertificates?: WorkerStatusCertificateItem[];
-}
+export type WorkerCertificateCard = {
+  title: string;
+  description: string;
+  allowedCertificateTypes: string[];
+  buttonText: string;
+  certificateStatus: WorkerCertificateStatus;
+  serviceId: string;
+  serviceName: string;
+  serviceIds: string[];
+  serviceNames: string[];
+  workerServiceId: string;
+  workerServiceIds: string[];
+  workerSkillId: string | null;
+  workerSkillIds: string[];
+  latestCertificateId: string | null;
+  latestFileId: string | null;
+  latestCertificateType: string | null;
+};
+
+export type WorkerStatusData = {
+  worker: {
+    id: string;
+    status: string;
+    isVerified: boolean;
+  };
+  requiredCertificates: WorkerCertificateCard[];
+};
+
+export type WorkerStatusResponse = {
+  statusCode: number;
+  message: string;
+  data: WorkerStatusData;
+};

@@ -22,7 +22,7 @@ export function AppNavigator() {
         card: isDark ? palette.dark.card : palette.light.card,
         text: isDark ? palette.dark.text : palette.light.text,
         border: isDark ? palette.dark.border : palette.light.border,
-        primary: theme.colors.brandOrange,
+        primary: theme.colors.primary,
       },
     }),
     [isDark],
@@ -31,8 +31,8 @@ export function AppNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       {status === AuthStatus.BOOTSTRAPPING ? (
-        <View className="flex-1 items-center justify-center bg-white dark:bg-brandBlack">
-          <ActivityIndicator size="large" color={theme.colors.brandOrange} />
+        <View className="flex-1 items-center justify-center bg-white dark:bg-baseDark">
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : status === AuthStatus.LOGGED_OUT ? (
         <AuthNavigator />
@@ -44,3 +44,4 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
+

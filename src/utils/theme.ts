@@ -1,35 +1,31 @@
+import tokens from '@/utils/theme.tokens.json';
+
+type GradientTuple = readonly [string, string, ...string[]];
+
 export const theme = {
-  colors: {
-    brandOrange: '#FF7A00',
-    brandRed: '#FF3D5A',
-    brandYellow: '#FFC53D',
-    brandCream: '#FFF7E8',
-    brandText: '#2D1B00',
-    brandBlack: '#0F0F10',
-    white: '#FFFFFF',
-    mutedText: '#6B5B46',
-    border: '#F3D8A8',
-    success: '#20A464',
-  },
+  colors: tokens.colors,
   gradients: {
-    brandDefault: ['#FF7A00', '#FF3D5A', '#FFC53D', '#0F0F10'] as const,
-    heroWarm: ['#FFD8A1', '#FFFFFF'] as const,
+    app: tokens.gradients.app as unknown as GradientTuple,
+    hero: tokens.gradients.hero as unknown as GradientTuple,
+    cta: tokens.gradients.cta as unknown as GradientTuple,
   },
 };
 
-export const palette = {
-  light: {
-    background: '#FFFFFF',
-    card: '#FFFFFF',
-    text: '#2D1B00',
-    mutedText: '#6B5B46',
-    border: '#F3D8A8',
+export const palette = tokens.palette;
+
+export const uiColors = {
+  text: tokens.ui.text,
+  surface: tokens.ui.surface,
+  shadow: tokens.ui.shadow,
+  toast: tokens.ui.toast,
+  refresh: {
+    lightSpinner: tokens.colors.primary,
+    darkSpinner: tokens.colors.accent,
+    lightTrack: tokens.colors.surfaceSoft,
+    darkTrack: tokens.palette.dark.card,
   },
-  dark: {
-    background: '#0F0F10',
-    card: '#1A1A1A',
-    text: '#FFFFFF',
-    mutedText: '#C7C7C7',
-    border: '#2E2E2E',
+  onboarding: {
+    loader: tokens.colors.primary,
+    status: tokens.colors.primary,
   },
-} as const;
+};

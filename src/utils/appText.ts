@@ -8,8 +8,8 @@ export const APP_TEXT = {
       onboardingFailed: 'Onboarding failed',
     },
     phoneLogin: {
-      title: 'Welcome to Dellite!',
-      subtitle: 'Enter your phone number to get started with home services in Prayagraj',
+      title: 'Join as a Dellite Partner!',
+      subtitle: 'Enter your phone number to start getting work',
       countryCode: 'IN +91',
       phonePlaceholder: '8888888888',
       sendOtpButton: 'Send OTP',

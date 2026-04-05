@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ComponentProps } from 'react';
+import { theme } from '@/utils/theme';
 
 export const iconMap = {
   home: 'home',
@@ -24,6 +25,6 @@ type AppIconProps = {
   color?: string;
 } & Omit<ComponentProps<typeof Ionicons>, 'name' | 'size' | 'color'>;
 
-export function AppIcon({ name, size = 22, color = '#2D1B00', ...props }: AppIconProps) {
+export function AppIcon({ name, size = 22, color = theme.colors.textPrimary, ...props }: AppIconProps) {
   return <Ionicons name={iconMap[name]} size={size} color={color} {...props} />;
 }

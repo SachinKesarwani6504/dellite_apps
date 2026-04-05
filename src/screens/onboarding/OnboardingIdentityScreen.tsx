@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -13,10 +13,12 @@ import { OnboardingStackParamList } from '@/types/navigation';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingIdentity'>;
 
 export function OnboardingIdentityScreen({ navigation }: Props) {
+  const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState<Gender>('MALE');
@@ -43,18 +45,18 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     <GradientScreen
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
-      <View className="rounded-3xl bg-white pb-6 pt-4 dark:bg-[#161616]">
+      <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color="#FF7A00" />
-          <Text className="text-xs font-bold tracking-widest text-brandOrange">{APP_TEXT.onboarding.identity.step}</Text>
+          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
+          <Text className="text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.identity.step}</Text>
         </View>
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-brandBlack dark:text-white">
+        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
           {APP_TEXT.onboarding.identity.titlePrefix}
         </Text>
         <View className="mt-0.5">
           <GradientWord word={gradientWord} />
         </View>
-        <Text className="mt-2 text-sm text-[#6E6E77] dark:text-[#B5B5BD]">{APP_TEXT.onboarding.identity.subtitle}</Text>
+        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>{APP_TEXT.onboarding.identity.subtitle}</Text>
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
@@ -79,9 +81,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
           />
         </View>
 
-        <Text className="mt-5 text-sm font-semibold text-brandBlack dark:text-white">{APP_TEXT.onboarding.identity.genderLabel}</Text>
+        <Text className="mt-5 text-sm font-semibold text-baseDark dark:text-white">{APP_TEXT.onboarding.identity.genderLabel}</Text>
         <View className="mt-2 flex-row gap-2">
-          {GENDER_OPTIONS.map(option => {
+          {genderOptions.map(option => {
             const selected = option.value === gender;
             return (
               <Pressable
@@ -89,14 +91,15 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
                 onPress={() => setGender(option.value)}
                 className={`flex-1 rounded-2xl border p-3 ${
                   selected
-                    ? 'border-brandOrange bg-brandOrange/10'
-                    : 'border-brandYellow/40 bg-white dark:border-white/10 dark:bg-[#1D1D1D]'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-accent/40 bg-white dark:border-white/10'
                 }`}
+                style={!selected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
               >
                 <Text className="text-center text-2xl">{option.icon}</Text>
                 <Text
                   className={`mt-1 text-center text-sm font-semibold ${
-                    selected ? 'text-brandOrange' : 'text-brandBlack dark:text-white'
+                    selected ? 'text-primary' : 'text-baseDark dark:text-white'
                   }`}
                 >
                   {option.label}
@@ -114,4 +117,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   );
 }
 
+
+  const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 

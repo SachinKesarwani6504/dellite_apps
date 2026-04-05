@@ -7,6 +7,7 @@ import { HomeScreen } from '@/screens/tabs/HomeScreen';
 import { OngoingScreen } from '@/screens/tabs/OngoingScreen';
 import { MainTabParamList } from '@/types/navigation';
 import { APP_TEXT } from '@/utils/appText';
+import { palette, theme } from '@/utils/theme';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -17,9 +18,9 @@ export function MainTabsNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#FF7A00',
-        tabBarInactiveTintColor: isDark ? '#A3A3A3' : '#7A6A55',
-        tabBarStyle: { backgroundColor: isDark ? '#141414' : '#FFFFFF' },
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: isDark ? palette.dark.mutedText : palette.light.mutedText,
+        tabBarStyle: { backgroundColor: isDark ? palette.dark.card : palette.light.card },
         tabBarIcon: ({ color, size }) => {
           const tabIconMap: Record<keyof MainTabParamList, 'home' | 'ongoing' | 'earnings' | 'profile'> = {
             Home: 'home',

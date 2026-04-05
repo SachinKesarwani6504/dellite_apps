@@ -1,5 +1,6 @@
 import { Image, Pressable, Text, useColorScheme, View } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 const appIcon = require('../assets/icon.png');
 
@@ -9,23 +10,31 @@ type ToastPayload = {
   text1?: string;
 };
 
-function getColors(isDark: boolean, variant: ToastVariant) {
-  const palette = {
-    success: isDark
-      ? { backgroundColor: '#241805', borderColor: '#7A4B0A', textColor: '#FFD79A' }
-      : { backgroundColor: '#FFF7EA', borderColor: '#FFD38A', textColor: '#7A3E00' },
-    error: isDark
-      ? { backgroundColor: '#2A1111', borderColor: '#8F2B2B', textColor: '#FFC4C4' }
-      : { backgroundColor: '#FFF1F1', borderColor: '#FFB4B4', textColor: '#8C1D1D' },
-    info: isDark
-      ? { backgroundColor: '#101A34', borderColor: '#2D4F9D', textColor: '#D8E6FF' }
-      : { backgroundColor: '#F4F7FF', borderColor: '#BFD0FF', textColor: '#183A8A' },
-    warning: isDark
-      ? { backgroundColor: '#2A1C07', borderColor: '#9E6A1A', textColor: '#FFE2A6' }
-      : { backgroundColor: '#FFF9E8', borderColor: '#FFE08A', textColor: '#8A5A00' },
-  };
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace('#', '');
+  const full = normalized.length === 3
+    ? normalized.split('').map(char => `${char}${char}`).join('')
+    : normalized;
+  const r = Number.parseInt(full.slice(0, 2), 16);
+  const g = Number.parseInt(full.slice(2, 4), 16);
+  const b = Number.parseInt(full.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
-  return palette[variant];
+function getVariantTone(variant: ToastVariant) {
+  if (variant === 'success') return theme.colors.positive;
+  if (variant === 'error') return theme.colors.negative;
+  if (variant === 'warning') return theme.colors.caution;
+  return theme.colors.primary;
+}
+
+function getColors(isDark: boolean, variant: ToastVariant) {
+  const tone = getVariantTone(variant);
+  return {
+    borderColor: tone,
+    backgroundColor: isDark ? hexToRgba(tone, 0.2) : hexToRgba(tone, 0.1),
+    textColor: isDark ? palette.dark.text : palette.light.text,
+  };
 }
 
 function BrandToast({ text1, variant }: ToastPayload & { variant: ToastVariant }) {
@@ -47,7 +56,7 @@ function BrandToast({ text1, variant }: ToastPayload & { variant: ToastVariant }
         minHeight: 64,
         width: '92%',
         alignSelf: 'center',
-        shadowColor: '#000',
+        shadowColor: uiColors.shadow.base,
         shadowOpacity: 0.12,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 5 },
@@ -60,7 +69,7 @@ function BrandToast({ text1, variant }: ToastPayload & { variant: ToastVariant }
             width: 40,
             height: 40,
             borderRadius: 10,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.9)',
+            backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight90,
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 12,

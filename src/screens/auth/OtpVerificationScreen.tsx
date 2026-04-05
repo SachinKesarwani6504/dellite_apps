@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AppState, Image, Pressable, Text, View } from 'react-native';
+import { AppState, Image, Pressable, Text, View, useColorScheme } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -11,11 +11,12 @@ import { AppIcon } from '@/icons';
 import { AuthStackParamList } from '@/types/navigation';
 import { maskPhoneNumber } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
-import { theme } from '@/utils/theme';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
 export function OtpVerificationScreen({ route, navigation }: Props) {
+  const isDark = useColorScheme() === 'dark';
   const { phoneNumber } = route.params;
   const { verifyOtpCode, resendOtpCode, loading } = useAuth();
   const [otp, setOtp] = useState('');
@@ -68,13 +69,13 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
 
   return (
     <GradientScreen contentContainerStyle={{ flexGrow: 1, padding: 0, paddingBottom: 24 }}>
-      <View className="flex-1 bg-white dark:bg-brandBlack">
+      <View className="flex-1 bg-white dark:bg-baseDark">
         <View
           style={{
             borderBottomLeftRadius: 34,
             borderBottomRightRadius: 34,
             overflow: 'hidden',
-            shadowColor: '#FF8B1F',
+            shadowColor: uiColors.shadow.warm,
             shadowOpacity: 0.2,
             shadowRadius: 14,
             shadowOffset: { width: 0, height: 8 },
@@ -82,7 +83,7 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
           }}
         >
           <LinearGradient
-            colors={theme.gradients.heroWarm}
+            colors={theme.gradients.hero}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             className="px-6 pb-8 pt-6"
@@ -100,10 +101,10 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
         </View>
 
         <View className="px-6 pt-7">
-          <Text className="text-center text-4xl font-extrabold text-[#0C1D36] dark:text-white">
+          <Text className="text-center text-4xl font-extrabold" style={{ color: isDark ? palette.dark.text : uiColors.text.heading }}>
             {APP_TEXT.auth.otpVerification.title}
           </Text>
-          <Text className="mt-3 text-center text-base text-[#6E6E77] dark:text-[#B5B5BD]">
+          <Text className="mt-3 text-center text-base" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
             {APP_TEXT.auth.otpVerification.codeSentPrefix}
             <Text className="font-semibold">{maskedPhone}</Text>
           </Text>
@@ -115,15 +116,15 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
           <View className="mt-5">
             {counter > 0 ? (
               <View className="space-y-2">
-                <Text className="text-center text-sm text-[#6E6E77] dark:text-[#B5B5BD]">
+                <Text className="text-center text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                   Resend code in{' '}
-                  <Text className="font-semibold text-brandOrange">
+                  <Text className="font-semibold text-primary">
                     00:{counter.toString().padStart(2, '0')}
                   </Text>
                 </Text>
-                <View className="h-1.5 overflow-hidden rounded-full bg-[#F2E7D9] dark:bg-white/10">
+                <View className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.trackLight }}>
                   <View
-                    className="h-full rounded-full bg-brandOrange"
+                    className="h-full rounded-full bg-primary"
                     style={{ width: `${Math.max(6, resendProgress * 100)}%` }}
                   />
                 </View>
@@ -132,10 +133,10 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
               <Pressable
                 onPress={onResend}
                 disabled={!canResend}
-                className="self-center flex-row items-center gap-1.5 rounded-lg border border-brandOrange/30 bg-brandOrange/10 px-3 py-2"
+                className="self-center flex-row items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2"
               >
-                <AppIcon name="refresh" size={14} color={theme.colors.brandOrange} />
-                <Text className="text-sm font-semibold text-brandOrange">Resend code</Text>
+                <AppIcon name="refresh" size={14} color={theme.colors.primary} />
+                <Text className="text-sm font-semibold text-primary">Resend code</Text>
               </Pressable>
             )}
           </View>
@@ -149,7 +150,7 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
             />
           </View>
 
-          <Text className="mt-6 text-center text-xs text-[#9A9AA2] dark:text-[#8C8C93]">
+          <Text className="mt-6 text-center text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
             {APP_TEXT.auth.otpVerification.helpText}
           </Text>
         </View>
@@ -157,3 +158,4 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
     </GradientScreen>
   );
 }
+

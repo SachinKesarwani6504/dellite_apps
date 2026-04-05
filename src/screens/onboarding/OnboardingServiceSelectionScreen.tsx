@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { createWorkerServices, getCategories } from '@/actions';
 import { useAuth } from '@/hooks/useAuth';
 import { AppIcon } from '@/icons';
@@ -18,13 +18,14 @@ import { OnboardingStackParamList } from '@/types/navigation';
 import { titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingVehicle' | 'OnboardingServiceSelection'>;
 
 const ONBOARDING_CITY = 'PRAYAGRAJ';
 
 function normalizeServices(subcategory?: ServiceSubcategory): CategoryService[] {
-  return subcategory?.services ?? [];
+  return Array.isArray(subcategory?.services) ? subcategory.services : [];
 }
 
 function toIconBadgeText(name: string, iconText?: string): string {
@@ -34,6 +35,7 @@ function toIconBadgeText(name: string, iconText?: string): string {
 }
 
 export function OnboardingVehicleScreen({ navigation }: Props) {
+  const isDark = useColorScheme() === 'dark';
   const { onboardingRoute, refreshMe } = useAuth();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [loading, setLoading] = useState(true);
@@ -102,6 +104,14 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
     () => normalizeServices(selectedSubcategory ?? undefined),
     [selectedSubcategory],
   );
+  const categoryList = useMemo(
+    () => (Array.isArray(categories) ? categories : []),
+    [categories],
+  );
+  const subcategoryList = useMemo(
+    () => (Array.isArray(selectedCategory?.subcategories) ? selectedCategory.subcategories : []),
+    [selectedCategory],
+  );
 
   const selectedServiceNames = useMemo(() => Object.keys(selectedServices), [selectedServices]);
 
@@ -165,50 +175,51 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
         />
       )}
     >
-      <View className="rounded-3xl bg-white px-4 pb-5 pt-4 dark:bg-[#161616]">
+      <View className="rounded-3xl px-4 pb-5 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <BackButton
           onPress={onBackStep}
           visible={Boolean(selectedCategory || selectedSubcategory || navigation.canGoBack())}
         />
-        <Text className="mt-3 text-xs font-bold tracking-widest text-brandOrange">{APP_TEXT.onboarding.vehicle.step}</Text>
+        <Text className="mt-3 text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.vehicle.step}</Text>
         <View className="mt-2">
-          <Text className="text-4xl font-extrabold leading-[40px] text-brandBlack dark:text-white">Choose Your</Text>
+          <Text className="text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">Choose Your</Text>
           <GradientWord word="Services" className="text-4xl font-extrabold leading-[40px]" />
         </View>
-        <Text className="mt-2 text-sm text-[#6E6E77] dark:text-[#B5B5BD]">
+        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
           {APP_TEXT.onboarding.vehicle.subtitle}
         </Text>
 
         <View className="mt-4 flex-row gap-2">
-          <View className={`h-1.5 flex-1 rounded-full ${selectedCategory ? 'bg-brandOrange' : 'bg-brandYellow/30 dark:bg-white/10'}`} />
-          <View className={`h-1.5 flex-1 rounded-full ${selectedSubcategory ? 'bg-brandOrange' : 'bg-brandYellow/30 dark:bg-white/10'}`} />
-          <View className="h-1.5 flex-1 rounded-full bg-brandYellow/30 dark:bg-white/10" />
+          <View className={`h-1.5 flex-1 rounded-full ${selectedCategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
+          <View className={`h-1.5 flex-1 rounded-full ${selectedSubcategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
+          <View className="h-1.5 flex-1 rounded-full bg-accent/30 dark:bg-white/10" />
         </View>
 
         {loading ? (
           <View className="mt-8 items-center justify-center">
-            <ActivityIndicator size="large" color="#FF7A00" />
+            <ActivityIndicator size="large" color={uiColors.onboarding.loader} />
           </View>
         ) : (
           <View className="mt-4">
             {!selectedCategory && (
               <View className="mt-3 flex-row flex-wrap justify-between gap-y-3">
-                {categories.map(category => (
+                {categoryList.map(category => (
                   <Pressable
                     key={category.id}
                     onPress={() => {
                       setSelectedCategory(category);
                       setSelectedSubcategory(null);
                     }}
-                    className="w-[48%] rounded-2xl border border-brandYellow/40 bg-white p-3 dark:border-white/10 dark:bg-[#1D1D1D]"
+                    className="w-[48%] rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
+                    style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
                   >
-                    <View className="h-9 w-9 items-center justify-center rounded-lg bg-brandOrange/10">
-                      <Text className="text-sm font-bold text-brandOrange">
+                    <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                      <Text className="text-sm font-bold text-primary">
                         {toIconBadgeText(category.name, category.iconText)}
                       </Text>
                     </View>
-                    <Text className="mt-2 text-sm font-bold text-brandBlack dark:text-white">{titleCase(category.name)}</Text>
-                    <Text className="mt-1 text-xs text-[#6E6E77] dark:text-[#B5B5BD]">
+                    <Text className="mt-2 text-sm font-bold text-baseDark dark:text-white">{titleCase(category.name)}</Text>
+                    <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                       {(category.subcategories?.length ?? 0).toString()} subcategories
                     </Text>
                   </Pressable>
@@ -218,29 +229,30 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
 
             {selectedCategory && !selectedSubcategory && (
               <View>
-                <Text className="mb-2 text-lg font-bold text-brandBlack dark:text-white">{titleCase(selectedCategory.name)}</Text>
+                <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedCategory.name)}</Text>
                 <View className="gap-2">
-                  {(selectedCategory.subcategories ?? []).map(subcategory => (
+                  {subcategoryList.map(subcategory => (
                     <Pressable
                       key={subcategory.id}
                       onPress={() => setSelectedSubcategory(subcategory)}
-                      className="rounded-2xl border border-brandYellow/40 bg-white p-3 dark:border-white/10 dark:bg-[#1D1D1D]"
+                      className="rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
+                      style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
                     >
                       <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center">
-                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-brandOrange/10">
-                            <Text className="font-bold text-brandOrange">
+                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                            <Text className="font-bold text-primary">
                               {toIconBadgeText(subcategory.name, subcategory.iconText)}
                             </Text>
                           </View>
                           <View>
-                            <Text className="text-base font-semibold text-brandBlack dark:text-white">{titleCase(subcategory.name)}</Text>
-                            <Text className="text-xs text-[#6E6E77] dark:text-[#B5B5BD]">
+                            <Text className="text-base font-semibold text-baseDark dark:text-white">{titleCase(subcategory.name)}</Text>
+                            <Text className="text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                               {(subcategory.services?.length ?? 0).toString()} services
                             </Text>
                           </View>
                         </View>
-                        <AppIcon name="chevronRight" size={16} color="#6E6E77" />
+                        <AppIcon name="chevronRight" size={16} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
                       </View>
                     </Pressable>
                   ))}
@@ -250,7 +262,7 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
 
             {selectedSubcategory && (
               <View>
-                <Text className="mb-2 text-lg font-bold text-brandBlack dark:text-white">{titleCase(selectedSubcategory.name)}</Text>
+                <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedSubcategory.name)}</Text>
                 <View className="gap-2">
                   {currentServices.map(service => {
                     const selected = Boolean(selectedServices[service.name]);
@@ -260,28 +272,30 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
                         onPress={() => toggleService(service)}
                         className={`rounded-2xl border p-3 ${
                           selected
-                            ? 'border-brandOrange bg-brandOrange/10'
-                            : 'border-brandYellow/40 bg-white dark:border-white/10 dark:bg-[#1D1D1D]'
+                            ? 'border-primary bg-primary/10'
+                            : 'border-accent/40 bg-white dark:border-white/10'
                         }`}
+                        style={!selected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
                       >
                         <View className="flex-row items-center justify-between">
-                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-brandOrange/10">
-                            <Text className="font-bold text-brandOrange">
+                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                            <Text className="font-bold text-primary">
                               {toIconBadgeText(service.name, service.iconText)}
                             </Text>
                           </View>
                           <View className="flex-1 pr-2">
-                            <Text className={`text-sm font-bold ${selected ? 'text-brandOrange' : 'text-brandBlack dark:text-white'}`}>
+                            <Text className={`text-sm font-bold ${selected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
                               {titleCase(service.description || service.name)}
                             </Text>
-                            <Text className="mt-1 text-xs text-[#6E6E77] dark:text-[#B5B5BD]">
+                            <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                               {service.isCertificateRequired ? 'Certificate required' : 'No certificate required'}
                             </Text>
                           </View>
                           <View
                             className={`h-6 w-6 items-center justify-center rounded-full border ${
-                              selected ? 'border-brandOrange bg-brandOrange' : 'border-[#D0D5DD] bg-white dark:bg-transparent'
+                              selected ? 'border-primary bg-primary' : 'bg-white dark:bg-transparent'
                             }`}
+                            style={!selected ? { borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight } : undefined}
                           >
                             {selected ? <Text className="text-[10px] font-bold text-white">OK</Text> : null}
                           </View>
@@ -297,7 +311,7 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
       </View>
       <View className="mt-4">
         <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-brandOrange">
+          <Text className="text-sm font-bold text-primary">
             {selectedServiceNames.length} Selected
           </Text>
           <Pressable
@@ -305,12 +319,13 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
             disabled={saving || selectedServiceNames.length === 0}
             className={`flex-row items-center rounded-full px-3 py-1.5 ${
               saving || selectedServiceNames.length === 0
-                ? 'bg-brandYellow/20 opacity-60 dark:bg-[#2A2A2A]'
-                : 'bg-brandOrange/10'
+                ? 'bg-accent/20 opacity-60'
+                : 'bg-primary/10'
             }`}
+            style={saving || selectedServiceNames.length === 0 ? { backgroundColor: isDark ? uiColors.surface.chipDark : uiColors.surface.accentSoft20 } : undefined}
           >
-            <AppIcon name="refresh" size={12} color="#FF7A00" />
-            <Text className="text-xs font-semibold text-brandOrange">
+            <AppIcon name="refresh" size={12} color={theme.colors.primary} />
+            <Text className="text-xs font-semibold text-primary">
               {' '}Reset Selection
             </Text>
           </Pressable>
@@ -327,3 +342,4 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
 }
 
 export const OnboardingServiceSelectionScreen = OnboardingVehicleScreen;
+
