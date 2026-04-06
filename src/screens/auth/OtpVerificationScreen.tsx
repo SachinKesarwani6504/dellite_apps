@@ -1,6 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppState, Image, Pressable, Text, View, useColorScheme } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
@@ -9,11 +8,13 @@ import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { useAuth } from '@/hooks/useAuth';
 import { AppIcon } from '@/icons';
 import { AuthStackParamList } from '@/types/navigation';
+import { AUTH_SCREENS } from '@/types/screen-names';
 import { maskPhoneNumber } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
+import { isValidOtp, normalizeOtp } from '@/utils/validation';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
+type Props = NativeStackScreenProps<AuthStackParamList, typeof AUTH_SCREENS.otpVerification>;
 
 export function OtpVerificationScreen({ route, navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -47,7 +48,9 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
 
   const onVerify = async () => {
     try {
-      await verifyOtpCode(phoneNumber, otp);
+      const normalizedOtp = normalizeOtp(otp);
+      if (!isValidOtp(normalizedOtp) || isBusy) return;
+      await verifyOtpCode(phoneNumber, normalizedOtp);
     } catch {
       // Toasts are handled centrally in the HTTP layer.
     }
@@ -68,36 +71,24 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
   };
 
   return (
-    <GradientScreen contentContainerStyle={{ flexGrow: 1, padding: 0, paddingBottom: 24 }}>
-      <View className="flex-1 bg-white dark:bg-baseDark">
-        <View
-          style={{
-            borderBottomLeftRadius: 34,
-            borderBottomRightRadius: 34,
-            overflow: 'hidden',
-            shadowColor: uiColors.shadow.warm,
-            shadowOpacity: 0.2,
-            shadowRadius: 14,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 8,
-          }}
-        >
-          <LinearGradient
-            colors={theme.gradients.hero}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            className="px-6 pb-8 pt-6"
-          >
-            <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
+    <GradientScreen
+      useGradient
+      gradientColors={theme.gradients.hero}
+      gradientStart={{ x: 0, y: 0 }}
+      gradientEnd={{ x: 0, y: 1 }}
+      contentContainerStyle={{ flexGrow: 1, padding: 0, paddingBottom: 24 }}
+    >
+      <View className="flex-1">
+        <View className="px-6 pb-8 pt-6">
+          <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
 
-            <View className="items-center">
-              <Image
-                source={otpIllustration}
-                resizeMode="contain"
-                style={{ width: 160, height: 120, marginTop: 12 }}
-              />
-            </View>
-          </LinearGradient>
+          <View className="items-center">
+            <Image
+              source={otpIllustration}
+              resizeMode="contain"
+              style={{ width: 160, height: 120, marginTop: 12 }}
+            />
+          </View>
         </View>
 
         <View className="px-6 pt-7">
@@ -110,7 +101,7 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
           </Text>
 
           <View className="mt-6">
-            <OtpCodeInput value={otp} onChange={setOtp} length={4} disabled={isBusy} />
+            <OtpCodeInput value={otp} onChange={value => setOtp(normalizeOtp(value))} length={4} disabled={isBusy} />
           </View>
 
           <View className="mt-5">
@@ -146,7 +137,7 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
               label={APP_TEXT.auth.otpVerification.verifyButton}
               onPress={onVerify}
               loading={loading}
-              disabled={otp.length !== 4 || isBusy}
+              disabled={!isValidOtp(otp) || isBusy}
             />
           </View>
 

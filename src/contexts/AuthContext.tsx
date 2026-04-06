@@ -20,27 +20,11 @@ import {
   WorkerOnboardingFlags,
   WorkerProfilePayload,
 } from '@/types/auth';
+import { AuthContextType } from '@/types/auth-context';
 import { ApiError } from '@/types/api';
-import { OnboardingStackParamList } from '@/types/navigation';
-
-type OnboardingRouteName = keyof OnboardingStackParamList;
+import { OnboardingCurrentStep, OnboardingRouteName, WorkerOnboardingResolution } from '@/types/onboarding';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 type OnboardingPayload = AuthMeResponse['onboarding'];
-
-type AuthContextType = {
-  user: AuthUser | null;
-  status: AuthStatus;
-  loading: boolean;
-  phone: string;
-  onboardingRoute: OnboardingRouteName;
-  isAuthenticated: boolean;
-  sendOtpCode: (phone: string, role?: UserRole) => Promise<void>;
-  verifyOtpCode: (phone: string, otp: string) => Promise<void>;
-  resendOtpCode: (phone: string) => Promise<void>;
-  completeOnboarding: (payload: WorkerProfilePayload) => Promise<void>;
-  completeOnboardingFlow: () => void;
-  logout: () => Promise<void>;
-  refreshMe: () => Promise<AuthStatus>;
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -64,13 +48,26 @@ function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnb
     return undefined;
   };
 
+  const pickBoolean = (source: Record<string, unknown>, keys: string[]): boolean | undefined => {
+    for (let index = 0; index < keys.length; index += 1) {
+      const next = toBoolean(source[keys[index]]);
+      if (typeof next === 'boolean') {
+        return next;
+      }
+    }
+    return undefined;
+  };
+
   const normalizeFlags = (raw: unknown): WorkerOnboardingFlags | undefined => {
     if (!raw || typeof raw !== 'object') return undefined;
     const source = raw as Record<string, unknown>;
     return {
-      isBasicInfoCompleted: toBoolean(source.isBasicInfoCompleted),
-      isServicesSelected: toBoolean(source.isServicesSelected),
-      isDocumentsCompleted: toBoolean(source.isDocumentsCompleted),
+      hasPhoneVerified: pickBoolean(source, ['hasPhoneVerified']),
+      hasCompletedBasicProfile: pickBoolean(source, ['hasCompletedBasicProfile', 'hasBasicInfoCompleted', 'isBasicInfoCompleted']),
+      hasAadhaarVerified: pickBoolean(source, ['hasAadhaarVerified']),
+      hasAddedServiceSkills: pickBoolean(source, ['hasAddedServiceSkills', 'isServicesSelected']),
+      hasUploadedRequiredCertificates: pickBoolean(source, ['hasUploadedRequiredCertificates', 'isDocumentsCompleted']),
+      currentStep: typeof source.currentStep === 'string' ? source.currentStep : undefined,
     };
   };
 
@@ -79,8 +76,14 @@ function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnb
   }
 
   const hasFlatFlags =
+    'hasPhoneVerified' in onboarding ||
+    'hasCompletedBasicProfile' in onboarding ||
+    'hasBasicInfoCompleted' in onboarding ||
     'isBasicInfoCompleted' in onboarding ||
+    'hasAadhaarVerified' in onboarding ||
+    'hasAddedServiceSkills' in onboarding ||
     'isServicesSelected' in onboarding ||
+    'hasUploadedRequiredCertificates' in onboarding ||
     'isDocumentsCompleted' in onboarding;
 
   if (!hasFlatFlags) {
@@ -90,41 +93,95 @@ function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnb
   return normalizeFlags(onboarding);
 }
 
+function mapCurrentStepToRoute(currentStep?: OnboardingCurrentStep): OnboardingRouteName | null {
+  if (!currentStep) return null;
+  const normalized = currentStep.trim().toUpperCase();
+  if (normalized === 'BASIC_PROFILE') return ONBOARDING_SCREENS.identity;
+  if (normalized === 'AADHAAR_VERIFICATION') return ONBOARDING_SCREENS.aadhaar;
+  if (normalized === 'SERVICE_SELECTION') return ONBOARDING_SCREENS.serviceSelection;
+  if (normalized === 'CERTIFICATE_UPLOAD') return ONBOARDING_SCREENS.certification;
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState('');
-  const [onboardingRoute, setOnboardingRoute] = useState<OnboardingRouteName>('OnboardingIdentity');
+  const [onboardingRoute, setOnboardingRoute] = useState<OnboardingRouteName>(ONBOARDING_SCREENS.identity);
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
 
-  const applyOnboardingFromWorkerFlags = useCallback((flags?: WorkerOnboardingFlags) => {
+  const resolveWorkerOnboarding = useCallback((flags?: WorkerOnboardingFlags): WorkerOnboardingResolution => {
     if (!flags) {
-      setOnboardingRoute('OnboardingWelcome');
-      return AuthStatus.AUTHENTICATED;
+      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
     }
 
-    if (!flags?.isBasicInfoCompleted) {
-      setOnboardingRoute('OnboardingIdentity');
-      return AuthStatus.ONBOARDING;
+    const hasPhoneVerified = flags.hasPhoneVerified === true;
+    const hasCompletedBasicProfile = flags.hasCompletedBasicProfile === true;
+    const hasAadhaarVerified = flags.hasAadhaarVerified === true;
+    const hasAddedServiceSkills = flags.hasAddedServiceSkills === true;
+    const hasUploadedRequiredCertificates = flags.hasUploadedRequiredCertificates === true;
+    const hasAnyFlag =
+      typeof flags.hasPhoneVerified === 'boolean'
+      || typeof flags.hasCompletedBasicProfile === 'boolean'
+      || typeof flags.hasAadhaarVerified === 'boolean'
+      || typeof flags.hasAddedServiceSkills === 'boolean'
+      || typeof flags.hasUploadedRequiredCertificates === 'boolean';
+
+    if (!hasAnyFlag) {
+      const routeFromCurrentStep = mapCurrentStepToRoute(flags.currentStep);
+      if (routeFromCurrentStep) {
+        return { route: routeFromCurrentStep, status: AuthStatus.ONBOARDING };
+      }
+      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
     }
-    if (!flags?.isServicesSelected) {
-      setOnboardingRoute('OnboardingVehicle');
-      return AuthStatus.ONBOARDING;
+
+    // Enforce deterministic step-by-step progression based on backend flags.
+    if (!hasPhoneVerified || !hasCompletedBasicProfile) {
+      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
     }
-    if (!flags?.isDocumentsCompleted) {
-      setOnboardingRoute('OnboardingCertification');
-      return AuthStatus.ONBOARDING;
+    if (!hasAadhaarVerified) {
+      return { route: ONBOARDING_SCREENS.aadhaar, status: AuthStatus.ONBOARDING };
     }
-    setOnboardingRoute('OnboardingWelcome');
-    return AuthStatus.AUTHENTICATED;
+    if (!hasAddedServiceSkills) {
+      return { route: ONBOARDING_SCREENS.serviceSelection, status: AuthStatus.ONBOARDING };
+    }
+    if (!hasUploadedRequiredCertificates) {
+      return { route: ONBOARDING_SCREENS.certification, status: AuthStatus.ONBOARDING };
+    }
+
+    return { route: ONBOARDING_SCREENS.welcome, status: AuthStatus.AUTHENTICATED };
   }, []);
 
-  const refreshMe = useCallback(async () => {
+  const applyOnboardingFromWorkerFlags = useCallback((flags?: WorkerOnboardingFlags) => {
+    const next = resolveWorkerOnboarding(flags);
+    setOnboardingRoute(next.route);
+    setStatus(next.status);
+    return next;
+  }, [resolveWorkerOnboarding]);
+
+  const refreshOnboardingSnapshot = useCallback(async () => {
     const me = (await getMe()) as AuthMeResponse;
     setUser(me.user);
     return applyOnboardingFromWorkerFlags(extractWorkerOnboardingFlags(me.onboarding));
   }, [applyOnboardingFromWorkerFlags]);
+
+  const refreshMe = useCallback(async () => {
+    const next = await refreshOnboardingSnapshot();
+    return next.status;
+  }, [refreshOnboardingSnapshot]);
+
+  const refreshOnboardingRoute = useCallback(async () => {
+    const next = await refreshOnboardingSnapshot();
+    return next.route;
+  }, [refreshOnboardingSnapshot]);
+
+  const getOnboardingRedirect = useCallback((currentRoute: OnboardingRouteName) => {
+    if (status !== AuthStatus.ONBOARDING && status !== AuthStatus.PHONE_VERIFIED) {
+      return null;
+    }
+    return onboardingRoute === currentRoute ? null : onboardingRoute;
+  }, [onboardingRoute, status]);
 
   const bootstrap = useCallback(async () => {
     try {
@@ -184,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.phoneToken) {
         setPhoneVerificationToken(response.phoneToken);
-        setOnboardingRoute('OnboardingIdentity');
+        setOnboardingRoute(ONBOARDING_SCREENS.identity);
         setStatus(AuthStatus.PHONE_VERIFIED);
         return;
       }
@@ -312,6 +369,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeOnboardingFlow,
       logout,
       refreshMe,
+      refreshOnboardingRoute,
+      getOnboardingRedirect,
     }),
     [
       user,
@@ -326,6 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeOnboardingFlow,
       logout,
       refreshMe,
+      refreshOnboardingRoute,
+      getOnboardingRedirect,
     ],
   );
 

@@ -121,16 +121,22 @@ export async function updateWorkerProfile(payload: Partial<WorkerProfilePayload>
 }
 
 export async function getWorkerStatus<T = WorkerStatusData>() {
-  const response = await apiGet<ApiEnvelope<WorkerStatusResponse | WorkerStatusData>>('/worker/status', { auth: true });
+  const response = await apiGet<ApiEnvelope<WorkerStatusResponse | WorkerStatusData>>('/worker/certificate/status', { auth: true });
   const data = unwrapData(response) as WorkerStatusResponse | WorkerStatusData;
 
-  // Supports both wrapped { statusCode, message, data } and direct { worker, requiredCertificates } formats.
+  // Supports both wrapped { statusCode, message, data } and direct payload formats.
   const statusData = (data && typeof data === 'object' && 'data' in data)
     ? (data as WorkerStatusResponse).data
     : (data as WorkerStatusData);
 
-  const normalizedCards = Array.isArray(statusData?.requiredCertificates)
-    ? statusData.requiredCertificates
+  const rawCertificates = Array.isArray((statusData as { certificates?: unknown[] })?.certificates)
+    ? ((statusData as { certificates?: unknown[] }).certificates as WorkerCertificateCard[])
+    : Array.isArray((statusData as { requiredCertificates?: unknown[] })?.requiredCertificates)
+      ? ((statusData as { requiredCertificates?: unknown[] }).requiredCertificates as WorkerCertificateCard[])
+      : [];
+
+  const normalizedCards = Array.isArray(rawCertificates)
+    ? rawCertificates
       .filter((card): card is WorkerCertificateCard => Boolean(card && typeof card === 'object'))
       .map(card => ({
         ...card,
@@ -143,7 +149,9 @@ export async function getWorkerStatus<T = WorkerStatusData>() {
     : [];
 
   return {
-    worker: statusData?.worker ?? { id: '', status: '', isVerified: false },
+    summary: statusData?.summary ?? undefined,
+    skills: Array.isArray(statusData?.skills) ? statusData.skills : [],
+    certificates: normalizedCards,
     requiredCertificates: normalizedCards,
   } as T;
 }

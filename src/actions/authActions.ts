@@ -1,6 +1,9 @@
 import { apiGet, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
 import {
+  AadhaarIdentityVerificationPayload,
+  AadhaarIdentityVerificationRecord,
+  AadhaarIdentityVerificationSaveResult,
   APP_AUTH_ROLE,
   AuthMeResponse,
   AuthTokens,
@@ -119,4 +122,31 @@ export async function createProfileWithPhoneToken(
     { headers },
   );
   return unwrapData(workerResponse);
+}
+
+export async function saveAadhaarIdentityVerification(
+  payload: AadhaarIdentityVerificationPayload,
+): Promise<AadhaarIdentityVerificationSaveResult> {
+  const response = await apiPost<ApiEnvelope<unknown>, AadhaarIdentityVerificationPayload>(
+    '/auth/identity-verifications/aadhaar',
+    payload,
+    {
+      auth: true,
+      toast: {
+        successTitle: 'Aadhaar Saved',
+        successMessage: 'Aadhaar verification saved successfully.',
+        errorTitle: 'Aadhaar Save Failed',
+      },
+    },
+  );
+
+  const data = unwrapData(response) as AadhaarIdentityVerificationRecord & { message?: string };
+  const isVerified = typeof data?.aadhaarVerificationStatus === 'string'
+    && data.aadhaarVerificationStatus.toUpperCase() === 'VERIFIED';
+
+  return {
+    isVerified,
+    message: data?.message,
+    record: data,
+  };
 }

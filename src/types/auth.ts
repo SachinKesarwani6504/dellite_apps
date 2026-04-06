@@ -17,9 +17,12 @@ export interface AuthUser {
 }
 
 export interface WorkerOnboardingFlags {
-  isBasicInfoCompleted?: boolean;
-  isServicesSelected?: boolean;
-  isDocumentsCompleted?: boolean;
+  hasPhoneVerified?: boolean;
+  hasCompletedBasicProfile?: boolean;
+  hasAadhaarVerified?: boolean;
+  hasAddedServiceSkills?: boolean;
+  hasUploadedRequiredCertificates?: boolean;
+  currentStep?: string;
 }
 
 export interface AuthMeResponse {
@@ -79,6 +82,49 @@ export interface WorkerServiceUpdatePayload {
   cityId?: string;
   experienceYears?: number;
   priceOverride?: number;
+}
+
+export interface AadhaarIdentityVerificationPayload {
+  aadhaarVerificationReferenceId: string;
+  aadhaarVerificationScore: number;
+  aadhaarVerificationMethod?: 'QR_SCAN' | string;
+  aadhaarVerificationProvider?: 'INTERNAL' | string;
+  aadhaarFullName: string;
+  aadhaarDateOfBirth: string;
+  aadhaarGender: 'MALE' | 'FEMALE' | 'OTHER' | string;
+  aadhaarLast4: string;
+  aadhaarMaskedNumber: string;
+  aadhaarPhotoFileId: string;
+}
+
+export interface AadhaarIdentityVerificationRecord {
+  id: string;
+  userId: string;
+  aadhaarVerificationStatus: 'VERIFIED' | 'PENDING' | 'REJECTED' | string;
+  aadhaarVerificationMethod?: string;
+  aadhaarVerificationProvider?: string;
+  aadhaarVerificationReferenceId?: string;
+  aadhaarVerificationScore?: number;
+  aadhaarVerifiedAt?: string;
+  aadhaarFullName?: string;
+  aadhaarDateOfBirth?: string;
+  aadhaarGender?: string;
+  aadhaarPhotoFileId?: string;
+  aadhaarLast4?: string;
+  aadhaarMaskedNumber?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  aadhaarPhotoFile?: {
+    id: string;
+    filename?: string;
+    url?: string;
+  };
+}
+
+export interface AadhaarIdentityVerificationSaveResult {
+  isVerified: boolean;
+  message?: string;
+  record?: AadhaarIdentityVerificationRecord;
 }
 
 export interface WorkerCertificateWriteItem {
@@ -154,12 +200,22 @@ export type WorkerCertificateCard = {
 };
 
 export type WorkerStatusData = {
-  worker: {
-    id: string;
-    status: string;
-    isVerified: boolean;
+  summary?: {
+    totalSkills?: number;
+    approvedSkills?: number;
+    totalRequiredCertificateGroups?: number;
+    approvedCertificateGroups?: number;
   };
-  requiredCertificates: WorkerCertificateCard[];
+  skills?: Array<{
+    id?: string;
+    serviceId?: string;
+    serviceName?: string;
+    status?: string;
+    reviewedAt?: string;
+    rejectionReason?: string;
+    isActive?: boolean;
+  }>;
+  certificates: WorkerCertificateCard[];
 };
 
 export type WorkerStatusResponse = {

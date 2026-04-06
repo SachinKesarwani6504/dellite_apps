@@ -4,10 +4,11 @@ import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { ProfileStackParamList } from '@/types/navigation';
+import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { palette } from '@/utils/theme';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>;
+type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.home>;
 
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -27,19 +28,19 @@ export function ProfileHomeScreen({ navigation }: Props) {
         <View className="mt-5 gap-3">
           <Button
             label={APP_TEXT.profile.editProfileButton}
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => navigation.navigate(PROFILE_SCREENS.editProfile)}
             disabled={loading}
             variant="secondary"
           />
           <Button
             label={APP_TEXT.profile.payoutDetailsButton}
-            onPress={() => navigation.navigate('PayoutDetails')}
+            onPress={() => navigation.navigate(PROFILE_SCREENS.payoutDetails)}
             disabled={loading}
             variant="secondary"
           />
           <Button
             label={APP_TEXT.profile.helpSupportButton}
-            onPress={() => navigation.navigate('HelpSupport')}
+            onPress={() => navigation.navigate(PROFILE_SCREENS.helpSupport)}
             disabled={loading}
             variant="secondary"
           />

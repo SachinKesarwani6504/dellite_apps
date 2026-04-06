@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, Method } from 'axios';
 import { getAuthTokens, saveAuthTokens } from '@/utils/key-chain-storage/auth-storage';
 import { ApiError } from '@/types/api';
+import { RequestOptions } from '@/types/http';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 import { toBearerToken } from '@/utils';
 import { AuthTokens } from '@/types/auth';
@@ -14,19 +15,6 @@ const client = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
-type RequestOptions = {
-  auth?: boolean;
-  headers?: Record<string, string>;
-  withCredentials?: boolean;
-  cache?: 'default' | 'no-store';
-  retryOnAuthFailure?: boolean;
-  toast?: {
-    showSuccess?: boolean;
-    showError?: boolean;
-    [key: string]: unknown;
-  };
-};
 
 function extractMessage(payload: unknown, fallback: string): string {
   if (typeof payload === 'string' && payload.trim().length > 0) {

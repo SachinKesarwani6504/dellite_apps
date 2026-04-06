@@ -29,7 +29,7 @@ export const APP_TEXT = {
   },
   onboarding: {
     identity: {
-      step: 'STEP 1 OF 3',
+      step: 'STEP 1 OF 5',
       titlePrefix: 'Tell us about',
       gradientWord: 'yourself',
       subtitle: "We'll personalize your experience based on this info",
@@ -42,8 +42,13 @@ export const APP_TEXT = {
       genderLabel: 'Gender',
       nextButton: 'Next',
     },
+    aadhaar: {
+      step: 'STEP 2 OF 5',
+      title: 'Verify Aadhaar',
+      subtitle: 'Scan your Aadhaar Secure QR to verify identity instantly.',
+    },
     vehicle: {
-      step: 'STEP 2 OF 3',
+      step: 'STEP 3 OF 5',
       title: 'Choose your services',
       subtitle: 'Select services you can provide in your city',
       searchPlaceholder: 'Search categories...',
@@ -55,14 +60,14 @@ export const APP_TEXT = {
       selectedCountSuffix: 'services selected',
     },
     certification: {
-      step: 'STEP 3 OF 3',
+      step: 'STEP 4 OF 5',
       title: 'Certificates Required',
       subtitle: 'Upload required certificates to complete onboarding.',
       continueButton: 'I Have Uploaded Certificates',
       noCertificateText: 'No certificate is currently required. Continue to refresh status.',
     },
     welcome: {
-      step: 'STEP 3 OF 3',
+      step: 'STEP 5 OF 5',
       title: "All set! You're ready",
       subtitle: 'Profile and services are saved. You can now start receiving jobs.',
       button: 'Start Getting Jobs',

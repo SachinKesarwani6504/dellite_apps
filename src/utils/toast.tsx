@@ -1,25 +1,9 @@
 import { Image, Pressable, Text, useColorScheme, View } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { ToastPayload, ToastVariant } from '@/types/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const appIcon = require('../assets/icon.png');
-
-type ToastVariant = 'success' | 'error' | 'info' | 'warning';
-
-type ToastPayload = {
-  text1?: string;
-};
-
-function hexToRgba(hex: string, alpha: number) {
-  const normalized = hex.replace('#', '');
-  const full = normalized.length === 3
-    ? normalized.split('').map(char => `${char}${char}`).join('')
-    : normalized;
-  const r = Number.parseInt(full.slice(0, 2), 16);
-  const g = Number.parseInt(full.slice(2, 4), 16);
-  const b = Number.parseInt(full.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 function getVariantTone(variant: ToastVariant) {
   if (variant === 'success') return theme.colors.positive;
@@ -30,10 +14,11 @@ function getVariantTone(variant: ToastVariant) {
 
 function getColors(isDark: boolean, variant: ToastVariant) {
   const tone = getVariantTone(variant);
+  const paletteToken = isDark ? uiColors.toast.dark[variant] : uiColors.toast.light[variant];
   return {
     borderColor: tone,
-    backgroundColor: isDark ? hexToRgba(tone, 0.2) : hexToRgba(tone, 0.1),
-    textColor: isDark ? palette.dark.text : palette.light.text,
+    backgroundColor: paletteToken.backgroundColor,
+    textColor: paletteToken.textColor,
   };
 }
 
@@ -45,37 +30,38 @@ function BrandToast({ text1, variant }: ToastPayload & { variant: ToastVariant }
   return (
     <Pressable
       style={{
-        marginHorizontal: 24,
-        marginTop: 12,
-        borderRadius: 18,
+        marginHorizontal: 12,
+        marginTop: 10,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: colors.borderColor,
         backgroundColor: colors.backgroundColor,
         paddingHorizontal: 14,
-        paddingVertical: 12,
-        minHeight: 64,
-        width: '92%',
+        paddingVertical: 11,
+        minHeight: 60,
+        width: '100%',
         alignSelf: 'center',
+        overflow: 'hidden',
         shadowColor: uiColors.shadow.base,
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 5 },
-        elevation: 5,
+        shadowOpacity: 0.14,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View
           style={{
-            width: 40,
-            height: 40,
+            width: 38,
+            height: 38,
             borderRadius: 10,
-            backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight90,
+            backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 12,
           }}
         >
-          <Image source={appIcon} style={{ width: 28, height: 28, borderRadius: 7 }} resizeMode="contain" />
+          <Image source={appIcon} style={{ width: 26, height: 26, borderRadius: 7 }} resizeMode="contain" />
         </View>
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <Text
@@ -83,11 +69,10 @@ function BrandToast({ text1, variant }: ToastPayload & { variant: ToastVariant }
             ellipsizeMode="tail"
             style={{
               color: colors.textColor,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: '700',
-              lineHeight: 20,
+              lineHeight: 18,
               includeFontPadding: false,
-              textAlignVertical: 'center',
             }}
           >
             {message}

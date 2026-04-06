@@ -1,17 +1,18 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Text, TextInput, View, useColorScheme } from 'react-native';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_AUTH_ROLE } from '@/types/auth';
 import { AuthStackParamList } from '@/types/navigation';
+import { AUTH_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
+import { isValidPhoneNumber, normalizePhoneNumber } from '@/utils/validation';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'PhoneLogin'>;
+type Props = NativeStackScreenProps<AuthStackParamList, typeof AUTH_SCREENS.phoneLogin>;
 
 export function PhoneLoginScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -23,41 +24,31 @@ export function PhoneLoginScreen({ navigation }: Props) {
 
   const onContinue = async () => {
     try {
-      await sendOtpCode(phoneNumber, APP_AUTH_ROLE);
-      navigation.navigate('OtpVerification', { phoneNumber });
+      const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+      if (!isValidPhoneNumber(normalizedPhoneNumber) || loading) return;
+      await sendOtpCode(normalizedPhoneNumber, APP_AUTH_ROLE);
+      navigation.navigate(AUTH_SCREENS.otpVerification, { phoneNumber: normalizedPhoneNumber });
     } catch {
       // Toasts are handled centrally in the HTTP layer.
     }
   };
 
   return (
-    <GradientScreen contentContainerStyle={{ padding: 0, paddingBottom: 24 }}>
-      <View className="flex-1 bg-white dark:bg-baseDark ">
-        <View
-          style={{
-            borderBottomLeftRadius: 34,
-            borderBottomRightRadius: 34,
-            overflow: 'hidden',
-            shadowColor: uiColors.shadow.warm,
-            shadowOpacity: 0.2,
-            shadowRadius: 14,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 8,
-          }}
-        >
-          <LinearGradient
-            colors={theme.gradients.hero}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            className="items-center px-6 pb-8 pt-10"
-          >
-            <Image source={logo} resizeMode="contain" style={{ width: 140, height: 42 }} />
-            <Image
-              source={phoneIllustration}
-              resizeMode="contain"
-              style={{ width: 230, height: 180, marginTop: 18 }}
-            />
-          </LinearGradient>
+    <GradientScreen
+      useGradient
+      gradientColors={theme.gradients.hero}
+      gradientStart={{ x: 0, y: 0 }}
+      gradientEnd={{ x: 0, y: 1 }}
+      contentContainerStyle={{ padding: 0, paddingBottom: 24 }}
+    >
+      <View className="flex-1">
+        <View className="items-center px-6 pb-8 pt-10">
+          <Image source={logo} resizeMode="contain" style={{ width: 140, height: 42 }} />
+          <Image
+            source={phoneIllustration}
+            resizeMode="contain"
+            style={{ width: 230, height: 180, marginTop: 18 }}
+          />
         </View>
 
         <View className="px-6 pt-7">
@@ -92,7 +83,7 @@ export function PhoneLoginScreen({ navigation }: Props) {
               <View className="flex-1 px-3">
                 <TextInput
                   value={phoneNumber}
-                  onChangeText={setPhoneNumber}
+                  onChangeText={value => setPhoneNumber(normalizePhoneNumber(value))}
                   onFocus={() => setIsPhoneFocused(true)}
                   onBlur={() => setIsPhoneFocused(false)}
                   placeholder={APP_TEXT.auth.phoneLogin.phonePlaceholder}
@@ -111,7 +102,7 @@ export function PhoneLoginScreen({ navigation }: Props) {
               label={APP_TEXT.auth.phoneLogin.sendOtpButton}
               onPress={onContinue}
               loading={loading}
-              disabled={loading || phoneNumber.trim().length !== 10}
+              disabled={loading || !isValidPhoneNumber(phoneNumber)}
             />
           </View>
 
@@ -135,7 +126,6 @@ export function PhoneLoginScreen({ navigation }: Props) {
           </Text>
         </View>
       </View>
-      </GradientScreen>
+    </GradientScreen>
   );
 }
-

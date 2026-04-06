@@ -1,26 +1,28 @@
+import { AUTH_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } from '@/types/screen-names';
+
 export type AuthStackParamList = {
-  PhoneLogin: undefined;
-  OtpVerification: { phoneNumber: string };
+  [AUTH_SCREENS.phoneLogin]: undefined;
+  [AUTH_SCREENS.otpVerification]: { phoneNumber: string };
 };
 
 export type OnboardingStackParamList = {
-  OnboardingIdentity: undefined;
-  OnboardingVehicle: undefined;
-  OnboardingServiceSelection: undefined;
-  OnboardingCertification: undefined;
-  OnboardingWelcome: undefined;
+  [ONBOARDING_SCREENS.identity]: undefined;
+  [ONBOARDING_SCREENS.aadhaar]: undefined;
+  [ONBOARDING_SCREENS.serviceSelection]: undefined;
+  [ONBOARDING_SCREENS.certification]: undefined;
+  [ONBOARDING_SCREENS.welcome]: undefined;
 };
 
 export type ProfileStackParamList = {
-  ProfileHome: undefined;
-  EditProfile: undefined;
-  PayoutDetails: undefined;
-  HelpSupport: undefined;
+  [PROFILE_SCREENS.home]: undefined;
+  [PROFILE_SCREENS.editProfile]: undefined;
+  [PROFILE_SCREENS.payoutDetails]: undefined;
+  [PROFILE_SCREENS.helpSupport]: undefined;
 };
 
 export type MainTabParamList = {
-  Home: undefined;
-  Ongoing: undefined;
-  Earnings: undefined;
-  Profile: undefined;
+  [MAIN_TAB_SCREENS.home]: undefined;
+  [MAIN_TAB_SCREENS.ongoing]: undefined;
+  [MAIN_TAB_SCREENS.earnings]: undefined;
+  [MAIN_TAB_SCREENS.profile]: undefined;
 };

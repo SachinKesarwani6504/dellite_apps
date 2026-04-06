@@ -1,8 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { createWorkerServices, getCategories } from '@/actions';
-import { useAuth } from '@/hooks/useAuth';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { AppIcon } from '@/icons';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
@@ -15,12 +14,13 @@ import {
   ServiceSubcategory,
 } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
 
-type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingVehicle' | 'OnboardingServiceSelection'>;
+type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingServiceSelection'>;
 
 const ONBOARDING_CITY = 'PRAYAGRAJ';
 
@@ -34,9 +34,9 @@ function toIconBadgeText(name: string, iconText?: string): string {
   return formatted.slice(0, 1).toUpperCase() || '?';
 }
 
-export function OnboardingVehicleScreen({ navigation }: Props) {
+export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { onboardingRoute, refreshMe } = useAuth();
+  const { fetchServiceCategories, saveWorkerServicesAndResolve, useScreenGuard } = useOnboarding();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,14 +54,7 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
         setRefreshing(true);
       }
 
-      const data = await getCategories({
-        city: ONBOARDING_CITY,
-        includeSubcategory: true,
-        includeServices: true,
-        includePriceOptions: true,
-      });
-
-      const nextCategories = Array.isArray(data) ? data : [];
+      const nextCategories = await fetchServiceCategories(ONBOARDING_CITY);
       setCategories(nextCategories);
 
       setSelectedCategory(prevSelectedCategory => {
@@ -69,8 +62,14 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
         const nextSelectedCategory = nextCategories.find(category => category.id === prevSelectedCategory.id) ?? null;
 
         setSelectedSubcategory(prevSelectedSubcategory => {
-          if (!nextSelectedCategory || !prevSelectedSubcategory) return null;
-          return nextSelectedCategory.subcategories?.find(subcategory => subcategory.id === prevSelectedSubcategory.id) ?? null;
+          if (!nextSelectedCategory) return null;
+          const nextSubcategories = Array.isArray(nextSelectedCategory.subcategories)
+            ? nextSelectedCategory.subcategories
+            : [];
+          if (!prevSelectedSubcategory) {
+            return nextSubcategories[0] ?? null;
+          }
+          return nextSubcategories.find(subcategory => subcategory.id === prevSelectedSubcategory.id) ?? nextSubcategories[0] ?? null;
         });
 
         return nextSelectedCategory;
@@ -79,7 +78,7 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchServiceCategories]);
 
   useEffect(() => {
     void fetchCategories(true);
@@ -90,15 +89,10 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
     void fetchCategories(false);
   }, [fetchCategories, loading, saving]);
 
-  useEffect(() => {
-    if (onboardingRoute === 'OnboardingCertification') {
-      navigation.replace('OnboardingCertification');
-      return;
-    }
-    if (onboardingRoute === 'OnboardingWelcome') {
-      navigation.replace('OnboardingWelcome');
-    }
-  }, [navigation, onboardingRoute]);
+  useScreenGuard({
+    currentRoute: ONBOARDING_SCREENS.serviceSelection,
+    onRedirect: route => navigation.replace(route),
+  });
 
   const currentServices = useMemo(
     () => normalizeServices(selectedSubcategory ?? undefined),
@@ -131,12 +125,12 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
     if (selectedServiceNames.length === 0 || saving) return;
     try {
       setSaving(true);
-      await createWorkerServices({
-        city: ONBOARDING_CITY,
-        services: selectedServiceNames,
-      });
-      await refreshMe();
-      navigation.replace('OnboardingCertification');
+      const resolution = await saveWorkerServicesAndResolve(ONBOARDING_CITY, selectedServiceNames);
+      if (resolution.shouldShowWelcome || resolution.nextRoute === ONBOARDING_SCREENS.welcome) {
+        navigation.replace(ONBOARDING_SCREENS.welcome);
+        return;
+      }
+      navigation.replace(resolution.nextRoute);
     } finally {
       setSaving(false);
     }
@@ -150,11 +144,8 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
   };
 
   const onBackStep = () => {
-    if (selectedSubcategory) {
-      setSelectedSubcategory(null);
-      return;
-    }
     if (selectedCategory) {
+      setSelectedSubcategory(null);
       setSelectedCategory(null);
       return;
     }
@@ -190,9 +181,8 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
         </Text>
 
         <View className="mt-4 flex-row gap-2">
+          <View className="h-1.5 flex-1 rounded-full bg-primary" />
           <View className={`h-1.5 flex-1 rounded-full ${selectedCategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
-          <View className={`h-1.5 flex-1 rounded-full ${selectedSubcategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
-          <View className="h-1.5 flex-1 rounded-full bg-accent/30 dark:bg-white/10" />
         </View>
 
         {loading ? (
@@ -207,8 +197,11 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
                   <Pressable
                     key={category.id}
                     onPress={() => {
+                      const firstSubcategory = Array.isArray(category.subcategories)
+                        ? category.subcategories[0] ?? null
+                        : null;
                       setSelectedCategory(category);
-                      setSelectedSubcategory(null);
+                      setSelectedSubcategory(firstSubcategory);
                     }}
                     className="w-[48%] rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
                     style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
@@ -227,41 +220,47 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
               </View>
             )}
 
-            {selectedCategory && !selectedSubcategory && (
+            {selectedCategory && selectedSubcategory && (
               <View>
                 <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedCategory.name)}</Text>
-                <View className="gap-2">
-                  {subcategoryList.map(subcategory => (
-                    <Pressable
-                      key={subcategory.id}
-                      onPress={() => setSelectedSubcategory(subcategory)}
-                      className="rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
-                      style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center">
-                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                            <Text className="font-bold text-primary">
-                              {toIconBadgeText(subcategory.name, subcategory.iconText)}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 4, paddingRight: 8 }}
+                  className="mb-3"
+                >
+                  <View className="flex-row gap-2">
+                    {subcategoryList.map(subcategory => {
+                      const isSelectedSubcategory = selectedSubcategory.id === subcategory.id;
+                      return (
+                        <Pressable
+                          key={subcategory.id}
+                          onPress={() => setSelectedSubcategory(subcategory)}
+                          className="rounded-full border px-3 py-2"
+                          style={{
+                            borderColor: isSelectedSubcategory ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
+                            backgroundColor: isSelectedSubcategory ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
+                          }}
+                        >
+                          <View className="flex-row items-center">
+                            <View className="mr-1.5 h-5 w-5 items-center justify-center rounded-full bg-primary/10">
+                              <Text className="text-[10px] font-bold text-primary">
+                                {toIconBadgeText(subcategory.name, subcategory.iconText)}
+                              </Text>
+                            </View>
+                            <Text
+                              className="text-xs font-semibold"
+                              style={{ color: isSelectedSubcategory ? theme.colors.primary : (isDark ? palette.dark.text : palette.light.text) }}
+                            >
+                              {titleCase(subcategory.name)}
                             </Text>
                           </View>
-                          <View>
-                            <Text className="text-base font-semibold text-baseDark dark:text-white">{titleCase(subcategory.name)}</Text>
-                            <Text className="text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                              {(subcategory.services?.length ?? 0).toString()} services
-                            </Text>
-                          </View>
-                        </View>
-                        <AppIcon name="chevronRight" size={16} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
 
-            {selectedSubcategory && (
-              <View>
                 <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedSubcategory.name)}</Text>
                 <View className="gap-2">
                   {currentServices.map(service => {
@@ -287,9 +286,11 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
                             <Text className={`text-sm font-bold ${selected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
                               {titleCase(service.description || service.name)}
                             </Text>
-                            <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                              {service.isCertificateRequired ? 'Certificate required' : 'No certificate required'}
-                            </Text>
+                            {service.isCertificateRequired ? (
+                              <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                                Certificate required
+                              </Text>
+                            ) : null}
                           </View>
                           <View
                             className={`h-6 w-6 items-center justify-center rounded-full border ${
@@ -340,6 +341,4 @@ export function OnboardingVehicleScreen({ navigation }: Props) {
     </GradientScreen>
   );
 }
-
-export const OnboardingServiceSelectionScreen = OnboardingVehicleScreen;
 

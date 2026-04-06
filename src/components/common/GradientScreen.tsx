@@ -32,6 +32,7 @@ export function GradientScreen({
       <ScrollView
         className="flex-1"
         refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           { padding: 16, paddingBottom: stickyFooter ? 132 : 32 },
           contentContainerStyle,

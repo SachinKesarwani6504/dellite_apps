@@ -84,6 +84,11 @@ Rule: Redux owns canonical auth/session. Context owns feature UI flow state. Com
 - If a screen can be an initial route, the back handler must handle root state safely (no-op or explicit fallback route).
 - For onboarding flows, always derive route decisions from latest server flags and refresh state after mutating onboarding data (for example, service selection).
 
+## 3.2) Scrollbar Rule (Required)
+
+- Hide scroll indicators by default for production UI polish.
+- Use `showsVerticalScrollIndicator={false}` and `showsHorizontalScrollIndicator={false}` unless a screen has an explicit product requirement to show them.
+
 ## 4) Required Packages
 
 Install core packages (adjust versions with your React Native setup):

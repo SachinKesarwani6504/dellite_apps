@@ -14,27 +14,32 @@ import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
 import { palette, theme, uiColors } from '@/utils/theme';
+import {
+  isValidFirstName,
+  isValidLastName,
+  normalizePersonName,
+} from '@/utils/validation';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingIdentity'>;
+const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 
-export function OnboardingIdentityScreen({ navigation }: Props) {
+export function OnboardingIdentityScreen({}: Props) {
   const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState<Gender>('MALE');
   const { completeOnboarding, loading } = useAuth();
 
-  const isValid = firstName.trim().length > 1 && lastName.trim().length > 0;
+  const isValid = isValidFirstName(firstName) && isValidLastName(lastName);
 
   const onContinue = async () => {
     if (!isValid || loading) return;
     try {
       await completeOnboarding({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        firstName: normalizePersonName(firstName).trim(),
+        lastName: normalizePersonName(lastName).trim(),
         gender,
       });
-      navigation.navigate('OnboardingVehicle');
     } catch {
       // Toasts are shown from API layer.
     }
@@ -69,14 +74,14 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
             label={APP_TEXT.onboarding.identity.firstNameLabel}
             isRequired
             value={firstName}
-            onChangeText={setFirstName}
+            onChangeText={value => setFirstName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.firstNamePlaceholder}
           />
           <AppInput
             label={APP_TEXT.onboarding.identity.lastNameLabel}
             isRequired
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={value => setLastName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.lastNamePlaceholder}
           />
         </View>
@@ -116,7 +121,4 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     </GradientScreen>
   );
 }
-
-
-  const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 

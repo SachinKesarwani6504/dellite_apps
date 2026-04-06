@@ -4,16 +4,17 @@ import { HelpSupportScreen } from '@/screens/profile/HelpSupportScreen';
 import { PayoutDetailsScreen } from '@/screens/profile/PayoutDetailsScreen';
 import { ProfileHomeScreen } from '@/screens/profile/ProfileHomeScreen';
 import { ProfileStackParamList } from '@/types/navigation';
+import { PROFILE_SCREENS, SCREEN_TITLES } from '@/types/screen-names';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 export function ProfileNavigator() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="ProfileHome" component={ProfileHomeScreen} options={{ title: 'Profile' }} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
-      <Stack.Screen name="PayoutDetails" component={PayoutDetailsScreen} options={{ title: 'Payout Details' }} />
-      <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ title: 'Help & Support' }} />
+      <Stack.Screen name={PROFILE_SCREENS.home} component={ProfileHomeScreen} options={{ title: SCREEN_TITLES.profile.home }} />
+      <Stack.Screen name={PROFILE_SCREENS.editProfile} component={EditProfileScreen} options={{ title: SCREEN_TITLES.profile.editProfile }} />
+      <Stack.Screen name={PROFILE_SCREENS.payoutDetails} component={PayoutDetailsScreen} options={{ title: SCREEN_TITLES.profile.payoutDetails }} />
+      <Stack.Screen name={PROFILE_SCREENS.helpSupport} component={HelpSupportScreen} options={{ title: SCREEN_TITLES.profile.helpSupport }} />
     </Stack.Navigator>
   );
 }

@@ -1,10 +1,12 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingIdentityScreen } from '@/screens/onboarding/OnboardingIdentityScreen';
-import { OnboardingVehicleScreen } from '@/screens/onboarding/OnboardingServiceSelectionScreen';
+import { OnboardingAadhaarScreen } from '@/screens/onboarding/OnboardingAadhaarScreen';
+import { OnboardingServiceSelectionScreen } from '@/screens/onboarding/OnboardingServiceSelectionScreen';
 import { OnboardingCertificationScreen } from '@/screens/onboarding/OnboardingCertificationScreen';
 import { OnboardingWelcomeScreen } from '@/screens/onboarding/OnboardingWelcomeScreen';
 import { OnboardingStackParamList } from '@/types/navigation';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
 
@@ -17,11 +19,11 @@ export function OnboardingNavigator() {
       initialRouteName={onboardingRoute}
       screenOptions={{ headerShown: false }}
     >
-      <Stack.Screen name="OnboardingIdentity" component={OnboardingIdentityScreen} />
-      <Stack.Screen name="OnboardingVehicle" component={OnboardingVehicleScreen} />
-      <Stack.Screen name="OnboardingServiceSelection" component={OnboardingVehicleScreen} />
-      <Stack.Screen name="OnboardingCertification" component={OnboardingCertificationScreen} />
-      <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.identity} component={OnboardingIdentityScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.aadhaar} component={OnboardingAadhaarScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.serviceSelection} component={OnboardingServiceSelectionScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.certification} component={OnboardingCertificationScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.welcome} component={OnboardingWelcomeScreen} />
     </Stack.Navigator>
   );
 }

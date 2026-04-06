@@ -4,49 +4,30 @@ import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorSchem
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { createWorkerCertificates, getMe, getWorkerStatus, updateWorkerCertificates } from '@/actions';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { useAuth } from '@/hooks/useAuth';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { WorkerCertificateCard } from '@/types/auth';
+import { SelectedCertificateFile } from '@/types/onboarding';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingCertification'>;
-type SelectedCertificateFile = {
-  name: string;
-  type: string;
-  url: string;
-};
-
-function isDocumentsCompletedFromMePayload(me: unknown): boolean {
-  if (!me || typeof me !== 'object') return false;
-  const payload = me as { onboarding?: unknown };
-  const onboarding = payload.onboarding;
-  if (!onboarding || typeof onboarding !== 'object') return false;
-
-  const source = onboarding as {
-    WORKER?: { isDocumentsCompleted?: boolean };
-    isDocumentsCompleted?: boolean;
-  };
-
-  if (typeof source.WORKER?.isDocumentsCompleted === 'boolean') {
-    return source.WORKER.isDocumentsCompleted;
-  }
-  if (typeof source.isDocumentsCompleted === 'boolean') {
-    return source.isDocumentsCompleted;
-  }
-  return false;
-}
 
 export function OnboardingCertificationScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { onboardingRoute, refreshMe, loading } = useAuth();
+  const {
+    fetchRequiredCertificates,
+    submitCertificatesAndResolve,
+    syncOnboardingRoute,
+    useScreenGuard,
+  } = useOnboarding();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -72,14 +53,11 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
         setRefreshing(true);
       }
       setStatusError(null);
-      const status = await getWorkerStatus();
-      const certificates = Array.isArray(status?.requiredCertificates)
-        ? status.requiredCertificates
-        : [];
+      const certificates = await fetchRequiredCertificates();
       setRequiredCertificates(certificates);
       setSelectedTypeByCard(prev => {
         const next: Record<string, string> = {};
-        certificates.forEach(card => {
+        certificates.forEach((card: WorkerCertificateCard) => {
           const cardId = getCardId(card);
           const existing = prev[cardId];
           if (existing && (card.allowedCertificateTypes ?? []).includes(existing)) {
@@ -94,7 +72,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       setScreenLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchRequiredCertificates]);
 
   useEffect(() => {
     void loadCertificates(true);
@@ -107,28 +85,23 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
   };
 
   const onRefresh = useCallback(() => {
-    if (loading || screenLoading) return;
+    if (screenLoading) return;
     setAuthRefreshError(null);
     setSelectedFileByCard({});
     setSelectedTypeByCard({});
     setHasSubmittedThisSession(false);
     void Promise.all([
-      refreshMe().catch(() => {
+      syncOnboardingRoute().catch(() => {
         setAuthRefreshError('Could not refresh onboarding flags.');
       }),
       loadCertificates(false),
     ]);
-  }, [loadCertificates, loading, refreshMe, screenLoading]);
+  }, [loadCertificates, screenLoading, syncOnboardingRoute]);
 
-  useEffect(() => {
-    if (onboardingRoute === 'OnboardingWelcome') {
-      navigation.replace('OnboardingWelcome');
-      return;
-    }
-    if (onboardingRoute === 'OnboardingVehicle') {
-      navigation.replace('OnboardingVehicle');
-    }
-  }, [navigation, onboardingRoute]);
+  useScreenGuard({
+    currentRoute: ONBOARDING_SCREENS.certification,
+    onRedirect: route => navigation.replace(route),
+  });
 
   const onPickFile = async (card: WorkerCertificateCard) => {
     const cardId = getCardId(card);
@@ -183,7 +156,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
 
     if (showWaitingState || cardsToSubmit.length === 0) {
       try {
-        await refreshMe();
+        await syncOnboardingRoute();
       } catch {
         setAuthRefreshError('Could not refresh onboarding flags.');
       }
@@ -248,24 +221,19 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
 
     setSubmittingCardId('__bulk__');
     try {
-      if (createPayload.length > 0) {
-        await createWorkerCertificates({ certificates: createPayload });
-      }
-      if (updatePayload.length > 0) {
-        await updateWorkerCertificates({ certificates: updatePayload });
-      }
-      const me = await getMe('WORKER');
-      const documentsCompleted = isDocumentsCompletedFromMePayload(me);
-
-      if (documentsCompleted) {
-        navigation.replace('OnboardingWelcome');
+      const resolution = await submitCertificatesAndResolve(
+        { certificates: createPayload },
+        { certificates: updatePayload },
+      );
+      if (resolution.shouldShowWelcome || resolution.nextRoute === ONBOARDING_SCREENS.welcome) {
+        navigation.replace(ONBOARDING_SCREENS.welcome);
         return;
       }
 
       setHasSubmittedThisSession(true);
       setSelectedFileByCard({});
       setSelectedTypeByCard({});
-      await Promise.all([refreshMe(), loadCertificates(false)]);
+      await Promise.all([syncOnboardingRoute(), loadCertificates(false)]);
     } catch {
       setStatusError('Certificate upload failed. Please try again.');
     } finally {
@@ -511,7 +479,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
           <Button
             label="Upload and Continue"
             onPress={onUploadAndContinue}
-            loading={submittingCardId === '__bulk__' || loading}
+            loading={submittingCardId === '__bulk__'}
             disabled={!canUploadAll}
           />
         </View>
