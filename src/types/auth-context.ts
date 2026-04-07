@@ -1,6 +1,6 @@
 import { AuthStatus } from '@/types/auth-status';
 import { AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
-import { OnboardingRouteName } from '@/types/onboarding';
+import { OnboardingCurrentStep, OnboardingRouteName } from '@/types/onboarding';
 
 export type AuthContextType = {
   user: AuthUser | null;
@@ -18,4 +18,5 @@ export type AuthContextType = {
   refreshMe: () => Promise<AuthStatus>;
   refreshOnboardingRoute: () => Promise<OnboardingRouteName>;
   getOnboardingRedirect: (currentRoute: OnboardingRouteName) => OnboardingRouteName | null;
+  markOnboardingStepSeen: (step: OnboardingCurrentStep) => void;
 };

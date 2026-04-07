@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useMemo } from 'react';
-import { ActivityIndicator, View, useColorScheme } from 'react-native';
+import { View, useColorScheme } from 'react-native';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
@@ -32,7 +33,7 @@ export function AppNavigator() {
     <NavigationContainer theme={navTheme}>
       {status === AuthStatus.BOOTSTRAPPING ? (
         <View className="flex-1 items-center justify-center bg-white dark:bg-baseDark">
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <AppSpinner size="large" color={theme.colors.primary} />
         </View>
       ) : status === AuthStatus.LOGGED_OUT ? (
         <AuthNavigator />

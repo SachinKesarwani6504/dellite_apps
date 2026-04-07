@@ -99,6 +99,7 @@ export function EditProfileScreen({ navigation }: Props) {
             value={firstName}
             onChangeText={value => setFirstName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.firstNamePlaceholder}
+            editable={!saving}
           />
           <AppInput
             label={APP_TEXT.onboarding.identity.lastNameLabel}
@@ -106,6 +107,7 @@ export function EditProfileScreen({ navigation }: Props) {
             value={lastName}
             onChangeText={value => setLastName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.lastNamePlaceholder}
+            editable={!saving}
           />
           <AppInput
             label="Email"
@@ -113,6 +115,7 @@ export function EditProfileScreen({ navigation }: Props) {
             onChangeText={setEmail}
             placeholder={APP_TEXT.profile.edit.emailPlaceholder}
             keyboardType="email-address"
+            editable={!saving}
           />
         </View>
 
@@ -123,7 +126,11 @@ export function EditProfileScreen({ navigation }: Props) {
             return (
               <Pressable
                 key={option.value}
-                onPress={() => setGender(option.value)}
+                onPress={() => {
+                  if (saving) return;
+                  setGender(option.value);
+                }}
+                disabled={saving}
                 className={`flex-1 rounded-2xl border p-3 ${
                   selected
                     ? 'border-primary bg-primary/10'

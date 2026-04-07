@@ -8,6 +8,7 @@ export const ONBOARDING_SCREENS = {
   aadhaar: 'OnboardingAadhaar',
   serviceSelection: 'OnboardingServiceSelection',
   certification: 'OnboardingCertification',
+  welcomeWorker: 'WelcomeWorker',
 } as const;
 
 export const PROFILE_SCREENS = {

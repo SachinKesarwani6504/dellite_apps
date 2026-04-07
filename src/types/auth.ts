@@ -1,6 +1,16 @@
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
 export const APP_AUTH_ROLE: UserRole = 'WORKER';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+export type PayoutMethodType = 'UPI' | 'BANK_ACCOUNT';
+
+export interface WorkerProfileLink {
+  id?: string;
+  userId?: string;
+  skillCount?: number;
+  completedJobCount?: number;
+  certificatesCount?: number;
+  [key: string]: unknown;
+}
 
 export interface AuthTokens {
   accessToken: string;
@@ -14,6 +24,11 @@ export interface AuthUser {
   lastName?: string;
   email?: string;
   gender?: Gender;
+  userIdentityVerification?: {
+    isVerified?: boolean | string | number;
+    [key: string]: unknown;
+  };
+  workerLink?: WorkerProfileLink;
   createdAt?: string;
   [key: string]: unknown;
 }
@@ -24,11 +39,18 @@ export interface WorkerOnboardingFlags {
   hasAadhaarVerified?: boolean;
   hasAddedServiceSkills?: boolean;
   hasUploadedRequiredCertificates?: boolean;
+  hasSeenSkillSetup?: boolean;
+  hasSeenCertificateSetup?: boolean;
+  hasSeenOnboardingWelcomeScreen?: boolean;
   currentStep?: string;
 }
 
 export interface AuthMeResponse {
   user: AuthUser;
+  links?: {
+    worker?: WorkerProfileLink;
+    [key: string]: unknown;
+  };
   onboarding?:
     | ({
         role?: UserRole;
@@ -38,6 +60,26 @@ export interface AuthMeResponse {
     [key: string]: unknown;
       };
   [key: string]: unknown;
+}
+
+export interface UserBankInfo {
+  id: string;
+  userId: string;
+  methodType: PayoutMethodType;
+  accountHolderName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfscCode?: string | null;
+  upiId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserBankInfoPayload {
+  methodType: PayoutMethodType;
+  accountHolderName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  upiId?: string;
 }
 
 export interface SendOtpPayload {
@@ -65,6 +107,13 @@ export interface WorkerProfilePayload {
   bio?: string;
   experienceYears?: number;
   referralCode?: string;
+  aadhaarFrontFilePath?: string;
+  aadhaarFrontFileName?: string;
+  aadhaarBackFilePath?: string;
+  aadhaarBackFileName?: string;
+  hasSeenSkillSetup?: boolean;
+  hasSeenCertificateSetup?: boolean;
+  hasSeenOnboardingWelcomeScreen?: boolean;
 }
 
 export interface CustomerProfilePayload {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearAuthTokens,
   createProfileWithPhoneToken,
@@ -66,6 +66,9 @@ function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnb
       hasAadhaarVerified: pickBoolean(source, ['hasAadhaarVerified']),
       hasAddedServiceSkills: pickBoolean(source, ['hasAddedServiceSkills', 'isServicesSelected']),
       hasUploadedRequiredCertificates: pickBoolean(source, ['hasUploadedRequiredCertificates', 'isDocumentsCompleted']),
+      hasSeenSkillSetup: pickBoolean(source, ['hasSeenSkillSetup']),
+      hasSeenCertificateSetup: pickBoolean(source, ['hasSeenCertificateSetup']),
+      hasSeenOnboardingWelcomeScreen: pickBoolean(source, ['hasSeenOnboardingWelcomeScreen']),
       currentStep: typeof source.currentStep === 'string' ? source.currentStep : undefined,
     };
   };
@@ -83,7 +86,10 @@ function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnb
     'hasAddedServiceSkills' in onboarding ||
     'isServicesSelected' in onboarding ||
     'hasUploadedRequiredCertificates' in onboarding ||
-    'isDocumentsCompleted' in onboarding;
+    'isDocumentsCompleted' in onboarding ||
+    'hasSeenSkillSetup' in onboarding ||
+    'hasSeenCertificateSetup' in onboarding ||
+    'hasSeenOnboardingWelcomeScreen' in onboarding;
 
   if (!hasFlatFlags) {
     return undefined;
@@ -96,9 +102,10 @@ function mapCurrentStepToRoute(currentStep?: OnboardingCurrentStep): OnboardingR
   if (!currentStep) return null;
   const normalized = currentStep.trim().toUpperCase();
   if (normalized === 'BASIC_PROFILE') return ONBOARDING_SCREENS.identity;
-  if (normalized === 'AADHAAR_VERIFICATION') return ONBOARDING_SCREENS.aadhaar;
+  if (normalized === 'AADHAAR_VERIFICATION') return ONBOARDING_SCREENS.serviceSelection;
   if (normalized === 'SERVICE_SELECTION') return ONBOARDING_SCREENS.serviceSelection;
   if (normalized === 'CERTIFICATE_UPLOAD') return ONBOARDING_SCREENS.certification;
+  if (normalized === 'WELCOME') return ONBOARDING_SCREENS.welcomeWorker;
   return null;
 }
 
@@ -109,6 +116,10 @@ export function useAuthController(): AuthContextType {
   const [onboardingRoute, setOnboardingRoute] = useState<OnboardingRouteName>(ONBOARDING_SCREENS.identity);
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
+  const localSeenSetupRef = useRef<{ hasSeenSkillSetup: boolean; hasSeenCertificateSetup: boolean }>({
+    hasSeenSkillSetup: false,
+    hasSeenCertificateSetup: false,
+  });
 
   const loading = pendingActionCount > 0;
 
@@ -131,12 +142,18 @@ export function useAuthController(): AuthContextType {
     const hasAadhaarVerified = flags.hasAadhaarVerified === true;
     const hasAddedServiceSkills = flags.hasAddedServiceSkills === true;
     const hasUploadedRequiredCertificates = flags.hasUploadedRequiredCertificates === true;
+    const hasSeenSkillSetup = flags.hasSeenSkillSetup === true;
+    const hasSeenCertificateSetup = flags.hasSeenCertificateSetup === true;
+    const hasSeenOnboardingWelcomeScreen = flags.hasSeenOnboardingWelcomeScreen === true;
     const hasAnyFlag =
       typeof flags.hasPhoneVerified === 'boolean'
       || typeof flags.hasCompletedBasicProfile === 'boolean'
       || typeof flags.hasAadhaarVerified === 'boolean'
       || typeof flags.hasAddedServiceSkills === 'boolean'
-      || typeof flags.hasUploadedRequiredCertificates === 'boolean';
+      || typeof flags.hasUploadedRequiredCertificates === 'boolean'
+      || typeof flags.hasSeenSkillSetup === 'boolean'
+      || typeof flags.hasSeenCertificateSetup === 'boolean'
+      || typeof flags.hasSeenOnboardingWelcomeScreen === 'boolean';
 
     if (!hasAnyFlag) {
       const routeFromCurrentStep = mapCurrentStepToRoute(flags.currentStep);
@@ -149,17 +166,19 @@ export function useAuthController(): AuthContextType {
     if (!hasPhoneVerified || !hasCompletedBasicProfile) {
       return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
     }
-    if (!hasAadhaarVerified) {
-      return { route: ONBOARDING_SCREENS.aadhaar, status: AuthStatus.ONBOARDING };
-    }
-    if (!hasAddedServiceSkills) {
+    // Aadhaar screen is intentionally removed from onboarding flow.
+    void hasAadhaarVerified;
+    if (!hasAddedServiceSkills && !hasSeenSkillSetup) {
       return { route: ONBOARDING_SCREENS.serviceSelection, status: AuthStatus.ONBOARDING };
     }
-    if (!hasUploadedRequiredCertificates) {
+    if (!hasUploadedRequiredCertificates && !hasSeenCertificateSetup) {
       return { route: ONBOARDING_SCREENS.certification, status: AuthStatus.ONBOARDING };
     }
+    if (!hasSeenOnboardingWelcomeScreen) {
+      return { route: ONBOARDING_SCREENS.welcomeWorker, status: AuthStatus.ONBOARDING };
+    }
 
-    return { route: ONBOARDING_SCREENS.certification, status: AuthStatus.AUTHENTICATED };
+    return { route: ONBOARDING_SCREENS.welcomeWorker, status: AuthStatus.AUTHENTICATED };
   }, []);
 
   const applyOnboardingFromWorkerFlags = useCallback((flags?: WorkerOnboardingFlags) => {
@@ -172,7 +191,20 @@ export function useAuthController(): AuthContextType {
   const refreshOnboardingSnapshot = useCallback(async () => {
     const me = (await getMe()) as AuthMeResponse;
     setUser(me.user);
-    return applyOnboardingFromWorkerFlags(extractWorkerOnboardingFlags(me.onboarding));
+    const workerFlags = extractWorkerOnboardingFlags(me.onboarding);
+    const mergedFlags: WorkerOnboardingFlags | undefined = workerFlags
+      ? {
+        ...workerFlags,
+        hasSeenSkillSetup: workerFlags.hasSeenSkillSetup === true || localSeenSetupRef.current.hasSeenSkillSetup,
+        hasSeenCertificateSetup: workerFlags.hasSeenCertificateSetup === true || localSeenSetupRef.current.hasSeenCertificateSetup,
+      }
+      : (localSeenSetupRef.current.hasSeenSkillSetup || localSeenSetupRef.current.hasSeenCertificateSetup
+        ? {
+          hasSeenSkillSetup: localSeenSetupRef.current.hasSeenSkillSetup,
+          hasSeenCertificateSetup: localSeenSetupRef.current.hasSeenCertificateSetup,
+        }
+        : undefined);
+    return applyOnboardingFromWorkerFlags(mergedFlags);
   }, [applyOnboardingFromWorkerFlags]);
 
   const refreshMe = useCallback(async () => {
@@ -210,10 +242,12 @@ export function useAuthController(): AuthContextType {
         }
       } else {
         setPhoneVerificationToken(null);
+        localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
         setStatus(AuthStatus.LOGGED_OUT);
       }
     } catch {
       setPhoneVerificationToken(null);
+      localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
       setStatus(AuthStatus.LOGGED_OUT);
     }
   }, [refreshMe]);
@@ -238,6 +272,7 @@ export function useAuthController(): AuthContextType {
           refreshToken: response.refreshToken,
         });
         setPhoneVerificationToken(null);
+        localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
         setStatus(AuthStatus.BOOTSTRAPPING);
         try {
           const nextStatus = await refreshMe();
@@ -251,6 +286,7 @@ export function useAuthController(): AuthContextType {
 
       if (response.phoneToken) {
         setPhoneVerificationToken(response.phoneToken);
+        localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
         setOnboardingRoute(ONBOARDING_SCREENS.identity);
         setStatus(AuthStatus.PHONE_VERIFIED);
         return;
@@ -318,6 +354,30 @@ export function useAuthController(): AuthContextType {
     setStatus(AuthStatus.AUTHENTICATED);
   }, []);
 
+  const markOnboardingStepSeen = useCallback((step: OnboardingCurrentStep) => {
+    if (step === 'SERVICE_SELECTION') {
+      localSeenSetupRef.current = {
+        ...localSeenSetupRef.current,
+        hasSeenSkillSetup: true,
+      };
+      setOnboardingRoute(ONBOARDING_SCREENS.certification);
+      setStatus(AuthStatus.ONBOARDING);
+      return;
+    }
+    if (step === 'CERTIFICATE_UPLOAD') {
+      localSeenSetupRef.current = {
+        ...localSeenSetupRef.current,
+        hasSeenCertificateSetup: true,
+      };
+      setOnboardingRoute(ONBOARDING_SCREENS.welcomeWorker);
+      setStatus(AuthStatus.ONBOARDING);
+      return;
+    }
+    if (step === 'WELCOME') {
+      setStatus(AuthStatus.AUTHENTICATED);
+    }
+  }, []);
+
   const handleLogout = useCallback(async () => {
     try {
       const tokens = await getAuthTokens();
@@ -329,6 +389,7 @@ export function useAuthController(): AuthContextType {
     } finally {
       await clearAuthTokens();
       setPhoneVerificationToken(null);
+      localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
       setUser(null);
       setPhone('');
       setStatus(AuthStatus.LOGGED_OUT);
@@ -351,6 +412,7 @@ export function useAuthController(): AuthContextType {
     refreshMe,
     refreshOnboardingRoute,
     getOnboardingRedirect,
+    markOnboardingStepSeen,
   }), [
     user,
     status,
@@ -367,5 +429,6 @@ export function useAuthController(): AuthContextType {
     refreshMe,
     refreshOnboardingRoute,
     getOnboardingRedirect,
+    markOnboardingStepSeen,
   ]);
 }

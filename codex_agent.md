@@ -18,6 +18,7 @@ src/
   components/             # reusable UI components
     common/
       AppButton.tsx
+      AppSpinner.tsx
       AppInput.tsx
       AppList.tsx
   contexts/               # feature-level shared state (Context API)
@@ -88,6 +89,40 @@ Rule: Redux owns canonical auth/session. Context owns feature UI flow state. Com
 
 - Hide scroll indicators by default for production UI polish.
 - Use `showsVerticalScrollIndicator={false}` and `showsHorizontalScrollIndicator={false}` unless a screen has an explicit product requirement to show them.
+
+## 3.3) In-Flight Form Lock Rule (Required)
+
+- When a screen triggers any API call from a form submit action, the submit button must show a loading spinner.
+- During that same in-flight state, all editable controls on that screen must be disabled:
+  - text inputs (`TextInput`, `AppInput`)
+  - selection controls (`Pressable`, chips, toggles, dropdown triggers)
+  - upload triggers (file/image pickers)
+- Re-enable controls only after the API call resolves (success or failure).
+- This rule prevents mid-request value mutations and keeps payload and UI state consistent.
+
+## 3.4) Required Asterisk Rule (Required)
+
+- Any mandatory field indicator (`*`) must always be shown in red.
+- For shared inputs, use tokenized negative color (`theme.colors.negative`) for the asterisk.
+- For custom labels (section titles, upload labels, chips), render `*` as a separate text element and color it red.
+
+## 3.5) Separate Loading State Rule (Required)
+
+- Keep separate loading flags for separate API intents on the same screen.
+- Never reuse one loading flag for unrelated calls (for example category fetch, save submit, skip patch).
+- Typical naming:
+  - fetch: `isFetching...`
+  - submit: `isSubmitting...`
+  - skip/mutation: `isSkipping...`
+- Buttons and sections must react only to their own loading flag. Do not show a submit spinner while only a background fetch is in-flight.
+- If the form must be locked, derive it explicitly (for example `const formLocked = isSubmitting || isSkipping`), not from fetch-only flags.
+
+## 3.6) Common Spinner Rule (Required)
+
+- Use one shared spinner component across the app: `src/components/common/AppSpinner.tsx`.
+- Do not use raw `ActivityIndicator` directly in screens/feature components.
+- Keep spinner color tokenized through theme values (for example `theme.colors.primary`).
+- Size should be context-based (`small` for inline chips/buttons, `large` for full-screen loading states).
 
 ## 4) Required Packages
 
@@ -373,7 +408,8 @@ export function useAuth() {
 
 ```tsx
 import React from 'react';
-import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Pressable, Text, StyleSheet } from 'react-native';
+import { AppSpinner } from './AppSpinner';
 
 interface Props {
   title: string;
@@ -387,7 +423,7 @@ interface Props {
 export function AppButton({ title, onPress, loading = false }: Props) {
   return (
     <Pressable style={styles.button} onPress={onPress} disabled={loading}>
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{title}</Text>}
+      {loading ? <AppSpinner color="#fff" /> : <Text style={styles.text}>{title}</Text>}
     </Pressable>
   );
 }
@@ -642,6 +678,8 @@ When generating new code, follow these rules:
 16. Keep static selection data (for example gender options, filter chips, dropdown items, tab metadata) in shared option modules like `src/utils/options.ts`; do not define these arrays inside screen components.
 17. Keep reusable helper logic (for example masking/formatting/parsing utilities like `maskPhoneNumber`) in `src/utils/index.ts` or focused files under `src/utils/`, and import them in screens/components instead of redefining functions locally.
 18. Use `/auth/me` onboarding flags as the source of truth for onboarding navigation. For worker flow, route by backend state: `isBasicInfoCompleted` -> identity step, `isServicesSelected` -> service selection step, `isDocumentsCompleted` -> documents/certificates step; never hardcode onboarding progression only on client-side assumptions.
+19. Maintain separate loading states for each API call intent on a screen (fetch, save, skip, upload). Never let one action show another action's loading UI.
+20. Use only shared `AppSpinner` for loading indicators in UI components/screens to keep behavior and styling consistent.
 
 ## 9) Production Readiness Checklist
 

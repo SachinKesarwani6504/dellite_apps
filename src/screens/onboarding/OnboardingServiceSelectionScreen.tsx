@@ -1,8 +1,9 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
 import { useOnboarding, useOnboardingScreenGuard } from '@/hooks/useOnboarding';
 import { AppIcon } from '@/icons';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
@@ -36,20 +37,22 @@ function toIconBadgeText(name: string, iconText?: string): string {
 
 export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { fetchServiceCategories, saveWorkerServicesAndResolve } = useOnboarding();
+  const { fetchServiceCategories, saveWorkerServicesAndResolve, skipServiceSetup } = useOnboarding();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
-  const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [serviceSaving, setServiceSaving] = useState(false);
+  const [skipLoading, setSkipLoading] = useState(false);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<ServiceSubcategory | null>(null);
   const [selectedServices, setSelectedServices] = useState<Record<string, CategoryService>>({});
+  const formLocked = serviceSaving || skipLoading;
 
   const fetchCategories = useCallback(async (showLoader = false) => {
     try {
       if (showLoader) {
-        setLoading(true);
+        setCategoriesLoading(true);
       } else {
         setRefreshing(true);
       }
@@ -75,7 +78,7 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         return nextSelectedCategory;
       });
     } finally {
-      setLoading(false);
+      setCategoriesLoading(false);
       setRefreshing(false);
     }
   }, [fetchServiceCategories]);
@@ -85,9 +88,9 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   }, [fetchCategories]);
 
   const onRefresh = useCallback(() => {
-    if (loading || saving) return;
+    if (categoriesLoading || formLocked) return;
     void fetchCategories(false);
-  }, [fetchCategories, loading, saving]);
+  }, [categoriesLoading, fetchCategories, formLocked]);
 
   useOnboardingScreenGuard({
     currentRoute: ONBOARDING_SCREENS.serviceSelection,
@@ -122,24 +125,38 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   };
 
   const onSaveServices = async () => {
-    if (selectedServiceNames.length === 0 || saving) return;
+    if (selectedServiceNames.length === 0 || formLocked) return;
     try {
-      setSaving(true);
+      setServiceSaving(true);
       const resolution = await saveWorkerServicesAndResolve(ONBOARDING_CITY, selectedServiceNames);
       navigation.replace(resolution.nextRoute);
     } finally {
-      setSaving(false);
+      setServiceSaving(false);
     }
   };
 
   const onResetServices = () => {
-    if (saving) return;
+    if (formLocked) return;
     setSelectedServices({});
     setSelectedSubcategory(null);
     setSelectedCategory(null);
   };
 
+  const onSkipServices = async () => {
+    if (formLocked) return;
+    setSkipLoading(true);
+    try {
+      const nextRoute = await skipServiceSetup();
+      if (nextRoute !== ONBOARDING_SCREENS.serviceSelection) {
+        navigation.replace(nextRoute);
+      }
+    } finally {
+      setSkipLoading(false);
+    }
+  };
+
   const onBackStep = () => {
+    if (formLocked) return;
     if (selectedCategory) {
       setSelectedSubcategory(null);
       setSelectedCategory(null);
@@ -149,6 +166,7 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
       navigation.goBack();
     }
   };
+  const showBackButton = Boolean(selectedCategory || selectedSubcategory || navigation.canGoBack());
 
   return (
     <GradientScreen
@@ -163,10 +181,32 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
       )}
     >
       <View className="rounded-3xl px-4 pb-5 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <BackButton
-          onPress={onBackStep}
-          visible={Boolean(selectedCategory || selectedSubcategory || navigation.canGoBack())}
-        />
+        <View className="flex-row items-center">
+          <View className="w-10">
+            <BackButton onPress={onBackStep} visible={showBackButton} />
+          </View>
+          <View className="flex-1" />
+          <Pressable
+            onPress={() => {
+              void onSkipServices();
+            }}
+            disabled={formLocked}
+            className={`flex-row items-center rounded-full border px-3 py-1.5 ${formLocked ? 'opacity-60' : ''}`}
+            style={{
+              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+            }}
+          >
+            {skipLoading ? (
+              <AppSpinner size="small" color={theme.colors.primary} />
+            ) : (
+              <>
+                <Text className="text-xs font-semibold text-primary">{APP_TEXT.onboarding.vehicle.skipButton}</Text>
+                <AppIcon name="chevronRight" size={14} color={theme.colors.primary} />
+              </>
+            )}
+          </Pressable>
+        </View>
         <Text className="mt-3 text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.vehicle.step}</Text>
         <View className="mt-2">
           <Text className="text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">Choose Your</Text>
@@ -181,9 +221,9 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
           <View className={`h-1.5 flex-1 rounded-full ${selectedCategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
         </View>
 
-        {loading ? (
+        {categoriesLoading ? (
           <View className="mt-8 items-center justify-center">
-            <ActivityIndicator size="large" color={uiColors.onboarding.loader} />
+            <AppSpinner size="large" color={uiColors.onboarding.loader} />
           </View>
         ) : (
           <View className="mt-4">
@@ -193,12 +233,14 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
                   <Pressable
                     key={category.id}
                     onPress={() => {
+                      if (formLocked) return;
                       const firstSubcategory = Array.isArray(category.subcategories)
                         ? category.subcategories[0] ?? null
                         : null;
                       setSelectedCategory(category);
                       setSelectedSubcategory(firstSubcategory);
                     }}
+                    disabled={formLocked}
                     className="w-[48%] rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
                     style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
                   >
@@ -231,7 +273,11 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
                       return (
                         <Pressable
                           key={subcategory.id}
-                          onPress={() => setSelectedSubcategory(subcategory)}
+                          onPress={() => {
+                            if (formLocked) return;
+                            setSelectedSubcategory(subcategory);
+                          }}
+                          disabled={formLocked}
                           className="rounded-full border px-3 py-2"
                           style={{
                             borderColor: isSelectedSubcategory ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
@@ -264,7 +310,11 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
                     return (
                       <Pressable
                         key={service.id}
-                        onPress={() => toggleService(service)}
+                        onPress={() => {
+                          if (formLocked) return;
+                          toggleService(service);
+                        }}
+                        disabled={formLocked}
                         className={`rounded-2xl border p-3 ${
                           selected
                             ? 'border-primary bg-primary/10'
@@ -313,13 +363,13 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
           </Text>
           <Pressable
             onPress={onResetServices}
-            disabled={saving || selectedServiceNames.length === 0}
+            disabled={formLocked || selectedServiceNames.length === 0}
             className={`flex-row items-center rounded-full px-3 py-1.5 ${
-              saving || selectedServiceNames.length === 0
+              formLocked || selectedServiceNames.length === 0
                 ? 'bg-accent/20 opacity-60'
                 : 'bg-primary/10'
             }`}
-            style={saving || selectedServiceNames.length === 0 ? { backgroundColor: isDark ? uiColors.surface.chipDark : uiColors.surface.accentSoft20 } : undefined}
+            style={formLocked || selectedServiceNames.length === 0 ? { backgroundColor: isDark ? uiColors.surface.chipDark : uiColors.surface.accentSoft20 } : undefined}
           >
             <AppIcon name="refresh" size={12} color={theme.colors.primary} />
             <Text className="text-xs font-semibold text-primary">
@@ -330,8 +380,8 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         <Button
           label={APP_TEXT.onboarding.vehicle.saveServicesButton}
           onPress={onSaveServices}
-          loading={saving}
-          disabled={saving || selectedServiceNames.length === 0}
+          loading={serviceSaving}
+          disabled={formLocked || selectedServiceNames.length === 0}
         />
       </View>
     </GradientScreen>

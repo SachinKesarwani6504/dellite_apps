@@ -90,6 +90,7 @@ export function PhoneLoginScreen({ navigation }: Props) {
                   onChangeText={value => setPhoneNumber(normalizePhoneNumber(value))}
                   onFocus={() => setIsPhoneFocused(true)}
                   onBlur={() => setIsPhoneFocused(false)}
+                  editable={!loading}
                   placeholder={APP_TEXT.auth.phoneLogin.phonePlaceholder}
                   placeholderTextColor={uiColors.text.placeholder}
                   keyboardType="phone-pad"

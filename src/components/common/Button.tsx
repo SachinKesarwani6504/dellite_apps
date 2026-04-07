@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { theme, uiColors } from '@/utils/theme';
 
 type ButtonProps = {
@@ -53,7 +54,7 @@ export function Button({
             }}
           >
             {loading ? (
-              <ActivityIndicator color={theme.colors.onPrimary} />
+              <AppSpinner color={theme.colors.onPrimary} />
             ) : (
               <Text className="text-center text-base font-semibold text-white">{label}</Text>
             )}
@@ -61,7 +62,7 @@ export function Button({
         ) : (
           <View className="rounded-xl bg-accent/20 px-4 py-3" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
             {loading ? (
-              <ActivityIndicator color={theme.colors.primary} />
+              <AppSpinner color={theme.colors.primary} />
             ) : (
               <Text className="text-center text-base font-semibold text-primary dark:text-accent">
                 {label}

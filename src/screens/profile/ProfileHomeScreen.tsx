@@ -1,23 +1,23 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, useColorScheme } from 'react-native';
-import { getWorkerStatus } from '@/actions';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { AppSpinner } from '@/components/common/AppSpinner';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { AuthStatus } from '@/types/auth-status';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { formatMemberSince } from '@/utils';
+import { formatDateToDdMmmYyyy } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.home>;
 
 type ProfileStats = {
   totalSkills: number;
-  approvedSkills: number;
+  completedJobs: number;
   certificates: number;
 };
 
@@ -30,11 +30,30 @@ function toDisplayGender(value?: unknown): string {
   return value;
 }
 
+function getUserCreatedAt(value: unknown): string | number | Date | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const direct = source.createdAt;
+  if (typeof direct === 'string' || typeof direct === 'number' || direct instanceof Date) {
+    return direct;
+  }
+
+  const snakeCase = source.created_at;
+  if (typeof snakeCase === 'string' || typeof snakeCase === 'number' || snakeCase instanceof Date) {
+    return snakeCase;
+  }
+
+  return null;
+}
+
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { user, phone, logout, loading, status } = useAuthContext();
-  const [stats, setStats] = useState<ProfileStats>({ totalSkills: 0, approvedSkills: 0, certificates: 0 });
-  const [loadingStats, setLoadingStats] = useState(false);
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const { user, phone, logout, loading, refreshMe } = useAuthContext();
+  const [refreshing, setRefreshing] = useState(false);
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
   const initials = useMemo(() => {
@@ -45,37 +64,48 @@ export function ProfileHomeScreen({ navigation }: Props) {
   }, [user?.firstName, user?.lastName]);
   const genderLabel = toDisplayGender(user?.gender);
   const roleLabel = 'Worker';
-  const memberSince = formatMemberSince(user?.createdAt);
+  const memberSinceDate = formatDateToDdMmmYyyy(getUserCreatedAt(user));
+  const memberSince = `Member since ${memberSinceDate}`;
   const contactPhone = (user?.phone ?? phone) || APP_TEXT.profile.phoneFallback;
   const contactEmail = typeof user?.email === 'string' && user.email.trim() ? user.email : 'Not provided';
-  const isVerified = status === AuthStatus.AUTHENTICATED;
-
-  useEffect(() => {
-    let mounted = true;
-    const loadStats = async () => {
-      setLoadingStats(true);
-      try {
-        const data = await getWorkerStatus();
-        if (!mounted) return;
-        const totalSkills = data.summary?.totalSkills ?? (Array.isArray(data.skills) ? data.skills.length : 0);
-        const approvedSkills = data.summary?.approvedSkills ?? 0;
-        const certificates = Array.isArray(data.certificates) ? data.certificates.length : 0;
-        setStats({ totalSkills, approvedSkills, certificates });
-      } catch {
-        if (!mounted) return;
-        setStats({ totalSkills: 0, approvedSkills: 0, certificates: 0 });
-      } finally {
-        if (mounted) {
-          setLoadingStats(false);
+  const verificationValue = user?.userIdentityVerification?.isVerified;
+  const isVerified = verificationValue === true
+    || verificationValue === 1
+    || String(verificationValue ?? '').trim().toLowerCase() === 'true';
+  const stats = useMemo<ProfileStats>(() => {
+    const source = user?.workerLink;
+    const toCount = (value: unknown) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+          return parsed;
         }
       }
+      return 0;
     };
+    return {
+      totalSkills: toCount(source?.skillCount),
+      completedJobs: toCount(source?.completedJobCount),
+      certificates: toCount(source?.certificatesCount),
+    };
+  }, [user?.workerLink]);
 
-    void loadStats();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  useEffect(() => {
+    void refreshMe();
+  }, [refreshMe]);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshMe();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshMe, refreshing]);
 
   const cardStyle = {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
@@ -87,7 +117,19 @@ export function ProfileHomeScreen({ navigation }: Props) {
   };
 
   return (
-    <GradientScreen contentContainerStyle={{ paddingTop: 12, paddingBottom: 20 }}>
+    <GradientScreen
+      contentContainerStyle={{ paddingTop: 12, paddingBottom: 20 }}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={() => {
+            void handleRefresh();
+          }}
+          {...refreshProps}
+        />
+      )}
+    >
       <View className="overflow-hidden rounded-3xl border" style={cardStyle}>
         <LinearGradient
           colors={theme.gradients.cta}
@@ -151,34 +193,34 @@ export function ProfileHomeScreen({ navigation }: Props) {
       </View>
 
       <View className="mt-4 flex-row gap-3">
-        <View className="flex-1 rounded-2xl border p-4" style={cardStyle}>
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/12">
+        <View className="flex-1 items-center rounded-2xl border p-4" style={cardStyle}>
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-accent/15">
             <Ionicons name="briefcase-outline" size={18} color={theme.colors.primary} />
           </View>
-          <Text className="mt-3 text-2xl font-bold text-baseDark dark:text-white">
-            {loadingStats ? '...' : stats.totalSkills}
+          <Text className="mt-3 text-center text-2xl font-bold text-baseDark dark:text-white">
+            {stats.totalSkills}
           </Text>
-          <Text className="text-xs text-textPrimary/70 dark:text-white/70">Skills</Text>
+          <Text className="text-center text-xs text-textPrimary/70 dark:text-white/70">Skills</Text>
         </View>
 
-        <View className="flex-1 rounded-2xl border p-4" style={cardStyle}>
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-positive/12">
+        <View className="flex-1 items-center rounded-2xl border p-4" style={cardStyle}>
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-accent/15">
             <Ionicons name="checkmark-done-outline" size={18} color={theme.colors.positive} />
           </View>
-          <Text className="mt-3 text-2xl font-bold text-baseDark dark:text-white">
-            {loadingStats ? '...' : stats.approvedSkills}
+          <Text className="mt-3 text-center text-2xl font-bold text-baseDark dark:text-white">
+            {stats.completedJobs}
           </Text>
-          <Text className="text-xs text-textPrimary/70 dark:text-white/70">Completed</Text>
+          <Text className="text-center text-xs text-textPrimary/70 dark:text-white/70">Completed</Text>
         </View>
 
-        <View className="flex-1 rounded-2xl border p-4" style={cardStyle}>
+        <View className="flex-1 items-center rounded-2xl border p-4" style={cardStyle}>
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-accent/15">
             <Ionicons name="ribbon-outline" size={18} color={theme.colors.accent} />
           </View>
-          <Text className="mt-3 text-2xl font-bold text-baseDark dark:text-white">
-            {loadingStats ? '...' : stats.certificates}
+          <Text className="mt-3 text-center text-2xl font-bold text-baseDark dark:text-white">
+            {stats.certificates}
           </Text>
-          <Text className="text-xs text-textPrimary/70 dark:text-white/70">Certificates</Text>
+          <Text className="text-center text-xs text-textPrimary/70 dark:text-white/70">Certificates</Text>
         </View>
       </View>
 
@@ -198,7 +240,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
 
       <View className="mt-4 overflow-hidden rounded-2xl border" style={cardStyle}>
         <Pressable
-          onPress={() => navigation.navigate(PROFILE_SCREENS.payoutDetails)}
+          onPress={() => navigation.navigate(PROFILE_SCREENS.editProfile)}
           className="flex-row items-center px-4 py-4"
         >
           <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
@@ -206,7 +248,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           </View>
           <View className="ml-3 flex-1">
             <Text className="text-base font-semibold text-baseDark dark:text-white">Settings</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Profile and payout preferences</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Profile preferences</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
         </Pressable>
@@ -223,6 +265,22 @@ export function ProfileHomeScreen({ navigation }: Props) {
           <View className="ml-3 flex-1">
             <Text className="text-base font-semibold text-baseDark dark:text-white">Help & Support</Text>
             <Text className="text-xs text-textPrimary/70 dark:text-white/70">Get support and report issues</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
+        </Pressable>
+
+        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+
+        <Pressable
+          onPress={() => navigation.navigate(PROFILE_SCREENS.payoutDetails)}
+          className="flex-row items-center px-4 py-4"
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
+            <Ionicons name="card-outline" size={18} color={theme.colors.primary} />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.bankInfoButton}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Manage UPI or bank payout details</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
         </Pressable>
@@ -254,7 +312,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
         >
           <View className="h-9 w-9 items-center justify-center rounded-lg bg-negative/12">
             {loading ? (
-              <ActivityIndicator size="small" color={theme.colors.negative} />
+              <AppSpinner size="small" color={theme.colors.negative} />
             ) : (
               <Ionicons name="log-out-outline" size={18} color={theme.colors.negative} />
             )}

@@ -1,9 +1,9 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { OnboardingIdentityScreen } from '@/screens/onboarding/OnboardingIdentityScreen';
-import { OnboardingAadhaarScreen } from '@/screens/onboarding/OnboardingAadhaarScreen';
 import { OnboardingServiceSelectionScreen } from '@/screens/onboarding/OnboardingServiceSelectionScreen';
 import { OnboardingCertificationScreen } from '@/screens/onboarding/OnboardingCertificationScreen';
+import { WelcomeWorkerScreen } from '@/screens/onboarding/WelcomeWorkerScreen';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 
@@ -19,9 +19,9 @@ export function OnboardingNavigator() {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name={ONBOARDING_SCREENS.identity} component={OnboardingIdentityScreen} />
-      <Stack.Screen name={ONBOARDING_SCREENS.aadhaar} component={OnboardingAadhaarScreen} />
       <Stack.Screen name={ONBOARDING_SCREENS.serviceSelection} component={OnboardingServiceSelectionScreen} />
       <Stack.Screen name={ONBOARDING_SCREENS.certification} component={OnboardingCertificationScreen} />
+      <Stack.Screen name={ONBOARDING_SCREENS.welcomeWorker} component={WelcomeWorkerScreen} />
     </Stack.Navigator>
   );
 }

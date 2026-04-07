@@ -5,6 +5,7 @@ import {
   getCategories,
   getMe,
   getWorkerStatus,
+  updateWorkerProfile,
   updateWorkerCertificates,
 } from '@/actions';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -15,6 +16,7 @@ import {
   WorkerCertificateUpdatePayload,
 } from '@/types/auth';
 import { OnboardingRouteName } from '@/types/onboarding';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 
 type UseOnboardingScreenGuardParams = {
   currentRoute: OnboardingRouteName;
@@ -51,7 +53,7 @@ export function useOnboardingScreenGuard({
 }
 
 export function useOnboarding() {
-  const { refreshOnboardingRoute } = useAuthContext();
+  const { refreshOnboardingRoute, markOnboardingStepSeen } = useAuthContext();
 
   const fetchServiceCategories = useCallback(async (city: string): Promise<ServiceCategory[]> => {
     const categories = await getCategories({
@@ -104,11 +106,32 @@ export function useOnboarding() {
     return refreshOnboardingRoute();
   }, [refreshOnboardingRoute]);
 
+  const skipServiceSetup = useCallback(async (): Promise<OnboardingRouteName> => {
+    try {
+      await updateWorkerProfile({ hasSeenSkillSetup: true });
+      return await refreshOnboardingRoute();
+    } catch {
+      return ONBOARDING_SCREENS.serviceSelection;
+    }
+  }, [refreshOnboardingRoute]);
+
+  const skipCertificateSetup = useCallback(async () => {
+    markOnboardingStepSeen('CERTIFICATE_UPLOAD');
+    try {
+      await updateWorkerProfile({ hasSeenCertificateSetup: true });
+      await refreshOnboardingRoute();
+    } catch {
+      // local state already moved forward; backend can be refreshed later
+    }
+  }, [markOnboardingStepSeen, refreshOnboardingRoute]);
+
   return {
     fetchServiceCategories,
     saveWorkerServicesAndResolve,
     fetchRequiredCertificates,
     submitCertificatesAndResolve,
     syncOnboardingRoute,
+    skipServiceSetup,
+    skipCertificateSetup,
   };
 }

@@ -1,5 +1,6 @@
 import { CameraView, BarcodeScanningResult, useCameraPermissions } from 'expo-camera';
-import { ActivityIndicator, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type AadhaarQrScannerProps = {
@@ -19,7 +20,7 @@ export function AadhaarQrScanner({ paused = false, onDetected }: AadhaarQrScanne
   if (!permission) {
     return (
       <View className="h-72 items-center justify-center rounded-2xl border border-accent/40" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}>
-        <ActivityIndicator color={theme.colors.primary} />
+        <AppSpinner color={theme.colors.primary} />
       </View>
     );
   }

@@ -24,6 +24,109 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
   return payload as T;
 }
 
+type AnyRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is AnyRecord {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeIdentityVerification(value: unknown): AuthUser['userIdentityVerification'] | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const candidate = value as AnyRecord;
+  const rawIsVerified = candidate.isVerified ?? candidate.is_verified;
+  const normalized = rawIsVerified === true
+    || rawIsVerified === 1
+    || String(rawIsVerified ?? '').trim().toLowerCase() === 'true';
+
+  return {
+    ...candidate,
+    isVerified: normalized,
+  };
+}
+
+function normalizeCount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function normalizeWorkerLink(value: unknown): AuthUser['workerLink'] | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const source = value as AnyRecord;
+  return {
+    ...source,
+    skillCount: normalizeCount(source.skillCount),
+    completedJobCount: normalizeCount(source.completedJobCount),
+    certificatesCount: normalizeCount(source.certificatesCount),
+  };
+}
+
+function normalizeAuthUser(rawUser: unknown, fallbackSource?: AnyRecord): AuthUser {
+  const source = isRecord(rawUser) ? rawUser : {};
+  const normalizedUser: AuthUser = {
+    ...(source as AuthUser),
+  };
+
+  const createdAtValue = source.createdAt ?? source.created_at ?? fallbackSource?.createdAt ?? fallbackSource?.created_at;
+  if (typeof createdAtValue === 'string' || typeof createdAtValue === 'number') {
+    normalizedUser.createdAt = String(createdAtValue);
+  }
+
+  const identityVerification = normalizeIdentityVerification(
+    source.userIdentityVerification ?? source.user_identity_verification,
+  ) ?? normalizeIdentityVerification(
+    fallbackSource?.userIdentityVerification ?? fallbackSource?.user_identity_verification,
+  );
+
+  if (identityVerification) {
+    normalizedUser.userIdentityVerification = identityVerification;
+  }
+
+  const linksRecord = isRecord(fallbackSource?.links) ? (fallbackSource?.links as AnyRecord) : undefined;
+  const workerLink = normalizeWorkerLink(source.workerLink) ?? normalizeWorkerLink(linksRecord?.worker);
+  if (workerLink) {
+    normalizedUser.workerLink = workerLink;
+  }
+
+  return normalizedUser;
+}
+
+function normalizeAuthMePayload(payload: unknown): AuthMeResponse {
+  if (!isRecord(payload)) {
+    return { user: {} as AuthUser };
+  }
+
+  const root = isRecord(payload.data) ? (payload.data as AnyRecord) : payload;
+  if (isRecord(root.user)) {
+    const linksRecord = isRecord(root.links) ? (root.links as AnyRecord) : undefined;
+    const normalizedLinks: AuthMeResponse['links'] | undefined = linksRecord
+      ? {
+        ...(linksRecord as AuthMeResponse['links']),
+        worker: normalizeWorkerLink(linksRecord.worker),
+      }
+      : undefined;
+    return {
+      ...(root as AuthMeResponse),
+      links: normalizedLinks,
+      user: normalizeAuthUser(root.user, root),
+    };
+  }
+
+  return {
+    ...(root as AuthMeResponse),
+    user: normalizeAuthUser(root, root),
+  };
+}
+
 type VerifyResponseData = {
   accessToken?: string;
   refreshToken?: string;
@@ -97,18 +200,13 @@ export async function logoutCurrentSession(refreshToken: string): Promise<void> 
 }
 
 export async function getMe(role: UserRole = APP_AUTH_ROLE): Promise<AuthMeResponse> {
-  const response = await apiGet<ApiEnvelope<AuthMeResponse | AuthUser>>(`/auth/me?role=${role}`, {
+  const response = await apiGet<ApiEnvelope<unknown> | unknown>(`/auth/me?role=${role}`, {
     auth: true,
     withCredentials: true,
     cache: 'no-store',
   });
-  const data = unwrapData(response) as AuthMeResponse | AuthUser;
-
-  if (typeof data === 'object' && data !== null && 'user' in data) {
-    return data as AuthMeResponse;
-  }
-
-  return { user: data as AuthUser };
+  const data = unwrapData(response as ApiEnvelope<unknown>);
+  return normalizeAuthMePayload(data);
 }
 
 export async function createProfileWithPhoneToken(

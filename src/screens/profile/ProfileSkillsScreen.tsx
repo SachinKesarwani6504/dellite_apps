@@ -1,8 +1,9 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
 import { getWorkerStatus } from '@/actions';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -93,7 +94,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
       <View className="mt-4 rounded-2xl border p-3" style={{ backgroundColor: isDark ? palette.dark.card : palette.light.card, borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }}>
         {loading ? (
           <View className="items-center py-8">
-            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <AppSpinner size="large" color={theme.colors.primary} />
           </View>
         ) : skills.length === 0 ? (
           <View className="items-center py-8">

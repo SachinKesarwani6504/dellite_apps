@@ -10,6 +10,7 @@ export type OnboardingStackParamList = {
   [ONBOARDING_SCREENS.aadhaar]: undefined;
   [ONBOARDING_SCREENS.serviceSelection]: undefined;
   [ONBOARDING_SCREENS.certification]: undefined;
+  [ONBOARDING_SCREENS.welcomeWorker]: undefined;
 };
 
 export type ProfileStackParamList = {

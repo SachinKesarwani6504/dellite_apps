@@ -1,9 +1,10 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
@@ -26,6 +27,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
     fetchRequiredCertificates,
     submitCertificatesAndResolve,
     syncOnboardingRoute,
+    skipCertificateSetup,
   } = useOnboarding();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);
@@ -34,10 +36,12 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [submittingCardId, setSubmittingCardId] = useState<string | null>(null);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
+  const [skipLoading, setSkipLoading] = useState(false);
   const [requiredCertificates, setRequiredCertificates] = useState<WorkerCertificateCard[]>([]);
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
   const [selectedFileByCard, setSelectedFileByCard] = useState<Record<string, SelectedCertificateFile>>({});
   const [hasSubmittedThisSession, setHasSubmittedThisSession] = useState(false);
+  const formLocked = submittingCardId === '__bulk__' || skipLoading;
   const getCardId = (card: WorkerCertificateCard) =>
     card.latestCertificateId
     ?? card.workerServiceId
@@ -78,13 +82,14 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
   }, [loadCertificates]);
 
   const onBackStep = () => {
+    if (formLocked) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
     }
   };
 
   const onRefresh = useCallback(() => {
-    if (screenLoading) return;
+    if (screenLoading || formLocked) return;
     setAuthRefreshError(null);
     setSelectedFileByCard({});
     setSelectedTypeByCard({});
@@ -95,7 +100,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       }),
       loadCertificates(false),
     ]);
-  }, [loadCertificates, screenLoading, syncOnboardingRoute]);
+  }, [formLocked, loadCertificates, screenLoading, syncOnboardingRoute]);
 
   useOnboardingScreenGuard({
     currentRoute: ONBOARDING_SCREENS.certification,
@@ -150,6 +155,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
   });
 
   const onUploadAndContinue = async () => {
+    if (formLocked) return;
     setStatusError(null);
     setAuthRefreshError(null);
 
@@ -236,6 +242,17 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
     }
   };
 
+  const onSkipCertificates = async () => {
+    if (formLocked) return;
+    setSkipLoading(true);
+    try {
+      await skipCertificateSetup();
+    } finally {
+      setSkipLoading(false);
+    }
+  };
+  const showBackButton = navigation.canGoBack();
+
   return (
     <GradientScreen
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 18, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
@@ -249,7 +266,32 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       )}
     >
       <View className="rounded-3xl px-4 pb-5 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <BackButton onPress={onBackStep} visible={navigation.canGoBack()} />
+        <View className="flex-row items-center">
+          <View className="w-10">
+            <BackButton onPress={onBackStep} visible={showBackButton} />
+          </View>
+          <View className="flex-1" />
+          <Pressable
+            onPress={() => {
+              void onSkipCertificates();
+            }}
+            disabled={formLocked}
+            className={`flex-row items-center rounded-full border px-3 py-1.5 ${formLocked ? 'opacity-60' : ''}`}
+            style={{
+              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+            }}
+          >
+            {skipLoading ? (
+              <AppSpinner size="small" color={theme.colors.primary} />
+            ) : (
+              <>
+                <Text className="text-xs font-semibold text-primary">{APP_TEXT.onboarding.certification.skipButton}</Text>
+                <Ionicons name="chevron-forward-outline" size={14} color={theme.colors.primary} />
+              </>
+            )}
+          </Pressable>
+        </View>
         <Text className="mt-3 text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.certification.step}</Text>
         <Text className="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">
           {APP_TEXT.onboarding.certification.title}
@@ -266,7 +308,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
 
         {screenLoading ? (
           <View className="mt-8 items-center justify-center">
-            <ActivityIndicator size="large" color={uiColors.onboarding.loader} />
+            <AppSpinner size="large" color={uiColors.onboarding.loader} />
           </View>
         ) : (
           <View className="mt-4">
@@ -299,7 +341,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                   const cardId = getCardId(item);
                   const selectedType = selectedTypeByCard[cardId] ?? '';
                   const isViewOnly = isLockedCertificate(item);
-                  const isSubmitting = submittingCardId === '__bulk__';
+                  const isSubmitting = submittingCardId === '__bulk__' || skipLoading;
                   const isPicking = pickingCardId === cardId;
                   const selectedFile = selectedFileByCard[cardId];
                   const isPdfFile = Boolean(
@@ -367,7 +409,11 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                             return (
                               <Pressable
                                 key={`${cardId}-type-${typeIndex}`}
-                                onPress={() => setSelectedTypeByCard(prev => ({ ...prev, [cardId]: type }))}
+                                onPress={() => {
+                                  if (isSubmitting || isPicking) return;
+                                  setSelectedTypeByCard(prev => ({ ...prev, [cardId]: type }));
+                                }}
+                                disabled={isSubmitting || isPicking}
                                 className="rounded-full border px-2.5 py-1"
                                 style={{
                                   borderColor: isSelected
@@ -475,7 +521,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
             label="Upload and Continue"
             onPress={onUploadAndContinue}
             loading={submittingCardId === '__bulk__'}
-            disabled={!canUploadAll}
+            disabled={!canUploadAll || skipLoading}
           />
         </View>
       ) : null}
