@@ -1,48 +1,15 @@
 {
-  "name": "dellite_worker_app",
-  "version": "1.0.0",
-  "main": "index.ts",
+  "name": "dellite-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "dependencies": {
-    "@expo/vector-icons": "^15.0.3",
-    "@react-navigation/bottom-tabs": "^7.15.9",
-    "@react-navigation/native": "^7.2.2",
-    "@react-navigation/native-stack": "^7.14.10",
-    "axios": "^1.14.0",
-    "expo": "~54.0.33",
-    "expo-camera": "~17.0.10",
-    "expo-document-picker": "~14.0.8",
-    "expo-font": "~14.0.11",
-    "expo-linear-gradient": "~15.0.8",
-    "expo-secure-store": "~15.0.8",
-    "expo-status-bar": "~3.0.9",
-    "lottie-react-native": "~7.3.1",
-    "nativewind": "^4.2.3",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-gesture-handler": "~2.28.0",
-    "react-native-keyboard-aware-scroll-view": "^0.9.5",
-    "react-native-keychain": "^10.0.0",
-    "react-native-modal": "^14.0.0-rc.1",
-    "react-native-paper": "^5.15.0",
-    "react-native-reanimated": "~4.1.1",
-    "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.16.0",
-    "react-native-svg": "15.12.1",
-    "react-native-toast-message": "^2.3.3",
-    "react-native-worklets": "0.5.1",
-    "tailwindcss": "^3.4.19"
-  },
-  "devDependencies": {
-    "@types/react": "~19.1.0",
-    "babel-plugin-module-resolver": "^5.0.3",
-    "babel-preset-expo": "~54.0.10",
-    "typescript": "~5.9.2"
-  },
-  "private": true
+    "start:worker": "npm --prefix apps/worker-app run start",
+    "android:worker": "npm --prefix apps/worker-app run android",
+    "ios:worker": "npm --prefix apps/worker-app run ios",
+    "web:worker": "npm --prefix apps/worker-app run web",
+    "typecheck:worker": "node ./node_modules/typescript/bin/tsc --project apps/worker-app/tsconfig.json --noEmit"
+  }
 }

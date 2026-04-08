@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Dellite",
+    "slug": "dellite_customer_app",
+    "icon": "./src/assets/icon.png",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF7E8"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/icon.png",
+        "backgroundColor": "#FFF7E8"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
