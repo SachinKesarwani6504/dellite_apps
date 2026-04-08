@@ -1,70 +1,53 @@
-import type { ApiEnvelope, ApiRequestOptions } from '@/types/api';
+import axios from 'axios';
+import { AuthTokens } from '@/types/auth';
+import { ApiError } from '@/types/api';
+import { RequestOptions } from '@/types/http';
+import {
+  clearAuthTokens,
+  getAuthTokens,
+  saveAuthTokens,
+} from '@/utils/key-chain-storage/auth-storage';
+import {
+  clearOnboardingPhoneToken,
+  getOnboardingPhoneToken,
+} from '@/utils/key-chain-storage/onboarding-storage';
+import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
+
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type TokenType = NonNullable<RequestOptions['tokenType']>;
 
 const runtimeGlobal = globalThis as {
   process?: { env?: Record<string, string | undefined> };
 };
 
-const API_BASE_URL = runtimeGlobal.process?.env?.EXPO_PUBLIC_API_BASE_URL;
+const API_BASE_URL = runtimeGlobal.process?.env?.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
 
-let authToken: string | null = null;
+const client = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+});
 
-export class ApiHttpError extends Error {
-  readonly status: number;
-  readonly code?: string;
-  readonly details?: unknown;
+const PROFILE_CREATE_PATHS = new Set(['/worker/profile', '/customer/profile']);
 
-  constructor(message: string, status: number, code?: string, details?: unknown) {
-    super(message);
-    this.name = 'ApiHttpError';
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
+function normalizePath(path: string) {
+  return path.split('?')[0].trim().toLowerCase();
 }
 
-type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
-
-type RequestOptions = ApiRequestOptions & {
-  auth?: boolean;
-  cache?: 'default' | 'no-store';
-};
-
 function extractApiMessage(payload: unknown, fallback: string) {
-  if (!payload || typeof payload !== 'object') {
-    return fallback;
-  }
+  if (typeof payload === 'string' && payload.trim()) return payload;
+  if (!payload || typeof payload !== 'object') return fallback;
 
-  const obj = payload as {
-    message?: unknown;
-    error?: unknown;
-    data?: unknown;
-  };
-
-  if (typeof obj.message === 'string' && obj.message.trim()) {
-    return obj.message.trim();
-  }
-
-  if (Array.isArray(obj.message) && obj.message.length > 0) {
-    return obj.message
-      .map((entry) => (typeof entry === 'string' ? entry : String(entry)))
-      .join(', ');
-  }
-
-  if (typeof obj.error === 'string' && obj.error.trim()) {
-    return obj.error.trim();
-  }
+  const obj = payload as { message?: unknown; error?: unknown; data?: unknown };
+  if (typeof obj.message === 'string' && obj.message.trim()) return obj.message;
+  if (typeof obj.error === 'string' && obj.error.trim()) return obj.error;
 
   if (obj.data && typeof obj.data === 'object') {
     const nested = obj.data as { message?: unknown; error?: unknown };
-    if (typeof nested.message === 'string' && nested.message.trim()) {
-      return nested.message.trim();
-    }
-    if (typeof nested.error === 'string' && nested.error.trim()) {
-      return nested.error.trim();
-    }
+    if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
+    if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
   }
-
   return fallback;
 }
 
@@ -72,141 +55,158 @@ function normalizeBearerToken(token: string | null | undefined) {
   if (!token) {
     return null;
   }
-
-  return token.replace(/^Bearer\s+/i, '').trim();
+  return stripBearerPrefix(token);
 }
 
-export function setAuthToken(token: string | null) {
-  authToken = normalizeBearerToken(token);
+function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenType) {
+  const isProfileCreate = method === 'POST' && PROFILE_CREATE_PATHS.has(normalizePath(path));
+  if (isProfileCreate && tokenType !== 'phone') {
+    throw new ApiError('Profile creation must use phoneToken. Please verify OTP again.', 400);
+  }
+  if (!isProfileCreate && tokenType === 'phone') {
+    throw new ApiError('phoneToken can only be used for profile creation APIs.', 400);
+  }
 }
 
-export function getAuthToken() {
-  return authToken;
-}
+async function resolveToken(tokenType: TokenType): Promise<string | null> {
+  if (tokenType === 'none') return null;
 
-function createUrl(path: string) {
-  if (!API_BASE_URL) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set');
+  if (tokenType === 'phone') {
+    const raw = await getOnboardingPhoneToken();
+    return normalizeBearerToken(raw);
   }
 
-  const cleanBase = API_BASE_URL.replace(/\/$/, '');
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${cleanBase}${cleanPath}`;
+  const tokens = await getAuthTokens();
+  return normalizeBearerToken(tokens?.accessToken);
 }
 
-function normalizeEnvelope<T>(payload: unknown, fallbackMessage: string): ApiEnvelope<T> {
-  if (payload && typeof payload === 'object') {
-    const raw = payload as {
-      success?: boolean;
-      message?: string;
-      data?: unknown;
-      statusCode?: number;
-    };
+async function refreshAccessToken(): Promise<string | null> {
+  const tokens = await getAuthTokens();
+  const refreshToken = normalizeBearerToken(tokens?.refreshToken);
+  if (!refreshToken) return null;
 
-    if ('success' in raw && 'data' in raw) {
-      return {
-        success: Boolean(raw.success),
-        message: extractApiMessage(raw, fallbackMessage),
-        data: raw.data as T,
-      };
-    }
+  const refreshResponse = await client.post<{ data?: AuthTokens } | AuthTokens>('/auth/refresh', {
+    refreshToken,
+  });
 
-    if ('data' in raw) {
-      return {
-        success: raw.success ?? (raw.statusCode ? raw.statusCode < 400 : true),
-        message: extractApiMessage(raw, fallbackMessage),
-        data: raw.data as T,
-      };
-    }
-  }
+  const payload = refreshResponse.data as { data?: AuthTokens } | AuthTokens;
+  const refreshed = (typeof payload === 'object' && payload !== null && 'data' in payload
+    ? payload.data
+    : payload) as AuthTokens | undefined;
 
-  return {
-    success: true,
-    message: fallbackMessage,
-    data: payload as T,
-  };
+  if (!refreshed?.accessToken || !refreshed?.refreshToken) return null;
+
+  await saveAuthTokens({
+    accessToken: normalizeBearerToken(refreshed.accessToken) as string,
+    refreshToken: normalizeBearerToken(refreshed.refreshToken) as string,
+  });
+  return normalizeBearerToken(refreshed.accessToken);
 }
 
-async function handleResponse<T>(response: Response, toastEnabled: boolean): Promise<ApiEnvelope<T>> {
-  const responseText = await response.text();
-  let responseData: unknown = null;
-  try {
-    responseData = responseText ? (JSON.parse(responseText) as unknown) : null;
-  } catch {
-    responseData = { message: responseText };
-  }
-
-  if (!response.ok) {
-    const message = extractApiMessage(responseData, 'Something went wrong');
-
-    if (toastEnabled) {
-      showApiErrorToast(message);
-    }
-
-    throw new ApiHttpError(message, response.status, undefined, responseData);
-  }
-
-  return normalizeEnvelope<T>(responseData, 'Request succeeded');
+async function clearAllTokens() {
+  await clearAuthTokens();
+  await clearOnboardingPhoneToken();
 }
 
-async function request<T>(
+function shouldRefresh(errorStatus: number | undefined, tokenType: TokenType, options: RequestOptions, hasExplicitAuthorization: boolean) {
+  if (tokenType !== 'access') return false;
+  if (options.retryOnAuthFailure === false) return false;
+  if (hasExplicitAuthorization) return false;
+  return errorStatus === 401 || errorStatus === 403;
+}
+
+async function request<TResponse, TBody = unknown>(
   method: HttpMethod,
   path: string,
-  body?: unknown,
-  options?: RequestOptions,
-): Promise<ApiEnvelope<T>> {
-  const resolvedToken = normalizeBearerToken(options?.token ?? authToken);
-  const isMutatingRequest = method === 'POST' || method === 'PATCH' || method === 'DELETE';
-  const defaultToastEnabled = options?.toast?.enabled ?? isMutatingRequest;
-  const showSuccessToast = options?.toast?.showSuccess ?? defaultToastEnabled;
-  const showErrorToast = options?.toast?.showError ?? defaultToastEnabled;
+  body?: TBody,
+  options: RequestOptions = {},
+): Promise<TResponse> {
+  const tokenType: TokenType = options.tokenType ?? (options.auth ? 'access' : 'none');
+  const hasExplicitAuthorization = Boolean(options.headers?.Authorization?.trim());
+  enforceTokenPolicy(method, path, tokenType);
 
+  const token = hasExplicitAuthorization ? null : await resolveToken(tokenType);
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options?.headers ?? {}),
+    ...(options.headers ?? {}),
+    ...(token ? { Authorization: toBearerToken(token) } : {}),
   };
 
-  if (options?.auth !== false && resolvedToken) {
-    headers.Authorization = `Bearer ${resolvedToken}`;
+  if (options.cache === 'no-store') {
+    headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
+    headers.Pragma = 'no-cache';
+    headers.Expires = '0';
   }
 
-  const envelope = await handleResponse<T>(
-    await fetch(createUrl(path), {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: options?.signal,
-    }),
-    showErrorToast,
-  );
+  const config = {
+    method,
+    url: path,
+    data: body,
+    headers,
+    withCredentials: options.withCredentials,
+  };
 
-  if (envelope.success && showSuccessToast) {
-    showApiSuccessToast(options?.toast?.successMessage ?? envelope.message ?? 'Request succeeded');
-  }
+  try {
+    const response = await client.request<TResponse>(config);
+    if (method !== 'GET' && options.toast?.showSuccess !== false) {
+      showApiSuccessToast(extractApiMessage(response.data, 'Completed successfully'));
+    }
+    return response.data;
+  } catch (error: unknown) {
+    if (!axios.isAxiosError(error)) {
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast('Unknown network error');
+      }
+      throw new ApiError('Unknown network error', 500, error);
+    }
 
-  if (!envelope.success) {
-    const message = options?.toast?.errorMessage ?? envelope.message ?? 'Request failed';
-    if (showErrorToast) {
+    if (shouldRefresh(error.response?.status, tokenType, options, hasExplicitAuthorization)) {
+      try {
+        const nextAccessToken = await refreshAccessToken();
+        if (!nextAccessToken) {
+          await clearAllTokens();
+          throw new ApiError('Session expired. Please login again.', 401, error.response?.data);
+        }
+
+        const retryResponse = await client.request<TResponse>({
+          ...config,
+          headers: {
+            ...headers,
+            Authorization: toBearerToken(nextAccessToken),
+          },
+        });
+
+        if (method !== 'GET' && options.toast?.showSuccess !== false) {
+          showApiSuccessToast(extractApiMessage(retryResponse.data, 'Completed successfully'));
+        }
+        return retryResponse.data;
+      } catch {
+        await clearAllTokens();
+        throw new ApiError('Session expired. Please login again.', 401, error.response?.data);
+      }
+    }
+
+    const statusCode = error.response?.status ?? 500;
+    const payload = error.response?.data;
+    const message = extractApiMessage(payload, error.message ?? 'Request failed');
+    if (method !== 'GET' && options.toast?.showError !== false) {
       showApiErrorToast(message);
     }
-    throw new ApiHttpError(message, 200, undefined, envelope);
+    throw new ApiError(message, statusCode, payload);
   }
-
-  return envelope;
 }
 
-export function apiGet<T>(path: string, options?: RequestOptions) {
-  return request<T>('GET', path, undefined, options);
+export function apiGet<TResponse>(path: string, options?: RequestOptions) {
+  return request<TResponse>('GET', path, undefined, options);
 }
 
-export function apiPost<T>(path: string, body?: unknown, options?: RequestOptions) {
-  return request<T>('POST', path, body, options);
+export function apiPost<TResponse, TBody = unknown>(path: string, body?: TBody, options?: RequestOptions) {
+  return request<TResponse, TBody>('POST', path, body, options);
 }
 
-export function apiPatch<T>(path: string, body?: unknown, options?: RequestOptions) {
-  return request<T>('PATCH', path, body, options);
+export function apiPatch<TResponse, TBody = unknown>(path: string, body?: TBody, options?: RequestOptions) {
+  return request<TResponse, TBody>('PATCH', path, body, options);
 }
 
-export function apiDelete<T>(path: string, options?: RequestOptions) {
-  return request<T>('DELETE', path, undefined, options);
+export function apiDelete<TResponse>(path: string, options?: RequestOptions) {
+  return request<TResponse>('DELETE', path, undefined, options);
 }

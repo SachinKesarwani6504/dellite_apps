@@ -9,7 +9,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import type { Gender } from '@/types/auth';
 import { APP_LAYOUT, GENDER_OPTIONS, isValidFirstName, isValidLastName, normalizePersonName, palette, theme, uiColors } from '@/utils';
@@ -162,3 +162,4 @@ export function EditProfileScreen() {
     </GradientScreen>
   );
 }
+

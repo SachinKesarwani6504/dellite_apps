@@ -2,7 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { ProfileScreen } from '@/screens/main/ProfileScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
-import { PROFILE_SCREEN } from '@/utils/screenNames';
+import { PROFILE_SCREEN } from '@/types/screen-names';
 
 const Stack = createNativeStackNavigator();
 
@@ -14,3 +14,4 @@ export function ProfileNavigator() {
     </Stack.Navigator>
   );
 }
+

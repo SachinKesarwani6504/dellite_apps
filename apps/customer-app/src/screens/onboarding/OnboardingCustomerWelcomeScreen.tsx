@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import { AppIcon } from '@/icons';
 import { APP_LAYOUT, palette, theme, uiColors } from '@/utils';
@@ -393,3 +393,4 @@ export function OnboardingCustomerWelcomeScreen() {
     </GradientScreen>
   );
 }
+

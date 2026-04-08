@@ -1,0 +1,99 @@
+# Dellite Monorepo Coding Contract
+
+This file is the single source of truth for coding standards across:
+- `apps/worker-app`
+- `apps/customer-app`
+
+## 1) Repo Structure Rules
+
+- Shared fundamentals must live in `packages/app-core`.
+- App-specific UI/routes/business features stay in each app folder.
+- Do not duplicate shared primitives in both apps.
+
+Required layout:
+
+```text
+apps/
+  worker-app/
+  customer-app/
+packages/
+  app-core/
+  config-eslint/
+  config-ts/
+  config-prettier/
+```
+
+## 2) File Naming Rules
+
+- Components/screens: `PascalCase.tsx`
+- Utility/modules/types: `kebab-case.ts` where feasible, otherwise existing local convention
+- Keep naming parallel in both apps for equivalent files:
+  - `src/actions/http/httpClient.ts`
+  - `src/utils/toast.tsx`
+  - `src/utils/appText.ts`
+  - `src/types/screen-names.ts`
+  - `src/utils/key-chain-storage/*`
+  - `src/types/*`
+- Context API filenames must stay parallel in both apps:
+  - `src/contexts/AuthContext.tsx`
+  - `src/hooks/useAuth.ts`
+- Do not use mixed naming styles for equivalent modules (example: avoid `screenNames.ts` in one app and `screen-names.ts` in the other).
+
+## 3) HTTP Client Rules
+
+- Worker and customer must follow the same http client code style and flow shape.
+- Keep request helpers consistent:
+  - `apiGet`
+  - `apiPost`
+  - `apiPatch`
+  - `apiDelete`
+- Keep error extraction and toast handling standardized.
+- Keep auth header format exact: `Authorization: Bearer <token>`.
+
+Token rules for worker flow:
+- `phoneToken` only for profile creation endpoints.
+- `accessToken` for authenticated APIs.
+- `refreshToken` only for refresh endpoint payload, never as auth header.
+- Retry once after successful refresh.
+- On refresh failure, clear tokens and force re-auth flow.
+
+## 4) Storage Rules
+
+- Token persistence only via `src/utils/key-chain-storage/`.
+- Session tokens and onboarding/phone token storage must be separate modules.
+- Never store auth tokens in plain AsyncStorage.
+- Keep key names parallel and explicit in both apps.
+
+## 5) Toast Rules
+
+- `src/utils/toast.tsx` should remain aligned in both apps.
+- Use same function names:
+  - `showApiSuccessToast`
+  - `showApiErrorToast`
+  - `showToast`
+- Keep dark/light behavior tokenized using theme values.
+
+## 6) Type Rules
+
+- Keep equivalent API/auth/request option type naming aligned across apps.
+- Shared types should move to `packages/app-core` first.
+- App-local types only when truly role-specific.
+
+## 7) Text/Theme/Options Rules
+
+- No hardcoded screen copy; use app text constants.
+- No hardcoded color values in screens/components; use theme tokens.
+- Keep static option lists in `utils/options`.
+
+## 8) Change Management Rules
+
+- For any fundamental change (http, auth, storage, types, toast), apply in both apps in the same PR/commit set.
+- Update `docs/mono-sync-plan.md` progress after each phase.
+- Do not introduce a second competing guide file.
+
+## 9) Quality Gate
+
+Before finishing:
+- Worker typecheck passes.
+- Customer typecheck passes.
+- Equivalent foundational files are compared and aligned.

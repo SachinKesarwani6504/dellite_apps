@@ -1,4 +1,4 @@
-import type { AuthTokens } from '@/types/auth';
+import { AuthTokens } from '@/types/auth';
 import { keyChainValues } from '@/utils/key-chain-storage/key-chain-values';
 import {
   getSecureValue,

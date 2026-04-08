@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
+import type { ApiEnvelope } from '@/types/api';
 import type {
   CreateCustomerProfileResponse,
   CustomerProfile,
@@ -6,29 +7,43 @@ import type {
   UpdateCustomerIdentityPayload,
   UpdateCustomerProfilePayload,
 } from '@/types/customer';
-import { getAuthTokens } from '@/utils/key-chain-storage';
+
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (typeof payload === 'object' && payload !== null && 'data' in payload) {
+    const envelope = payload as ApiEnvelope<T>;
+    return (envelope.data ?? ({} as T)) as T;
+  }
+  return payload as T;
+}
 
 export async function getCustomerProfile(): Promise<CustomerProfile> {
-  const envelope = await apiGet<CustomerProfileResponse>('/customer/profile');
-  return envelope.data.profile;
+  const response = await apiGet<ApiEnvelope<CustomerProfileResponse> | CustomerProfileResponse>(
+    '/customer/profile',
+    { auth: true },
+  );
+  return unwrapData(response).profile;
 }
 
 export async function createCustomerProfile(
   payload: UpdateCustomerIdentityPayload,
-  token: string,
 ): Promise<CreateCustomerProfileResponse> {
-  const envelope = await apiPost<CreateCustomerProfileResponse>('/customer/profile', payload, {
-    token,
+  const response = await apiPost<
+    ApiEnvelope<CreateCustomerProfileResponse> | CreateCustomerProfileResponse,
+    UpdateCustomerIdentityPayload
+  >('/customer/profile', payload, {
+    tokenType: 'phone',
+    retryOnAuthFailure: false,
   });
 
-  return envelope.data;
+  return unwrapData(response);
 }
 
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<void> {
-  await apiPatch<{ profile?: CustomerProfile }>(
+  await apiPatch<{ profile?: CustomerProfile }, UpdateCustomerProfilePayload>(
     '/customer/profile',
     payload,
     {
+      auth: true,
       toast: {
         successMessage: 'Profile updated successfully',
       },
@@ -36,18 +51,12 @@ export async function updateCustomerProfile(payload: UpdateCustomerProfilePayloa
   );
 }
 
-export async function markOnboardingWelcomeSeen(token?: string | null): Promise<void> {
-  let resolvedToken = token ?? null;
-  if (!resolvedToken) {
-    const tokens = await getAuthTokens();
-    resolvedToken = tokens?.accessToken ?? null;
-  }
-
-  await apiPatch<{ profile?: CustomerProfile }>(
+export async function markOnboardingWelcomeSeen(): Promise<void> {
+  await apiPatch<{ profile?: CustomerProfile }, { hasSeenOnboardingWelcomeScreen: boolean }>(
     '/customer/profile',
     { hasSeenOnboardingWelcomeScreen: true },
     {
-      token: resolvedToken ?? undefined,
+      auth: true,
       toast: {
         enabled: false,
         showSuccess: false,

@@ -17,8 +17,14 @@ import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type TokenType = NonNullable<RequestOptions['tokenType']>;
 
+const runtimeGlobal = globalThis as {
+  process?: { env?: Record<string, string | undefined> };
+};
+
+const API_BASE_URL = runtimeGlobal.process?.env?.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
+
 const client = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000',
+  baseURL: API_BASE_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -29,7 +35,7 @@ function normalizePath(path: string) {
   return path.split('?')[0].trim().toLowerCase();
 }
 
-function extractMessage(payload: unknown, fallback: string) {
+function extractApiMessage(payload: unknown, fallback: string) {
   if (typeof payload === 'string' && payload.trim()) return payload;
   if (!payload || typeof payload !== 'object') return fallback;
 
@@ -43,6 +49,13 @@ function extractMessage(payload: unknown, fallback: string) {
     if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
   }
   return fallback;
+}
+
+function normalizeBearerToken(token: string | null | undefined) {
+  if (!token) {
+    return null;
+  }
+  return stripBearerPrefix(token);
 }
 
 function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenType) {
@@ -60,16 +73,16 @@ async function resolveToken(tokenType: TokenType): Promise<string | null> {
 
   if (tokenType === 'phone') {
     const raw = await getOnboardingPhoneToken();
-    return raw ? stripBearerPrefix(raw) : null;
+    return normalizeBearerToken(raw);
   }
 
   const tokens = await getAuthTokens();
-  return tokens?.accessToken ? stripBearerPrefix(tokens.accessToken) : null;
+  return normalizeBearerToken(tokens?.accessToken);
 }
 
 async function refreshAccessToken(): Promise<string | null> {
   const tokens = await getAuthTokens();
-  const refreshToken = tokens?.refreshToken ? stripBearerPrefix(tokens.refreshToken) : null;
+  const refreshToken = normalizeBearerToken(tokens?.refreshToken);
   if (!refreshToken) return null;
 
   const refreshResponse = await client.post<{ data?: AuthTokens } | AuthTokens>('/auth/refresh', {
@@ -84,10 +97,10 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshed?.accessToken || !refreshed?.refreshToken) return null;
 
   await saveAuthTokens({
-    accessToken: stripBearerPrefix(refreshed.accessToken),
-    refreshToken: stripBearerPrefix(refreshed.refreshToken),
+    accessToken: normalizeBearerToken(refreshed.accessToken) as string,
+    refreshToken: normalizeBearerToken(refreshed.refreshToken) as string,
   });
-  return stripBearerPrefix(refreshed.accessToken);
+  return normalizeBearerToken(refreshed.accessToken);
 }
 
 async function clearAllTokens() {
@@ -135,7 +148,7 @@ async function request<TResponse, TBody = unknown>(
   try {
     const response = await client.request<TResponse>(config);
     if (method !== 'GET' && options.toast?.showSuccess !== false) {
-      showApiSuccessToast(extractMessage(response.data, 'Completed successfully'));
+      showApiSuccessToast(extractApiMessage(response.data, 'Completed successfully'));
     }
     return response.data;
   } catch (error: unknown) {
@@ -163,7 +176,7 @@ async function request<TResponse, TBody = unknown>(
         });
 
         if (method !== 'GET' && options.toast?.showSuccess !== false) {
-          showApiSuccessToast(extractMessage(retryResponse.data, 'Completed successfully'));
+          showApiSuccessToast(extractApiMessage(retryResponse.data, 'Completed successfully'));
         }
         return retryResponse.data;
       } catch {
@@ -174,7 +187,7 @@ async function request<TResponse, TBody = unknown>(
 
     const statusCode = error.response?.status ?? 500;
     const payload = error.response?.data;
-    const message = extractMessage(payload, error.message ?? 'Request failed');
+    const message = extractApiMessage(payload, error.message ?? 'Request failed');
     if (method !== 'GET' && options.toast?.showError !== false) {
       showApiErrorToast(message);
     }

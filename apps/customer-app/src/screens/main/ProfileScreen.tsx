@@ -6,10 +6,10 @@ import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorSchem
 
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import { palette, theme, uiColors } from '@/utils';
-import { PROFILE_SCREEN } from '@/utils/screenNames';
+import { PROFILE_SCREEN } from '@/types/screen-names';
 
 function formatDateToDdMmmYyyy(value: unknown): string {
   if (value === null || value === undefined) {
@@ -280,3 +280,4 @@ export function ProfileScreen() {
     </GradientScreen>
   );
 }
+

@@ -6,7 +6,7 @@ import { requestOtp } from '@/actions/authActions';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { TrustPills, type TrustPillItem } from '@/components/common/TrustPills';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { BRAND } from '@/constants/brand';
 import { AUTH_SCREEN, palette, theme, uiColors } from '@/utils';
 
@@ -178,3 +178,4 @@ export function PhoneLoginScreen({ navigation }: Props) {
     </GradientScreen>
   );
 }
+

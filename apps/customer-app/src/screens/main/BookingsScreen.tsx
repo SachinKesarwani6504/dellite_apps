@@ -1,7 +1,7 @@
 import { Text, View, useColorScheme } from 'react-native';
 
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { palette, uiColors } from '@/utils';
 
 export function BookingsScreen() {
@@ -23,3 +23,4 @@ export function BookingsScreen() {
     </GradientScreen>
   );
 }
+

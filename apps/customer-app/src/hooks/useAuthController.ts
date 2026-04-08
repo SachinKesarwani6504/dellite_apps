@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { authActions, customerActions } from '@/actions';
-import { setAuthToken } from '@/actions/http/httpClient';
 import { AUTH_STATUS, type AuthMeResponse, type AuthState, type AuthStatus, type AuthTokens } from '@/types/auth';
 import type { AuthContextType } from '@/types/auth-context';
 import type { UpdateCustomerIdentityPayload } from '@/types/customer';
@@ -180,7 +179,6 @@ export function useAuthController(): AuthContextType {
         }
       }
     } finally {
-      setAuthToken(null);
       await clearAuthTokens();
       await clearOnboardingPhoneToken();
       setAuthState({
@@ -198,7 +196,6 @@ export function useAuthController(): AuthContextType {
       const tokens = extractTokensFromVerifyOtpResponse(response);
 
       if (tokens?.accessToken) {
-        setAuthToken(tokens.accessToken);
         await saveAuthTokens(tokens);
         await clearOnboardingPhoneToken();
 
@@ -237,13 +234,12 @@ export function useAuthController(): AuthContextType {
         throw new Error('Your phone verification session expired. Please verify OTP again.');
       }
 
-      const profile = await customerActions.createCustomerProfile(payload, onboardingToken);
+      const profile = await customerActions.createCustomerProfile(payload);
       const tokens = {
         accessToken: normalizeBearerToken(profile.accessToken),
         refreshToken: normalizeBearerToken(profile.refreshToken),
       };
 
-      setAuthToken(tokens.accessToken);
       await saveAuthTokens(tokens);
       await clearOnboardingPhoneToken();
       setAuthState((prev) => ({
@@ -279,7 +275,7 @@ export function useAuthController(): AuthContextType {
   }, []);
 
   const completeWelcomeAndEnterMainTabs = useCallback(async () => {
-    await customerActions.markOnboardingWelcomeSeen(authState.tokens?.accessToken ?? null);
+    await customerActions.markOnboardingWelcomeSeen();
     const status = await refreshMe();
 
     if (status === AUTH_STATUS.POST_ONBOARDING_WELCOME) {
@@ -305,7 +301,7 @@ export function useAuthController(): AuthContextType {
         };
       });
     }
-  }, [authState.tokens?.accessToken, refreshMe]);
+  }, [refreshMe]);
 
   const refreshMeWithState = useCallback(() => runWithActionState(refreshMe), [runWithActionState, refreshMe]);
   const verifyOtpAndSignInWithState = useCallback(
@@ -357,7 +353,6 @@ export function useAuthController(): AuthContextType {
           return;
         }
 
-        setAuthToken(tokens.accessToken);
         setAuthState((prev) => ({
           ...prev,
           tokens,

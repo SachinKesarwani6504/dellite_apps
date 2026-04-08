@@ -7,7 +7,7 @@ import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import type { Gender } from '@/types/auth';
 import {
@@ -152,3 +152,4 @@ export function OnboardingCustomerIdentityScreen() {
     </GradientScreen>
   );
 }
+

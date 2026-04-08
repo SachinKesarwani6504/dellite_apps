@@ -1,4 +1,4 @@
-import { AUTH_SCREEN, MAIN_TAB_SCREEN, ONBOARDING_SCREEN, PROFILE_SCREEN, ROOT_SCREEN } from '@/utils/screenNames';
+import { AUTH_SCREEN, MAIN_TAB_SCREEN, ONBOARDING_SCREEN, PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 
 export type RootStackParamList = {
   [ROOT_SCREEN.AUTH_NAVIGATOR]: undefined;
@@ -29,3 +29,4 @@ export type ProfileStackParamList = {
   [PROFILE_SCREEN.PROFILE_HOME]: undefined;
   [PROFILE_SCREEN.EDIT_PROFILE]: undefined;
 };
+

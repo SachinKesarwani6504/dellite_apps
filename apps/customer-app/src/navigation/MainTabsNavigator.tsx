@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useColorScheme } from 'react-native';
 
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { AppIcon } from '@/icons';
 import { BookingsScreen } from '@/screens/main/BookingsScreen';
 import { HomeScreen } from '@/screens/main/HomeScreen';
@@ -62,3 +62,4 @@ export function MainTabsNavigator() {
     </Tab.Navigator>
   );
 }
+

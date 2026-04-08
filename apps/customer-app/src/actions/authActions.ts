@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from '@/actions/http/httpClient';
+import { ApiEnvelope } from '@/types/api';
 import type {
   AuthMeResponse,
   LogoutPayload,
@@ -11,57 +12,96 @@ import type {
   VerifyOtpPayload,
   VerifyOtpResponse,
 } from '@/types/auth';
+import { stripBearerPrefix } from '@/utils/token';
 
-export async function requestOtp(payload: RequestOtpPayload): Promise<RequestOtpResponse> {
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (typeof payload === 'object' && payload !== null && 'data' in payload) {
+    const envelope = payload as ApiEnvelope<T>;
+    return (envelope.data ?? ({} as T)) as T;
+  }
+  return payload as T;
+}
+
+export async function sendOtp(payload: RequestOtpPayload): Promise<RequestOtpResponse> {
   const requestBody = { phone: payload.phone, role: payload.role ?? 'CUSTOMER' };
 
   try {
-    const envelope = await apiPost<RequestOtpResponse>('/auth/send-otp', requestBody, {
-      auth: false,
-    });
-    return envelope.data;
+    const response = await apiPost<ApiEnvelope<RequestOtpResponse> | RequestOtpResponse>(
+      '/auth/send-otp',
+      requestBody,
+      {
+        retryOnAuthFailure: false,
+      },
+    );
+    return unwrapData(response);
   } catch {
-    const envelope = await apiPost<RequestOtpResponse>('/auth/request-otp', requestBody, {
-      auth: false,
-    });
-    return envelope.data;
+    const response = await apiPost<ApiEnvelope<RequestOtpResponse> | RequestOtpResponse>(
+      '/auth/request-otp',
+      requestBody,
+      {
+        retryOnAuthFailure: false,
+      },
+    );
+    return unwrapData(response);
   }
 }
 
+export async function requestOtp(payload: RequestOtpPayload): Promise<RequestOtpResponse> {
+  return sendOtp(payload);
+}
+
 export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpResponse> {
-  const envelope = await apiPost<VerifyOtpResponse>('/auth/verify-otp', payload, {
-    auth: false,
+  const response = await apiPost<ApiEnvelope<VerifyOtpResponse> | VerifyOtpResponse>('/auth/verify-otp', payload, {
+    retryOnAuthFailure: false,
   });
-  return envelope.data;
+  return unwrapData(response);
 }
 
 export async function resendOtp(phone: string): Promise<ResendOtpResponse> {
-  const envelope = await apiPost<ResendOtpResponse>('/auth/resend-otp', { phone }, {
-    auth: false,
+  const response = await apiPost<ApiEnvelope<ResendOtpResponse> | ResendOtpResponse>('/auth/resend-otp', { phone }, {
+    retryOnAuthFailure: false,
   });
-  return envelope.data;
+  return unwrapData(response);
+}
+
+export async function refreshAuth(refreshToken: string): Promise<RefreshTokensResponse> {
+  const response = await apiPost<
+    ApiEnvelope<RefreshTokensResponse> | RefreshTokensResponse,
+    { refreshToken: string }
+  >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken) }, { toast: { showSuccess: false }, retryOnAuthFailure: false });
+  return unwrapData(response);
 }
 
 export async function refreshTokens(
   payload: RefreshTokensPayload,
 ): Promise<RefreshTokensResponse> {
-  const envelope = await apiPost<RefreshTokensResponse>('/auth/refresh', payload, {
-    auth: false,
-  });
-  return envelope.data;
+  return refreshAuth(payload.refreshToken);
+}
+
+export async function logoutCurrentSession(refreshToken: string): Promise<LogoutResponse> {
+  const response = await apiPost<ApiEnvelope<LogoutResponse> | LogoutResponse, { refreshToken: string }>(
+    '/auth/logout',
+    {
+      refreshToken: stripBearerPrefix(refreshToken),
+    },
+    {
+      retryOnAuthFailure: false,
+    },
+  );
+
+  return unwrapData(response);
 }
 
 export async function logout(payload: LogoutPayload): Promise<LogoutResponse> {
-  const envelope = await apiPost<LogoutResponse>('/auth/logout', payload, {
-    auth: false,
-  });
-  return envelope.data;
+  return logoutCurrentSession(payload.refreshToken);
 }
 
 export async function getMe(role: 'CUSTOMER' | 'WORKER' | 'ADMIN' = 'CUSTOMER') {
-  const envelope = await apiGet<AuthMeResponse>(`/auth/me?role=${role}`, {
+  const response = await apiGet<ApiEnvelope<AuthMeResponse> | AuthMeResponse>(`/auth/me?role=${role}`, {
+    auth: true,
+    withCredentials: true,
     cache: 'no-store',
   });
 
-  return envelope.data;
+  return unwrapData(response);
 }

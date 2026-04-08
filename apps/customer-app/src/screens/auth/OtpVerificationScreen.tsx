@@ -6,7 +6,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
-import { APP_TEXT } from '@/constants/appText';
+import { APP_TEXT } from '@/utils/appText';
 import { BRAND } from '@/constants/brand';
 import { useAuth } from '@/hooks/useAuth';
 import { AppIcon } from '@/icons';
@@ -187,3 +187,4 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
     </GradientScreen>
   );
 }
+
