@@ -14,6 +14,7 @@ export type UpdateCustomerIdentityPayload = {
   firstName: string;
   lastName: string;
   email?: string;
+  gender?: Gender;
   referralCode?: string;
 };
 

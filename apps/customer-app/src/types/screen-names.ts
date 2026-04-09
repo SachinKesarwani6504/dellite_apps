@@ -24,4 +24,5 @@ export const MAIN_TAB_SCREEN = {
 export const PROFILE_SCREEN = {
   PROFILE_HOME: 'ProfileHome',
   EDIT_PROFILE: 'EditProfile',
+  REFERRAL: 'Referral',
 } as const;

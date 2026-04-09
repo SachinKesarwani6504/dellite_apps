@@ -20,6 +20,53 @@ const defaultState: AuthState = {
   user: null,
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function extractBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return undefined;
+}
+
+function extractCustomerOnboardingFlags(source: unknown) {
+  if (!isRecord(source)) {
+    return {};
+  }
+
+  const direct = source;
+  const nestedCustomer = isRecord(source.CUSTOMER) ? source.CUSTOMER : {};
+
+  const isBasicInfoCompleted =
+    extractBoolean(direct.isBasicInfoCompleted)
+    ?? extractBoolean(nestedCustomer.isBasicInfoCompleted);
+  const hasSeenOnboardingWelcomeScreen =
+    extractBoolean(direct.hasSeenOnboardingWelcomeScreen)
+    ?? extractBoolean(nestedCustomer.hasSeenOnboardingWelcomeScreen);
+  const completed =
+    extractBoolean(direct.completed)
+    ?? extractBoolean(nestedCustomer.completed);
+  const isCompleted =
+    extractBoolean(direct.isCompleted)
+    ?? extractBoolean(nestedCustomer.isCompleted);
+
+  return {
+    isBasicInfoCompleted,
+    hasSeenOnboardingWelcomeScreen,
+    completed,
+    isCompleted,
+  };
+}
+
 function normalizeBearerToken(token: string | null | undefined) {
   if (!token) {
     return '';
@@ -57,15 +104,39 @@ function extractPhoneTokenFromVerifyOtpResponse(
   return null;
 }
 
-function normalizeUserFromMeResponse(me: AuthMeResponse): AuthState['user'] {
+function normalizeUserFromMeResponse(me: AuthMeResponse): NonNullable<AuthState['user']> {
+  const normalizedOnboardingFromRoot = extractCustomerOnboardingFlags(me.onboarding);
   const mergedOnboarding = {
     ...(me.user.onboarding ?? {}),
-    ...(me.onboarding ?? {}),
+    ...normalizedOnboardingFromRoot,
   };
+
+  const resolvedReferralCode = (() => {
+    if (typeof me.user.referralCode === 'string' && me.user.referralCode.trim()) {
+      return me.user.referralCode;
+    }
+    if (typeof me.referral?.code === 'string' && me.referral.code.trim()) {
+      return me.referral.code;
+    }
+    return undefined;
+  })();
+
+  const roleLinkHasSeenWelcome = isRecord(me.roleLink)
+    ? extractBoolean(me.roleLink.hasSeenOnboardingWelcomeScreen)
+    : undefined;
 
   return {
     ...me.user,
+    referral: me.user.referral ?? me.referral,
+    roles: me.user.roles ?? me.roles,
+    referralCode: resolvedReferralCode,
     onboarding: mergedOnboarding,
+    hasSeenOnboardingWelcomeScreen:
+      (typeof me.user.hasSeenOnboardingWelcomeScreen === 'boolean'
+        ? me.user.hasSeenOnboardingWelcomeScreen
+        : undefined)
+      ?? mergedOnboarding.hasSeenOnboardingWelcomeScreen
+      ?? roleLinkHasSeenWelcome,
   };
 }
 
@@ -246,18 +317,24 @@ export function useAuthController(): AuthContextType {
         ...prev,
         tokens,
         phoneToken: null,
+        status: AUTH_STATUS.POST_ONBOARDING_WELCOME,
       }));
 
-      const me = await authActions.getMe();
-      const nextUser = normalizeUserFromMeResponse(me);
-      const nextStatus = resolveAuthStatus(nextUser);
-      setAuthState((prev) => ({
-        ...prev,
-        user: nextUser,
-        status: nextStatus === AUTH_STATUS.AUTHENTICATED
-          ? AUTH_STATUS.POST_ONBOARDING_WELCOME
-          : nextStatus,
-      }));
+      try {
+        const me = await authActions.getMe();
+        const nextUser = normalizeUserFromMeResponse(me);
+        const hasSeenWelcome = extractBoolean(nextUser.hasSeenOnboardingWelcomeScreen)
+          ?? extractBoolean(nextUser.onboarding?.hasSeenOnboardingWelcomeScreen);
+        setAuthState((prev) => ({
+          ...prev,
+          user: nextUser,
+          status: hasSeenWelcome === true
+            ? AUTH_STATUS.AUTHENTICATED
+            : AUTH_STATUS.POST_ONBOARDING_WELCOME,
+        }));
+      } catch {
+        // Keep optimistic onboarding-forward state. A later refresh can reconcile.
+      }
     },
     [authState.phoneToken],
   );

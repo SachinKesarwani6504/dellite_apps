@@ -16,6 +16,7 @@ export const PROFILE_SCREENS = {
   editProfile: 'EditProfile',
   payoutDetails: 'PayoutDetails',
   helpSupport: 'HelpSupport',
+  referral: 'Referral',
   allSkills: 'AllSkills',
 } as const;
 
@@ -32,6 +33,7 @@ export const SCREEN_TITLES = {
     editProfile: 'Edit Profile',
     payoutDetails: 'Payout Details',
     helpSupport: 'Help & Support',
+    referral: 'Referral',
     allSkills: 'All Skills',
   },
 } as const;

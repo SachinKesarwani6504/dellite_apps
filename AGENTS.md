@@ -97,3 +97,10 @@ Before finishing:
 - Worker typecheck passes.
 - Customer typecheck passes.
 - Equivalent foundational files are compared and aligned.
+
+## 10) Component Cleanliness Rules
+
+- Keep presentational components/screens lean; avoid embedding repeated format/label helper functions directly in screen files.
+- Move small reusable helpers (number formatting, reward labels, event label formatting, etc.) into `src/utils/*`.
+- Export reusable helpers via `src/utils/index.ts` so screens can import from one place.
+- Apply the same helper structure in both apps whenever files are equivalent.

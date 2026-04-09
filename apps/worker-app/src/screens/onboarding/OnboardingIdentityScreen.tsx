@@ -6,8 +6,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Gender } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
@@ -33,7 +33,7 @@ export function OnboardingIdentityScreen({}: Props) {
   const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [gender, setGender] = useState<Gender>('MALE');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const [aadhaarFront, setAadhaarFront] = useState<AadhaarFileSelection | null>(null);
   const [aadhaarBack, setAadhaarBack] = useState<AadhaarFileSelection | null>(null);
@@ -42,12 +42,12 @@ export function OnboardingIdentityScreen({}: Props) {
   const { completeOnboarding, loading } = useAuthContext();
   const formDisabled = loading;
 
-  const isValid = isValidFirstName(firstName) && isValidLastName(lastName);
+  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && Boolean(gender);
 
   const onContinue = async () => {
     if (loading || submittingRef.current) return;
     if (!isValid) {
-      showError('Please enter first name and last name.');
+      showError('Please enter first name, last name, and select gender.');
       return;
     }
     submittingRef.current = true;
@@ -55,7 +55,7 @@ export function OnboardingIdentityScreen({}: Props) {
       await completeOnboarding({
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
-        gender,
+        gender: gender ?? undefined,
         referralCode: referralCode.trim() || undefined,
         aadhaarFrontFilePath: aadhaarFront?.path ?? '',
         aadhaarFrontFileName: aadhaarFront?.name ?? '',
@@ -101,23 +101,17 @@ export function OnboardingIdentityScreen({}: Props) {
     }
   };
 
-  const gradientWord = APP_TEXT.onboarding.identity.gradientWord;
   return (
     <GradientScreen
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
-          <Text className="text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.identity.step}</Text>
-        </View>
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
-          {APP_TEXT.onboarding.identity.titlePrefix}
-        </Text>
-        <View className="mt-0.5">
-          <GradientWord word={gradientWord} />
-        </View>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>{APP_TEXT.onboarding.identity.subtitle}</Text>
+        <SplitGradientTitle
+          eyebrow={APP_TEXT.onboarding.identity.step}
+          prefix={APP_TEXT.onboarding.identity.titlePrefix}
+          highlight={APP_TEXT.onboarding.identity.gradientWord}
+          subtitle={APP_TEXT.onboarding.identity.subtitle}
+        />
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}

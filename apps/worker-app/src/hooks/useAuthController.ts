@@ -156,7 +156,12 @@ export function useAuthController(): AuthContextType {
       return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
     }
 
-    const hasPhoneVerified = flags.hasPhoneVerified === true;
+    // Some responses omit hasPhoneVerified once basic profile is completed.
+    // In that case we can safely infer phone is verified.
+    const inferredPhoneVerified = typeof flags.hasPhoneVerified === 'boolean'
+      ? flags.hasPhoneVerified
+      : (flags.hasCompletedBasicProfile === true ? true : undefined);
+    const hasPhoneVerified = inferredPhoneVerified === true;
     const hasCompletedBasicProfile = flags.hasCompletedBasicProfile === true;
     const hasAadhaarVerified = flags.hasAadhaarVerified === true;
     const hasAddedServiceSkills = flags.hasAddedServiceSkills === true;
@@ -165,7 +170,7 @@ export function useAuthController(): AuthContextType {
     const hasSeenCertificateSetup = flags.hasSeenCertificateSetup === true;
     const hasSeenOnboardingWelcomeScreen = flags.hasSeenOnboardingWelcomeScreen === true;
     const hasAnyFlag =
-      typeof flags.hasPhoneVerified === 'boolean'
+      typeof inferredPhoneVerified === 'boolean'
       || typeof flags.hasCompletedBasicProfile === 'boolean'
       || typeof flags.hasAadhaarVerified === 'boolean'
       || typeof flags.hasAddedServiceSkills === 'boolean'
@@ -363,16 +368,12 @@ export function useAuthController(): AuthContextType {
 
       setPhoneVerificationToken(null);
       await clearOnboardingPhoneToken();
-      setStatus(AuthStatus.BOOTSTRAPPING);
-      try {
-        const nextStatus = await refreshMe();
-        setStatus(nextStatus);
-      } catch {
-        setOnboardingRoute(ONBOARDING_SCREENS.identity);
-        setStatus(AuthStatus.ONBOARDING);
-      }
+      // Move to next onboarding step immediately after profile creation.
+      // Do not immediately re-resolve from backend here; API lag can bounce back to identity.
+      setOnboardingRoute(ONBOARDING_SCREENS.serviceSelection);
+      setStatus(AuthStatus.ONBOARDING);
     },
-    [phoneVerificationToken, refreshMe],
+    [phoneVerificationToken],
   );
 
   const completeOnboardingFlow = useCallback(() => {

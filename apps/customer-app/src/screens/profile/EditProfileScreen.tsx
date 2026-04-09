@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
@@ -8,11 +7,11 @@ import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import type { Gender } from '@/types/auth';
-import { APP_LAYOUT, GENDER_OPTIONS, isValidFirstName, isValidLastName, normalizePersonName, palette, theme, uiColors } from '@/utils';
+import { APP_LAYOUT, GENDER_OPTIONS, isValidFirstName, isValidLastName, normalizePersonName, palette, uiColors } from '@/utils';
 
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 
@@ -72,19 +71,12 @@ export function EditProfileScreen() {
       </View>
 
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
-          <Text className="text-xs font-bold tracking-widest text-primary">{APP_TEXT.profile.edit.step}</Text>
-        </View>
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
-          {APP_TEXT.profile.edit.titlePrefix}
-        </Text>
-        <View className="mt-0.5">
-          <GradientWord word={APP_TEXT.profile.edit.titleGradientWord} />
-        </View>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {APP_TEXT.profile.edit.subtitle}
-        </Text>
+        <SplitGradientTitle
+          eyebrow={APP_TEXT.profile.edit.step}
+          prefix={APP_TEXT.profile.edit.titlePrefix}
+          highlight={APP_TEXT.profile.edit.titleGradientWord}
+          subtitle={APP_TEXT.profile.edit.subtitle}
+        />
 
         <View className="mt-6 gap-3">
           <AppInput

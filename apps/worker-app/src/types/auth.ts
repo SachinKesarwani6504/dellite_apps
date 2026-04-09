@@ -1,7 +1,55 @@
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
 export const APP_AUTH_ROLE: UserRole = 'WORKER';
+export const REFERRAL_ROLES = {
+  CUSTOMER: 'CUSTOMER',
+  WORKER: 'WORKER',
+} as const;
+export type ReferralRole = (typeof REFERRAL_ROLES)[keyof typeof REFERRAL_ROLES];
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type PayoutMethodType = 'UPI' | 'BANK_ACCOUNT';
+
+export type ReferralReward = {
+  rewardType?: string;
+  value?: string;
+  unit?: string;
+};
+
+export type ReferralMatrixEntry = {
+  key?: 'CC' | 'CW' | 'WC' | 'WW' | string;
+  triggerEvent?: string;
+  referrerTriggerEvent?: string;
+  referredTriggerEvent?: string;
+  referrerRole?: UserRole | string;
+  referredRole?: UserRole | string;
+  referrerReward?: ReferralReward;
+  referredReward?: ReferralReward;
+};
+
+export type ReferralRewardSet = {
+  whenReferredRoleIsCUSTOMER?: ReferralReward;
+  whenReferredRoleIsWORKER?: ReferralReward;
+};
+
+export type ReferralInfo = {
+  code?: string;
+  triggerEvent?: string;
+  supportedTriggerEvents?: string[];
+  coinConversion?: {
+    oneCoinEqualsRupees?: string;
+    currency?: string;
+  };
+  signupRewardMatrix?: Record<'CC' | 'CW' | 'WC' | 'WW', ReferralMatrixEntry> & Record<string, ReferralMatrixEntry | undefined>;
+  availableReferrerRoles?: Array<UserRole | string>;
+  selectedRole?: UserRole | string;
+  selectedRoleRewards?: ReferralRewardSet;
+  rewardResolutionRule?: string;
+  rewardsByReferralRole?: {
+    CUSTOMER?: ReferralRewardSet;
+    WORKER?: ReferralRewardSet;
+    [key: string]: ReferralRewardSet | undefined;
+  };
+  bothRolesRule?: string;
+};
 
 export interface WorkerProfileLink {
   id?: string;
@@ -24,6 +72,9 @@ export interface AuthUser {
   lastName?: string;
   email?: string;
   gender?: Gender;
+  referralCode?: string;
+  referral?: ReferralInfo;
+  roles?: Record<UserRole, boolean> & Record<string, boolean>;
   userIdentityVerification?: {
     isVerified?: boolean | string | number;
     [key: string]: unknown;
@@ -47,6 +98,8 @@ export interface WorkerOnboardingFlags {
 
 export interface AuthMeResponse {
   user: AuthUser;
+  referral?: ReferralInfo;
+  roles?: Record<UserRole, boolean> & Record<string, boolean>;
   links?: {
     worker?: WorkerProfileLink;
     [key: string]: unknown;

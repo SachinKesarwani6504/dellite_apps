@@ -8,11 +8,11 @@ import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { PayoutMethodType, UserBankInfo } from '@/types/auth';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
-import { formatDateToDdMmmYyyy } from '@/utils';
+import { formatDateToDdMmmYyyy, mapBankInfoToForm } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -25,24 +25,6 @@ type FieldErrors = {
   bankAccountNumber?: string;
   bankIfscCode?: string;
 };
-
-function mapBankInfoToForm(
-  bankInfo: UserBankInfo | null,
-): {
-  methodType: PayoutMethodType;
-  accountHolderName: string;
-  bankAccountNumber: string;
-  bankIfscCode: string;
-  upiId: string;
-} {
-  return {
-    methodType: bankInfo?.methodType === 'BANK_ACCOUNT' ? 'BANK_ACCOUNT' : 'UPI',
-    accountHolderName: String(bankInfo?.accountHolderName ?? ''),
-    bankAccountNumber: String(bankInfo?.bankAccountNumber ?? ''),
-    bankIfscCode: String(bankInfo?.bankIfscCode ?? ''),
-    upiId: String(bankInfo?.upiId ?? ''),
-  };
-}
 
 export function PayoutDetailsScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -193,21 +175,13 @@ export function PayoutDetailsScreen({ navigation }: Props) {
       </View>
 
       <View className="rounded-3xl pb-6 pt-4" style={contentCardStyle}>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
-          <Text className="text-xs font-bold tracking-widest text-primary">PAYOUT SETUP</Text>
-        </View>
-
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
-          Manage your
-        </Text>
-        <View className="mt-0.5">
-          <GradientWord word="bank info" />
-        </View>
-
-        <Text className="mt-1 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {APP_TEXT.profile.payout.subtitle}
-        </Text>
+        <SplitGradientTitle
+          eyebrow="PAYOUT SETUP"
+          prefix="Manage your"
+          highlight="bank info"
+          subtitle={APP_TEXT.profile.payout.subtitle}
+          subtitleClassName="mt-1 text-sm"
+        />
 
         {fetchLoading ? (
           <View className="items-center py-10">

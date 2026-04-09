@@ -1,5 +1,4 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { updateWorkerProfile } from '@/actions';
@@ -7,8 +6,8 @@ import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Gender } from '@/types/auth';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -16,7 +15,7 @@ import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { palette, uiColors } from '@/utils/theme';
 import { isValidFirstName, isValidLastName, normalizePersonName } from '@/utils/validation';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.editProfile>;
@@ -70,20 +69,12 @@ export function EditProfileScreen({ navigation }: Props) {
       </View>
 
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
-          <Text className="text-xs font-bold tracking-widest text-primary">UPDATE PROFILE</Text>
-        </View>
-
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
-          Update your
-        </Text>
-        <View className="mt-0.5">
-          <GradientWord word="profile" />
-        </View>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          Keep your details accurate for better trust and job matching.
-        </Text>
+        <SplitGradientTitle
+          eyebrow={APP_TEXT.profile.edit.step}
+          prefix={APP_TEXT.profile.edit.titlePrefix}
+          highlight={APP_TEXT.profile.edit.titleGradientWord}
+          subtitle={APP_TEXT.profile.edit.subtitle}
+        />
 
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
@@ -110,7 +101,7 @@ export function EditProfileScreen({ navigation }: Props) {
             editable={!saving}
           />
           <AppInput
-            label="Email"
+            label={APP_TEXT.profile.emailLabel}
             value={email}
             onChangeText={setEmail}
             placeholder={APP_TEXT.profile.edit.emailPlaceholder}

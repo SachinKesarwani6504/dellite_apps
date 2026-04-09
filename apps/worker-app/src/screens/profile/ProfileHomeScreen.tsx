@@ -6,11 +6,12 @@ import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-nat
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { SectionCard } from '@/components/common/SectionCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { formatDateToDdMmmYyyy } from '@/utils';
+import { formatDateToDdMmmYyyy, getUserCreatedAt, toDisplayGender } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.home>;
@@ -20,34 +21,6 @@ type ProfileStats = {
   completedJobs: number;
   certificates: number;
 };
-
-function toDisplayGender(value?: unknown): string {
-  if (typeof value !== 'string' || !value.trim()) return 'Not set';
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'male') return 'Male';
-  if (normalized === 'female') return 'Female';
-  if (normalized === 'other') return 'Other';
-  return value;
-}
-
-function getUserCreatedAt(value: unknown): string | number | Date | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const source = value as Record<string, unknown>;
-  const direct = source.createdAt;
-  if (typeof direct === 'string' || typeof direct === 'number' || direct instanceof Date) {
-    return direct;
-  }
-
-  const snakeCase = source.created_at;
-  if (typeof snakeCase === 'string' || typeof snakeCase === 'number' || snakeCase instanceof Date) {
-    return snakeCase;
-  }
-
-  return null;
-}
 
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -62,12 +35,12 @@ export function ProfileHomeScreen({ navigation }: Props) {
     const value = `${first}${last}`.trim();
     return value || 'DP';
   }, [user?.firstName, user?.lastName]);
-  const genderLabel = toDisplayGender(user?.gender);
-  const roleLabel = 'Worker';
+  const genderLabel = toDisplayGender(user?.gender, 'Not set');
+  const roleLabel = APP_TEXT.profile.roleLabel;
   const memberSinceDate = formatDateToDdMmmYyyy(getUserCreatedAt(user));
-  const memberSince = `Member since ${memberSinceDate}`;
+  const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${memberSinceDate}`;
   const contactPhone = (user?.phone ?? phone) || APP_TEXT.profile.phoneFallback;
-  const contactEmail = typeof user?.email === 'string' && user.email.trim() ? user.email : 'Not provided';
+  const contactEmail = typeof user?.email === 'string' && user.email.trim() ? user.email : APP_TEXT.profile.notProvided;
   const verificationValue = user?.userIdentityVerification?.isVerified;
   const isVerified = verificationValue === true
     || verificationValue === 1
@@ -224,19 +197,22 @@ export function ProfileHomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
-        <Text className="text-lg font-bold text-baseDark dark:text-white">Contact Info</Text>
-        <View className="mt-3 gap-2">
+      <SectionCard
+        containerClassName="mt-4"
+        title={APP_TEXT.profile.contactInfoTitle}
+        bodyClassName="p-3"
+      >
+        <View className="gap-2">
           <View className="rounded-xl border p-3" style={mutedCardStyle}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">Phone</Text>
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.phoneLabel}</Text>
             <Text className="mt-0.5 text-base font-semibold text-baseDark dark:text-white">{contactPhone}</Text>
           </View>
           <View className="rounded-xl border p-3" style={mutedCardStyle}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">Email</Text>
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.emailLabel}</Text>
             <Text className="mt-0.5 text-base font-semibold text-baseDark dark:text-white">{contactEmail}</Text>
           </View>
         </View>
-      </View>
+      </SectionCard>
 
       <View className="mt-4 overflow-hidden rounded-2xl border" style={cardStyle}>
         <Pressable
@@ -247,8 +223,8 @@ export function ProfileHomeScreen({ navigation }: Props) {
             <Ionicons name="settings-outline" size={18} color={theme.colors.primary} />
           </View>
           <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-baseDark dark:text-white">Settings</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Profile preferences</Text>
+            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.settingsTitle}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.settingsSubtitle}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
         </Pressable>
@@ -263,8 +239,24 @@ export function ProfileHomeScreen({ navigation }: Props) {
             <Ionicons name="help-buoy-outline" size={18} color={theme.colors.accent} />
           </View>
           <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-baseDark dark:text-white">Help & Support</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Get support and report issues</Text>
+            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.helpTitle}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.helpSubtitle}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
+        </Pressable>
+
+        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+
+        <Pressable
+          onPress={() => navigation.navigate(PROFILE_SCREENS.referral)}
+          className="flex-row items-center px-4 py-4"
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
+            <Ionicons name="gift-outline" size={18} color={theme.colors.primary} />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.referral.menuTitle}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.referral.menuSubtitle}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
         </Pressable>
@@ -318,8 +310,8 @@ export function ProfileHomeScreen({ navigation }: Props) {
             )}
           </View>
           <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-negative">Logout</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">Sign out from this device</Text>
+            <Text className="text-base font-semibold text-negative">{APP_TEXT.profile.logoutTitle}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.logoutSubtitle}</Text>
           </View>
         </Pressable>
       </View>

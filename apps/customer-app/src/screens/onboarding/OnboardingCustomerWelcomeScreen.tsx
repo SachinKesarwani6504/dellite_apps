@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Image, Pressable, Text, View, useColorSche
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import { AppIcon } from '@/icons';
@@ -270,12 +270,13 @@ export function OnboardingCustomerWelcomeScreen() {
               transform: [{ translateY: step >= 1 ? 0 : 12 }],
             }}
           >
-            <Text className="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white">
-              {text.titlePrefix}{' '}
-            </Text>
-            <GradientWord
-              word={text.titleGradientWord}
-              className="text-[42px] font-extrabold leading-[46px]"
+            <SplitGradientTitle
+              prefix={text.titlePrefix}
+              highlight={text.titleGradientWord}
+              inline
+              showSparkle={false}
+              prefixClassName="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white"
+              highlightClassName="text-[42px] font-extrabold leading-[46px]"
             />
           </Animated.View>
           <Animated.Text

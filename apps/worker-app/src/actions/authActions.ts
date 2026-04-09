@@ -149,6 +149,26 @@ function normalizeAuthUser(rawUser: unknown, fallbackSource?: AnyRecord): AuthUs
     normalizedUser.workerLink = workerLink;
   }
 
+  const referralFromUser = isRecord(source.referral) ? source.referral : undefined;
+  const referralFromRoot = isRecord(fallbackSource?.referral) ? fallbackSource?.referral : undefined;
+  if (referralFromUser || referralFromRoot) {
+    normalizedUser.referral = (referralFromUser ?? referralFromRoot) as AuthUser['referral'];
+  }
+
+  const referralCodeFromUser = typeof source.referralCode === 'string' ? source.referralCode : undefined;
+  const referralCodeFromRoot = isRecord(fallbackSource?.referral) && typeof fallbackSource?.referral.code === 'string'
+    ? fallbackSource.referral.code
+    : undefined;
+  if (referralCodeFromUser || referralCodeFromRoot) {
+    normalizedUser.referralCode = referralCodeFromUser ?? referralCodeFromRoot;
+  }
+
+  const rolesFromUser = isRecord(source.roles) ? source.roles : undefined;
+  const rolesFromRoot = isRecord(fallbackSource?.roles) ? fallbackSource?.roles : undefined;
+  if (rolesFromUser || rolesFromRoot) {
+    normalizedUser.roles = (rolesFromUser ?? rolesFromRoot) as AuthUser['roles'];
+  }
+
   return normalizedUser;
 }
 
@@ -169,6 +189,8 @@ function normalizeAuthMePayload(payload: unknown): AuthMeResponse {
     return {
       ...(root as AuthMeResponse),
       links: normalizedLinks,
+      referral: (isRecord(root.referral) ? root.referral : undefined) as AuthMeResponse['referral'],
+      roles: (isRecord(root.roles) ? root.roles : undefined) as AuthMeResponse['roles'],
       user: normalizeAuthUser(root.user, root),
     };
   }

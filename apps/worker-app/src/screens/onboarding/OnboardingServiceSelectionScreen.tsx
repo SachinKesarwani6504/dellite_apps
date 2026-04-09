@@ -8,7 +8,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import {
   CategoryService,
   ServiceCategory,
@@ -16,7 +16,7 @@ import {
 } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
-import { titleCase } from '@/utils';
+import { normalizeServices, titleCase, toIconBadgeText } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -24,16 +24,6 @@ import { palette, theme, uiColors } from '@/utils/theme';
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingServiceSelection'>;
 
 const ONBOARDING_CITY = 'PRAYAGRAJ';
-
-function normalizeServices(subcategory?: ServiceSubcategory): CategoryService[] {
-  return Array.isArray(subcategory?.services) ? subcategory.services : [];
-}
-
-function toIconBadgeText(name: string, iconText?: string): string {
-  if (iconText?.trim()) return iconText.trim();
-  const formatted = titleCase(name);
-  return formatted.slice(0, 1).toUpperCase() || '?';
-}
 
 export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -207,14 +197,18 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
             )}
           </Pressable>
         </View>
-        <Text className="mt-3 text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.vehicle.step}</Text>
-        <View className="mt-2">
-          <Text className="text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">Choose Your</Text>
-          <GradientWord word="Services" className="text-4xl font-extrabold leading-[40px]" />
+        <View className="mt-3">
+          <SplitGradientTitle
+            eyebrow={APP_TEXT.onboarding.vehicle.step}
+            prefix="Choose Your"
+            highlight="Services"
+            subtitle={APP_TEXT.onboarding.vehicle.subtitle}
+            prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
+            highlightClassName="text-4xl font-extrabold leading-[40px]"
+            subtitleClassName="mt-2 text-sm"
+            showSparkle={false}
+          />
         </View>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {APP_TEXT.onboarding.vehicle.subtitle}
-        </Text>
 
         <View className="mt-4 flex-row gap-2">
           <View className="h-1.5 flex-1 rounded-full bg-primary" />

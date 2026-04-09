@@ -6,46 +6,11 @@ import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorSchem
 
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { SectionCard } from '@/components/common/SectionCard';
+import { formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
-import { palette, theme, uiColors } from '@/utils';
 import { PROFILE_SCREEN } from '@/types/screen-names';
-
-function formatDateToDdMmmYyyy(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'N/A';
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    return 'N/A';
-  }
-
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function getUserCreatedAt(value: unknown): string | number | Date | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const source = value as Record<string, unknown>;
-  const direct = source.createdAt;
-  if (typeof direct === 'string' || typeof direct === 'number' || direct instanceof Date) {
-    return direct;
-  }
-
-  const snakeCase = source.created_at;
-  if (typeof snakeCase === 'string' || typeof snakeCase === 'number' || snakeCase instanceof Date) {
-    return snakeCase;
-  }
-
-  return null;
-}
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -70,18 +35,7 @@ export function ProfileScreen() {
 
   const contactPhone = user?.phone || APP_TEXT.profile.phoneFallback;
   const contactEmail = user?.email || APP_TEXT.profile.notProvided;
-  const genderLabel = useMemo(() => {
-    if (user?.gender === 'MALE') {
-      return 'Male';
-    }
-    if (user?.gender === 'FEMALE') {
-      return 'Female';
-    }
-    if (user?.gender === 'OTHER') {
-      return 'Other';
-    }
-    return APP_TEXT.profile.notProvided;
-  }, [user?.gender]);
+  const genderLabel = useMemo(() => toDisplayGender(user?.gender, APP_TEXT.profile.notProvided), [user?.gender]);
   const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${formatDateToDdMmmYyyy(getUserCreatedAt(user))}`;
 
   const onboarding = user?.onboarding;
@@ -216,9 +170,12 @@ export function ProfileScreen() {
         </View>
       </View>
 
-      <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
-        <Text className="text-lg font-bold text-baseDark dark:text-white">{APP_TEXT.profile.contactInfoTitle}</Text>
-        <View className="mt-3 gap-2">
+      <SectionCard
+        containerClassName="mt-4"
+        title={APP_TEXT.profile.contactInfoTitle}
+        bodyClassName="p-3"
+      >
+        <View className="gap-2">
           <View className="rounded-xl border p-3" style={mutedCardStyle}>
             <Text className="text-[11px] font-semibold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.phoneLabel}</Text>
             <Text className="mt-0.5 text-base font-semibold text-baseDark dark:text-white">{contactPhone}</Text>
@@ -228,7 +185,7 @@ export function ProfileScreen() {
             <Text className="mt-0.5 text-base font-semibold text-baseDark dark:text-white">{contactEmail}</Text>
           </View>
         </View>
-      </View>
+      </SectionCard>
 
       <View className="mt-4 overflow-hidden rounded-2xl border" style={cardStyle}>
         <Pressable className="flex-row items-center px-4 py-4">
@@ -251,6 +208,22 @@ export function ProfileScreen() {
           <View className="ml-3 flex-1">
             <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.helpTitle}</Text>
             <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.helpSubtitle}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
+        </Pressable>
+
+        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+
+        <Pressable
+          onPress={() => navigation.navigate(PROFILE_SCREEN.REFERRAL)}
+          className="flex-row items-center px-4 py-4"
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
+            <Ionicons name="gift-outline" size={18} color={theme.colors.primary} />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.referral.menuTitle}</Text>
+            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.referral.menuSubtitle}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
         </Pressable>

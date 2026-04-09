@@ -1,12 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 
 import { AppInput } from '@/components/common/AppInput';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuth } from '@/hooks/useAuth';
 import type { Gender } from '@/types/auth';
@@ -17,7 +16,6 @@ import {
   isValidLastName,
   normalizePersonName,
   palette,
-  theme,
   uiColors,
 } from '@/utils';
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
@@ -27,16 +25,15 @@ export function OnboardingCustomerIdentityScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [gender, setGender] = useState<Gender>('MALE');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const { completeOnboarding, loading } = useAuth();
   const formDisabled = loading;
   const text = APP_TEXT.onboarding.identity;
-  const gradientWord = text.gradientWord;
 
   const normalizedEmail = email.trim();
   const hasValidEmail = normalizedEmail.length === 0 || /\S+@\S+\.\S+/.test(normalizedEmail);
-  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && hasValidEmail;
+  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && hasValidEmail && Boolean(gender);
 
   const onContinue = async () => {
     if (!isValid || loading) return;
@@ -45,6 +42,7 @@ export function OnboardingCustomerIdentityScreen() {
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
         email: normalizedEmail || undefined,
+        gender: gender ?? undefined,
         referralCode: referralCode.trim() || undefined,
       });
     } catch {
@@ -57,19 +55,12 @@ export function OnboardingCustomerIdentityScreen() {
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="sparkles-outline" size={14} color={theme.colors.primary} />
-          <Text className="text-xs font-bold tracking-widest text-primary">{text.step}</Text>
-        </View>
-        <Text className="mt-3 text-[36px] font-extrabold leading-[38px] text-baseDark dark:text-white">
-          {text.titlePrefix}
-        </Text>
-        <View className="mt-0.5">
-          <GradientWord word={gradientWord} />
-        </View>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {text.subtitle}
-        </Text>
+        <SplitGradientTitle
+          eyebrow={text.step}
+          prefix={text.titlePrefix}
+          highlight={text.gradientWord}
+          subtitle={text.subtitle}
+        />
         <View className="mt-5 items-center">
           <ProfilePhotoUploadPlaceholder
             title={text.uploadPhotoTitle}

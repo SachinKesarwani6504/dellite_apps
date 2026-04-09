@@ -8,6 +8,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
+import { normalizeWorkerSkillStatus } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
 
@@ -19,20 +20,6 @@ type WorkerSkill = {
   serviceName?: string;
   status?: string;
 };
-
-function normalizeStatus(value?: string): { label: string; color: string; icon: keyof typeof Ionicons.glyphMap } {
-  const normalized = String(value ?? '').trim().toUpperCase();
-  if (normalized === 'APPROVED') {
-    return { label: 'Approved', color: theme.colors.positive, icon: 'checkmark-circle-outline' };
-  }
-  if (normalized === 'PENDING') {
-    return { label: 'Pending', color: theme.colors.caution, icon: 'time-outline' };
-  }
-  if (normalized === 'REJECTED') {
-    return { label: 'Rejected', color: theme.colors.negative, icon: 'close-circle-outline' };
-  }
-  return { label: 'In Review', color: theme.colors.accent, icon: 'information-circle-outline' };
-}
 
 export function ProfileSkillsScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -114,7 +101,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
           >
             <View className="gap-2">
               {skills.map((skill, index) => {
-                const statusMeta = normalizeStatus(skill.status);
+                const statusMeta = normalizeWorkerSkillStatus(skill.status);
                 const name = skill.serviceName?.trim() || `Skill ${index + 1}`;
                 return (
                   <View

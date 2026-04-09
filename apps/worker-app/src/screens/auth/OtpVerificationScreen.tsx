@@ -9,6 +9,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AppIcon } from '@/icons';
 import { AuthStackParamList } from '@/types/navigation';
 import { AUTH_SCREENS } from '@/types/screen-names';
+import { BRAND } from '@/constants/brand';
 import { maskPhoneNumber } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -33,6 +34,7 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
   const counter = Math.max(0, Math.ceil((resendAvailableAt - nowMs) / 1000));
   const canResend = counter <= 0 && !isBusy;
   const resendProgress = Math.max(0, Math.min(1, counter / resendDuration));
+  const logo = require('@/assets/images/png/dellite_logo.png');
   const otpIllustration = require('@/assets/images/png/otp-verify-illustration.png');
 
   useEffect(() => {
@@ -87,9 +89,14 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
 
           <View className="items-center">
             <Image
+              source={logo}
+              resizeMode="contain"
+              style={{ width: BRAND.logo.width, height: BRAND.logo.height, marginTop: 8 }}
+            />
+            <Image
               source={otpIllustration}
               resizeMode="contain"
-              style={{ width: 160, height: 120, marginTop: 12 }}
+              style={{ width: 148, height: 104, marginTop: 8 }}
             />
           </View>
         </View>

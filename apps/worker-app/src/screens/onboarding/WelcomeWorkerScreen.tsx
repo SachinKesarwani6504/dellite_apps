@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Pressable, Text, View, useColorScheme } from 'react-native';
 import { updateWorkerProfile } from '@/actions';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingScreenGuard } from '@/hooks/useOnboarding';
 import { AppIcon } from '@/icons';
@@ -28,11 +28,9 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { completeOnboardingFlow } = useAuthContext();
   const text = APP_TEXT.onboarding.welcome;
-  const [persistingFlag, setPersistingFlag] = useState(false);
   const [starting, setStarting] = useState(false);
   const [step, setStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
-  const hasPersistedRef = useRef(false);
   const burstParticles = useMemo(
     () => [
       { angle: -90, distance: 70, size: 7, color: theme.colors.caution, delay: 0 },
@@ -76,29 +74,12 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
     [isDark],
   );
   const benefitLabels = text.benefits;
-  const isBusy = starting || persistingFlag;
+  const isBusy = starting;
 
   useOnboardingScreenGuard({
     currentRoute: ONBOARDING_SCREENS.welcomeWorker,
     onRedirect: route => navigation.replace(route),
   });
-
-  const persistWelcomeSeen = useCallback(async () => {
-    if (hasPersistedRef.current) return;
-    hasPersistedRef.current = true;
-    setPersistingFlag(true);
-    try {
-      await updateWorkerProfile({ hasSeenOnboardingWelcomeScreen: true });
-    } catch {
-      // Screen flow should continue even if this request fails once.
-    } finally {
-      setPersistingFlag(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void persistWelcomeSeen();
-  }, [persistWelcomeSeen]);
 
   useEffect(() => {
     const t1 = setTimeout(() => setStep(1), 300);
@@ -159,6 +140,7 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
     if (isBusy) return;
     setStarting(true);
     try {
+      await updateWorkerProfile({ hasSeenOnboardingWelcomeScreen: true });
       completeOnboardingFlow();
     } finally {
       setStarting(false);
@@ -318,12 +300,13 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
               transform: [{ translateY: step >= 1 ? 0 : 12 }],
             }}
           >
-            <Text className="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white">
-              You're{' '}
-            </Text>
-            <GradientWord
-              word="All Set!"
-              className="text-[42px] font-extrabold leading-[46px]"
+            <SplitGradientTitle
+              prefix="You're"
+              highlight="All Set!"
+              inline
+              showSparkle={false}
+              prefixClassName="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white"
+              highlightClassName="text-[42px] font-extrabold leading-[46px]"
             />
           </Animated.View>
 
