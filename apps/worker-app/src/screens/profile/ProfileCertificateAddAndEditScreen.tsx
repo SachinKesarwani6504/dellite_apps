@@ -10,6 +10,8 @@ import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshCon
 import { Button } from '@/components/common/Button';
 import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { ProfileStackParamList } from '@/types/navigation';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
@@ -51,6 +53,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
+  const [certificatesLoadError, setCertificatesLoadError] = useState(false);
   const [requiredCertificates, setRequiredCertificates] = useState<WorkerCertificateCard[]>([]);
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
   const [selectedFileByCard, setSelectedFileByCard] = useState<Record<string, SelectedCertificateFile>>({});
@@ -71,6 +74,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
         ? status.certificates
         : (Array.isArray(status.requiredCertificates) ? status.requiredCertificates : []);
       setRequiredCertificates(certificates);
+      setCertificatesLoadError(false);
       setSelectedTypeByCard(prev => {
         const next: Record<string, string> = {};
         certificates.forEach(card => {
@@ -83,6 +87,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
         return next;
       });
     } catch {
+      setCertificatesLoadError(true);
       showError('Failed to load required certificates. Pull to refresh and try again.');
     } finally {
       setScreenLoading(false);
@@ -214,12 +219,24 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
         <View className="mt-8 items-center justify-center">
           <AppSpinner size="large" color={uiColors.onboarding.loader} />
         </View>
+      ) : certificatesLoadError ? (
+        <ListErrorState
+          containerClassName="mt-4"
+          title="Could not load certificates"
+          description="Pull to refresh or tap retry."
+          onAction={() => {
+            void loadCertificates(false);
+          }}
+        />
       ) : requiredCertificates.length === 0 ? (
-        <View className="mt-4 rounded-2xl border border-accent/40 bg-surfaceSoft/40 p-4 dark:border-white/10" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.accentSoft40 }}>
-          <Text className="text-sm font-semibold text-baseDark dark:text-white">
-            {APP_TEXT.profile.certificates.emptyState}
-          </Text>
-        </View>
+        <ListEmptyState
+          containerClassName="mt-4"
+          icon="ribbon-outline"
+          title={APP_TEXT.profile.certificates.emptyState}
+          description="Add a new skill to see certificate requirements."
+          actionLabel={APP_TEXT.profile.certificates.addSkillButton}
+          onAction={() => navigation.navigate(PROFILE_SCREENS.skillManager)}
+        />
       ) : (
         <View className="mt-4 gap-3">
           {allCardsLocked ? (

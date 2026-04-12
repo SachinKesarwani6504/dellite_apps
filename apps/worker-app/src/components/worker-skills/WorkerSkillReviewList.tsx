@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { CategoryService } from '@/types/auth';
 import { titleCase, toIconBadgeText } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -19,11 +20,11 @@ export function WorkerSkillReviewList({
 }: WorkerSkillReviewListProps) {
   if (selectedServices.length === 0) {
     return (
-      <View className="rounded-2xl border border-accent/40 bg-surfaceSoft/40 p-4 dark:border-white/10" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.accentSoft40 }}>
-        <Text className="text-sm font-semibold text-baseDark dark:text-white">
-          No skills selected yet.
-        </Text>
-      </View>
+      <ListEmptyState
+        icon="checkmark-done-outline"
+        title="No skills selected yet."
+        description="Select skills from above and preview them here."
+      />
     );
   }
 

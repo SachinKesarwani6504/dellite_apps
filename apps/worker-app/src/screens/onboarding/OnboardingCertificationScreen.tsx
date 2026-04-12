@@ -10,6 +10,8 @@ import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshCon
 import { Button } from '@/components/common/Button';
 import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { OnboardingStackParamList } from '@/types/navigation';
@@ -59,6 +61,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
+  const [certificatesLoadError, setCertificatesLoadError] = useState(false);
   const [skipLoading, setSkipLoading] = useState(false);
   const [requiredCertificates, setRequiredCertificates] = useState<WorkerCertificateCard[]>([]);
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
@@ -75,6 +78,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       }
       const certificates = await getRequiredCertificates();
       setRequiredCertificates(certificates);
+      setCertificatesLoadError(false);
       setSelectedTypeByCard(prev => {
         const next: Record<string, string> = {};
         certificates.forEach((card: WorkerCertificateCard) => {
@@ -87,6 +91,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
         return next;
       });
     } catch {
+      setCertificatesLoadError(true);
       showError('Failed to load required certificates. Pull to refresh and try again.');
     } finally {
       setScreenLoading(false);
@@ -290,14 +295,23 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
           <View className="mt-8 items-center justify-center">
             <AppSpinner size="large" color={uiColors.onboarding.loader} />
           </View>
+        ) : certificatesLoadError ? (
+          <ListErrorState
+            containerClassName="mt-4"
+            title="Could not load certificates"
+            description="Pull to refresh or tap retry."
+            onAction={() => {
+              void loadCertificates(false);
+            }}
+          />
         ) : (
           <View className="mt-4">
             {requiredCertificates.length === 0 ? (
-              <View className="rounded-2xl border border-accent/40 bg-surfaceSoft/40 p-4 dark:border-white/10" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.accentSoft40 }}>
-                <Text className="text-sm font-semibold text-baseDark dark:text-white">
-                  {APP_TEXT.onboarding.certification.noCertificateText}
-                </Text>
-              </View>
+              <ListEmptyState
+                icon="ribbon-outline"
+                title={APP_TEXT.onboarding.certification.noCertificateText}
+                description="You can continue and add certificates later."
+              />
             ) : (
               <View className="gap-3">
                 {showWaitingState ? (

@@ -9,6 +9,8 @@ import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { SkillCertificateStatusCard } from '@/components/common/SkillCertificateStatusCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -38,6 +40,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [skills, setSkills] = useState<WorkerSkill[]>([]);
+  const [skillsLoadError, setSkillsLoadError] = useState(false);
   const [activeBySkillId, setActiveBySkillId] = useState<Record<string, boolean>>({});
   const [togglingBySkillId, setTogglingBySkillId] = useState<Record<string, boolean>>({});
 
@@ -52,6 +55,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
       const status = await getWorkerStatus({ sortBy: 'status', direction: 'asc' });
       const nextSkills = Array.isArray(status.skills) ? (status.skills as WorkerSkill[]) : [];
       setSkills(nextSkills);
+      setSkillsLoadError(false);
       setActiveBySkillId(prev => {
         const next: Record<string, boolean> = { ...prev };
         nextSkills.forEach(skill => {
@@ -63,6 +67,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
       });
     } catch {
       setSkills([]);
+      setSkillsLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -177,10 +182,22 @@ export function ProfileSkillsScreen({ navigation }: Props) {
             <View className="items-center py-8">
               <AppSpinner size="large" color={theme.colors.primary} />
             </View>
+          ) : skillsLoadError ? (
+            <ListErrorState
+              title="Could not load skills"
+              description="Pull to refresh or tap retry."
+              onAction={() => {
+                void loadSkills(false);
+              }}
+            />
           ) : skills.length === 0 ? (
-            <View className="items-center py-8">
-              <Text className="text-sm text-textPrimary/70 dark:text-white/70">No skills added yet.</Text>
-            </View>
+            <ListEmptyState
+              icon="list-outline"
+              title="No skills added yet."
+              description="Add a skill to start receiving nearby jobs."
+              actionLabel={APP_TEXT.profile.allSkills.addSkillButton}
+              onAction={() => navigation.navigate(PROFILE_SCREENS.skillManager)}
+            />
           ) : (
             <View>
               {skills.map((skill, index) => {

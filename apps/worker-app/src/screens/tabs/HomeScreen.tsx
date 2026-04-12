@@ -16,6 +16,8 @@ import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { WorkerHomeData, WorkerHomeNearbyJob } from '@/types/auth';
@@ -52,6 +54,7 @@ export function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [topBarHeight, setTopBarHeight] = useState(0);
+  const [nearbyJobsLoadError, setNearbyJobsLoadError] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData>({ availableNearbyJobs: [] });
 
   const loadHomeData = useCallback(async (isPullToRefresh = false) => {
@@ -60,8 +63,10 @@ export function HomeScreen() {
     try {
       const data = await getWorkerHome();
       setHomeData(data);
+      setNearbyJobsLoadError(false);
     } catch {
       setHomeData({ availableNearbyJobs: [] });
+      setNearbyJobsLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -233,10 +238,22 @@ export function HomeScreen() {
               <Text className="ml-2 text-sm text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.nearbyJobsLoading}</Text>
             </View>
           </View>
+        ) : nearbyJobsLoadError ? (
+          <ListErrorState
+            containerClassName="mt-3"
+            title="Could not load nearby jobs"
+            description="Pull to refresh or tap retry."
+            onAction={() => {
+              void loadHomeData(true);
+            }}
+          />
         ) : nearbyJobs.length === 0 ? (
-          <View className="mt-3 rounded-ui-md border p-4" style={{ borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }}>
-            <Text className="text-sm text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.nearbyJobsEmpty}</Text>
-          </View>
+          <ListEmptyState
+            containerClassName="mt-3"
+            icon="briefcase-outline"
+            title={APP_TEXT.home.nearbyJobsEmpty}
+            description="New jobs will appear here when available."
+          />
         ) : (
           <View className="mt-2 gap-2">
             {nearbyJobs.map((job, index) => {
