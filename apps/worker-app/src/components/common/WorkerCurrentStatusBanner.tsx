@@ -34,28 +34,66 @@ export function WorkerCurrentStatusBanner({ currentStatus }: WorkerCurrentStatus
   const message = typeof currentStatus.message === 'string' && currentStatus.message.trim().length > 0
     ? currentStatus.message.trim()
     : 'Status updated.';
+  const createdAtText = typeof currentStatus.createdAt === 'string'
+    ? currentStatus.createdAt
+    : undefined;
+  const formattedLastStatusAt = (() => {
+    if (!createdAtText) return '';
+    const parsed = new Date(createdAtText);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  })();
 
   return (
     <View
-      className="mt-4 rounded-2xl border px-4 py-3"
+      className="mt-4 overflow-hidden rounded-ui-lg border"
       style={{
         borderColor: tone.color,
-        backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
+        backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
       }}
     >
-      <View className="flex-row items-start">
-        <View className="mr-2 mt-0.5 h-7 w-7 items-center justify-center rounded-full" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-          <Ionicons name={tone.icon} size={16} color={tone.color} />
+      <View
+        className="h-1.5"
+        style={{
+          backgroundColor: tone.color,
+        }}
+      />
+      <View className="px-4 py-3">
+        <View className="flex-row items-center">
+          <View className="mr-3 flex-row items-center">
+            <View
+              className="mr-2 h-8 w-8 items-center justify-center rounded-ui-pill"
+              style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+            >
+              <Ionicons name={tone.icon} size={17} color={tone.color} />
+            </View>
+            <View>
+              <Text className="text-base font-semibold" style={{ color: tone.color }}>
+                {tone.label}
+              </Text>
+            </View>
+          </View>
         </View>
-        <View className="flex-1">
-          <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-            Current Status
+        <Text className="mt-2 text-sm leading-5" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
+          {message}
+        </Text>
+        <View className="mt-2 flex-row justify-end">
+          <Text className="text-[11px] font-semibold" style={{ color: tone.color }}>
+            {formattedLastStatusAt || '-'}
           </Text>
-          <Text className="mt-1 text-sm font-semibold" style={{ color: tone.color }}>
-            {tone.label}
-          </Text>
-          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {message}
+        </View>
+        <View className="mt-3 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+        <View className="mt-2 flex-row items-center">
+          <Ionicons name="information-circle-outline" size={14} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+          <Text className="ml-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            We will notify you when your status changes.
           </Text>
         </View>
       </View>

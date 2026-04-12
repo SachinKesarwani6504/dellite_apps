@@ -18,6 +18,13 @@ module.exports = {
         caution: tokens.colors.caution,
         negative: tokens.colors.negative,
       },
+      borderRadius: {
+        'ui-sm': '12px',
+        'ui-md': '16px',
+        'ui-lg': '20px',
+        'ui-xl': '24px',
+        'ui-pill': '9999px',
+      },
     },
   },
   plugins: [],

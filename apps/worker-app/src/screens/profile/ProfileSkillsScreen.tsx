@@ -2,7 +2,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Switch, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Switch, Text, View, useColorScheme } from 'react-native';
 import { getWorkerStatus, updateWorkerServices } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
@@ -49,7 +49,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
     }
 
     try {
-      const status = await getWorkerStatus();
+      const status = await getWorkerStatus({ sortBy: 'status', direction: 'asc' });
       const nextSkills = Array.isArray(status.skills) ? (status.skills as WorkerSkill[]) : [];
       setSkills(nextSkills);
       setActiveBySkillId(prev => {
@@ -101,9 +101,9 @@ export function ProfileSkillsScreen({ navigation }: Props) {
   }, [me?.links?.worker, skills.length]);
 
   const onRefresh = useCallback(() => {
-    if (loading || refreshing) return;
+    if (refreshing) return;
     void loadSkills(true);
-  }, [loadSkills, loading, refreshing]);
+  }, [loadSkills, refreshing]);
 
   const onToggleSkillAvailability = useCallback(async (skill: WorkerSkill, nextIsAvailable: boolean) => {
     const skillId = skill.workerSkillId ?? skill.id;
@@ -127,18 +127,17 @@ export function ProfileSkillsScreen({ navigation }: Props) {
   }, [togglingBySkillId]);
 
   return (
-    <GradientScreen contentContainerStyle={{ paddingBottom: 20 }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={(
-          <RefreshControl
-            key={modeKey}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            {...refreshProps}
-          />
-        )}
-      >
+    <GradientScreen
+      contentContainerStyle={{ paddingBottom: 20 }}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
+    >
         <View className="mb-4">
           <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
         </View>
@@ -240,7 +239,6 @@ export function ProfileSkillsScreen({ navigation }: Props) {
             </View>
           )}
         </View>
-      </ScrollView>
     </GradientScreen>
   );
 }

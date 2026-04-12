@@ -1,6 +1,5 @@
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
-import { ApiError } from '@/types/api';
 import {
   CategoryService,
   CategoriesQuery,
@@ -12,9 +11,15 @@ import {
   WorkerProfilePayload,
   WorkerServicePayload,
   WorkerServiceUpdatePayload,
+  WorkerHomeData,
+  WorkerHomeFooterActions,
+  WorkerHomeHeaderBanner,
+  WorkerHomeNearbyJob,
+  WorkerHomeTodayStats,
   WorkerStatusData,
   WorkerStatusResponse,
 } from '@/types/auth';
+import { ApiError } from '@/types/api';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
@@ -35,6 +40,118 @@ type RawServiceCategory = Omit<ServiceCategory, 'subcategories'> & {
 };
 
 type WorkerStatusEnvelopeOrData = WorkerStatusResponse | WorkerStatusData;
+type WorkerStatusSortDirection = 'asc' | 'desc';
+type WorkerStatusQuery = {
+  sortBy?: 'status';
+  direction?: WorkerStatusSortDirection;
+};
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function normalizeWorkerHomeHeaderBanner(value: unknown): WorkerHomeHeaderBanner | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    imageUrl: toOptionalString(raw.imageUrl ?? raw.image_url),
+    name: toOptionalString(raw.name),
+    averageRating: toOptionalNumber(raw.averageRating ?? raw.average_rating),
+    reviewsCount: toOptionalNumber(raw.reviewsCount ?? raw.reviews_count),
+    currentCity: toOptionalString(raw.currentCity ?? raw.current_city),
+  };
+}
+
+function normalizeWorkerHomeTodayStats(value: unknown): WorkerHomeTodayStats | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  const growthRaw = raw.growth;
+  const growth = typeof growthRaw === 'string'
+    ? growthRaw
+    : toOptionalNumber(growthRaw);
+  return {
+    totalJobs: toOptionalNumber(raw.totalJobs ?? raw.total_jobs),
+    totalEarning: toOptionalNumber(raw.totalEarning ?? raw.total_earning),
+    growth,
+  };
+}
+
+function normalizeWorkerHomeNearbyJob(value: unknown): WorkerHomeNearbyJob | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  return {
+    id: toOptionalString(raw.id),
+    name: toOptionalString(raw.name),
+    title: toOptionalString(raw.title ?? raw.serviceName ?? raw.service_name),
+    distanceKm: toOptionalNumber(raw.distanceKm ?? raw.distance_km),
+    location: toOptionalString(raw.location ?? raw.city ?? raw.area),
+    city: toOptionalString(raw.city),
+    schedule: toOptionalString(raw.schedule),
+    timeRange: toOptionalString(raw.timeRange ?? raw.time_range),
+    price: toOptionalNumber(raw.price ?? raw.payout),
+    payout: toOptionalNumber(raw.payout),
+    priceLabel: toOptionalString(raw.priceLabel ?? raw.price_label),
+    imageUrl: toOptionalString(raw.imageUrl ?? raw.image_url),
+  };
+}
+
+function normalizeWorkerHomeFooterActions(value: unknown): WorkerHomeFooterActions | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  return {
+    currentCity: toOptionalString(raw.currentCity ?? raw.current_city),
+    primaryAction: toOptionalString(raw.primaryAction ?? raw.primary_action),
+    secondaryAction: toOptionalString(raw.secondaryAction ?? raw.secondary_action),
+    madeWith: toOptionalString(raw.madeWith ?? raw.made_with),
+    from: toOptionalString(raw.from),
+    region: toOptionalString(raw.region),
+    copyright: toOptionalString(raw.copyright),
+    activeStatusValue: toOptionalString(raw.activeStatusValue ?? raw.active_status_value),
+  };
+}
+
+function normalizeWorkerHomeData(value: unknown): WorkerHomeData {
+  if (!value || typeof value !== 'object') {
+    return { availableNearbyJobs: [] };
+  }
+  const raw = value as Record<string, unknown>;
+  const currentStatusRaw = raw.currentStatus ?? raw.current_status;
+  const currentStatus = currentStatusRaw && typeof currentStatusRaw === 'object'
+    ? {
+      id: toOptionalString((currentStatusRaw as Record<string, unknown>).id),
+      workerId: toOptionalString((currentStatusRaw as Record<string, unknown>).workerId ?? (currentStatusRaw as Record<string, unknown>).worker_id),
+      status: toOptionalString((currentStatusRaw as Record<string, unknown>).status),
+      isLatest: toOptionalBoolean((currentStatusRaw as Record<string, unknown>).isLatest ?? (currentStatusRaw as Record<string, unknown>).is_latest),
+      message: toOptionalString((currentStatusRaw as Record<string, unknown>).message),
+      createdAt: toOptionalString((currentStatusRaw as Record<string, unknown>).createdAt ?? (currentStatusRaw as Record<string, unknown>).created_at),
+      updatedAt: toOptionalString((currentStatusRaw as Record<string, unknown>).updatedAt ?? (currentStatusRaw as Record<string, unknown>).updated_at),
+    }
+    : null;
+
+  const jobsSource = Array.isArray(raw.availableNearbyJobs)
+    ? raw.availableNearbyJobs
+    : (Array.isArray(raw.available_nearby_jobs) ? raw.available_nearby_jobs : []);
+  const availableNearbyJobs = jobsSource
+    .map(normalizeWorkerHomeNearbyJob)
+    .filter((job): job is WorkerHomeNearbyJob => Boolean(job));
+
+  return {
+    currentStatus,
+    headerBanner: normalizeWorkerHomeHeaderBanner(raw.headerBanner ?? raw.header_banner),
+    todayStats: normalizeWorkerHomeTodayStats(raw.todayStats ?? raw.today_stats),
+    availableNearbyJobs,
+    footerActions: normalizeWorkerHomeFooterActions(raw.footerActions ?? raw.footer_actions ?? raw.footer),
+  };
+}
 type WorkerServiceCreateResponse = {
   city?: string;
   skillReviews?: unknown[];
@@ -213,22 +330,19 @@ export async function updateWorkerProfile(
   return unwrapData(response);
 }
 
-export async function getWorkerStatus<T = WorkerStatusData>() {
-  let data: WorkerStatusEnvelopeOrData;
-  try {
-    const response = await apiGet<ApiEnvelope<WorkerStatusEnvelopeOrData>>('/worker/certificate/status', { auth: true });
-    data = unwrapData(response) as WorkerStatusEnvelopeOrData;
-  } catch (error) {
-    const shouldFallback = error instanceof ApiError && error.statusCode === 404;
-    if (!shouldFallback) {
-      throw error;
-    }
-    const fallbackResponse = await apiGet<ApiEnvelope<WorkerStatusEnvelopeOrData>>(
-      '/worker/skills/status?includeCertificate=true',
-      { auth: true },
-    );
-    data = unwrapData(fallbackResponse) as WorkerStatusEnvelopeOrData;
-  }
+function toWorkerStatusQueryString(query?: WorkerStatusQuery) {
+  if (!query || query.sortBy !== 'status' || !query.direction) return '';
+  const params = new URLSearchParams();
+  params.set('sortBy', query.sortBy);
+  params.set('direction', query.direction);
+  return params.toString();
+}
+
+export async function getWorkerStatus<T = WorkerStatusData>(query?: WorkerStatusQuery) {
+  const qs = toWorkerStatusQueryString(query);
+  const path = qs ? `/worker/skills/status?${qs}` : '/worker/skills/status';
+  const response = await apiGet<ApiEnvelope<WorkerStatusEnvelopeOrData>>(path, { auth: true });
+  const data = unwrapData(response) as WorkerStatusEnvelopeOrData;
 
   // Supports both wrapped { statusCode, message, data } and direct payload formats.
   const statusData = (data && typeof data === 'object' && 'data' in data)
@@ -323,6 +437,21 @@ export async function getWorkerStatus<T = WorkerStatusData>() {
     certificates: normalizedCards,
     requiredCertificates: normalizedCards,
   } as T;
+}
+
+export async function getWorkerHome(): Promise<WorkerHomeData> {
+  try {
+    const response = await apiGet<ApiEnvelope<unknown>>('/woker/home', { auth: true });
+    return normalizeWorkerHomeData(unwrapData(response));
+  } catch (error) {
+    const shouldFallback = error instanceof ApiError && error.statusCode === 404;
+    if (!shouldFallback) {
+      throw error;
+    }
+  }
+
+  const fallbackResponse = await apiGet<ApiEnvelope<unknown>>('/worker/home', { auth: true });
+  return normalizeWorkerHomeData(unwrapData(fallbackResponse));
 }
 
 export async function createWorkerServices(

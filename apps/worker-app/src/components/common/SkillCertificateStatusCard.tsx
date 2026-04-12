@@ -30,6 +30,7 @@ export function SkillCertificateStatusCard({
 }: SkillCertificateStatusCardProps) {
   const isDark = useColorScheme() === 'dark';
   const showAddButton = certificateState === 'required' && Boolean(onAddCertificate);
+  const showCertificateMessage = certificateState !== 'not_required';
 
   return (
     <View
@@ -54,54 +55,56 @@ export function SkillCertificateStatusCard({
           {extraContent}
         </View>
 
-        <View
-          className="mt-3 flex-row items-start rounded-xl border px-3 py-2"
-          style={{
-            borderColor:
-              certificateState === 'required'
-                ? theme.colors.caution
-                : certificateState === 'approved'
-                  ? theme.colors.positive
-                  : theme.colors.accent,
-            backgroundColor:
-              certificateState === 'required'
-                ? uiColors.surface.accentSoft20
-                : uiColors.surface.overlayLight85,
-          }}
-        >
-          <Ionicons
-            name={
-              certificateState === 'required'
-                ? 'alert-circle-outline'
-                : certificateState === 'approved'
-                  ? 'checkmark-circle-outline'
-                  : certificateState === 'pending'
-                    ? 'time-outline'
-                    : 'information-circle-outline'
-            }
-            size={16}
-            color={
-              certificateState === 'required'
-                ? theme.colors.caution
-                : certificateState === 'approved'
-                  ? theme.colors.positive
-                  : theme.colors.primary
-            }
-          />
-          <Text
-            className="ml-2 flex-1 text-xs font-medium"
+        {showCertificateMessage ? (
+          <View
+            className="mt-3 flex-row items-start rounded-xl border px-3 py-2"
             style={{
-              color:
+              borderColor:
                 certificateState === 'required'
                   ? theme.colors.caution
                   : certificateState === 'approved'
                     ? theme.colors.positive
-                    : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight),
+                    : theme.colors.accent,
+              backgroundColor:
+                certificateState === 'required'
+                  ? uiColors.surface.accentSoft20
+                  : uiColors.surface.overlayLight85,
             }}
           >
-            {certificateMessage}
-          </Text>
-        </View>
+            <Ionicons
+              name={
+                certificateState === 'required'
+                  ? 'alert-circle-outline'
+                  : certificateState === 'approved'
+                    ? 'checkmark-circle-outline'
+                    : certificateState === 'pending'
+                      ? 'time-outline'
+                      : 'information-circle-outline'
+              }
+              size={16}
+              color={
+                certificateState === 'required'
+                  ? theme.colors.caution
+                  : certificateState === 'approved'
+                    ? theme.colors.positive
+                    : theme.colors.primary
+              }
+            />
+            <Text
+              className="ml-2 flex-1 text-xs font-medium"
+              style={{
+                color:
+                  certificateState === 'required'
+                    ? theme.colors.caution
+                    : certificateState === 'approved'
+                      ? theme.colors.positive
+                      : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight),
+              }}
+            >
+              {certificateMessage}
+            </Text>
+          </View>
+        ) : null}
 
         {showAddButton ? (
           <Pressable

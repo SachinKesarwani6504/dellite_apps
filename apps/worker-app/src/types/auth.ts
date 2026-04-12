@@ -306,3 +306,53 @@ export type WorkerStatusResponse = {
   message: string;
   data: WorkerStatusData;
 };
+
+export type WorkerHomeCurrentStatus = WorkerCurrentStatus;
+
+export interface WorkerHomeHeaderBanner {
+  imageUrl?: string;
+  name?: string;
+  averageRating?: number;
+  reviewsCount?: number;
+  currentCity?: string;
+}
+
+export interface WorkerHomeTodayStats {
+  totalJobs?: number;
+  totalEarning?: number;
+  growth?: number | string;
+}
+
+export interface WorkerHomeNearbyJob {
+  id?: string;
+  name?: string;
+  title?: string;
+  distanceKm?: number;
+  location?: string;
+  city?: string;
+  schedule?: string;
+  timeRange?: string;
+  price?: number;
+  payout?: number;
+  priceLabel?: string;
+  imageUrl?: string;
+}
+
+export interface WorkerHomeFooterActions {
+  currentCity?: string;
+  primaryAction?: string;
+  secondaryAction?: string;
+  madeWith?: string;
+  from?: string;
+  region?: string;
+  copyright?: string;
+  activeStatusValue?: string;
+}
+
+export interface WorkerHomeData {
+  currentStatus?: WorkerHomeCurrentStatus | null;
+  headerBanner?: WorkerHomeHeaderBanner;
+  todayStats?: WorkerHomeTodayStats;
+  availableNearbyJobs?: WorkerHomeNearbyJob[];
+  footerActions?: WorkerHomeFooterActions;
+}
