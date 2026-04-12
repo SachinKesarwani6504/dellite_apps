@@ -7,7 +7,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { SectionCard } from '@/components/common/SectionCard';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useApiGet } from '@/hooks/useApiGet';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { REFERRAL_ROLES, type ReferralInfo, type ReferralMatrixEntry, type ReferralReward, type ReferralRole } from '@/types/auth';
 import { formatTriggerEventLabel, rewardLabel, roleBadgeLabel, toNumber, worthLabel } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
@@ -26,7 +26,7 @@ type ReferralInfoResponseData = {
 export function ReferralScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation();
-  const { authState } = useAuth();
+  const { authState } = useAuthContext();
   const user = authState.user;
   const {
     data: referralResponse,

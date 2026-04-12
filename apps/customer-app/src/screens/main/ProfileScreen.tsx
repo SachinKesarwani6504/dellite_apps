@@ -9,12 +9,12 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { SectionCard } from '@/components/common/SectionCard';
 import { formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { PROFILE_SCREEN } from '@/types/screen-names';
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
-  const { authState, logout, loading, refreshMe } = useAuth();
+  const { authState, logout, loading, refreshMe } = useAuthContext();
   const navigation = useNavigation();
   const user = authState.user;
   const refreshControlProps = useBrandRefreshControl(async () => {

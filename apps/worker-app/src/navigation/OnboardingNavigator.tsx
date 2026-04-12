@@ -1,8 +1,8 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
+import { OnboardingCertificationScreen } from '@/screens/onboarding/OnboardingCertificationScreen';
 import { OnboardingIdentityScreen } from '@/screens/onboarding/OnboardingIdentityScreen';
 import { OnboardingServiceSelectionScreen } from '@/screens/onboarding/OnboardingServiceSelectionScreen';
-import { OnboardingCertificationScreen } from '@/screens/onboarding/OnboardingCertificationScreen';
 import { WelcomeWorkerScreen } from '@/screens/onboarding/WelcomeWorkerScreen';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
@@ -10,7 +10,7 @@ import { ONBOARDING_SCREENS } from '@/types/screen-names';
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
 
 export function OnboardingNavigator() {
-  const { onboardingRoute } = useAuthContext();
+  const { onboardingRoute } = useOnboardingContext();
 
   return (
     <Stack.Navigator

@@ -2,7 +2,8 @@ import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useColorScheme } from 'react-native';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
@@ -12,7 +13,8 @@ import { palette, ROOT_SCREEN, theme, uiColors } from '@/utils';
 const RootStack = createNativeStackNavigator();
 
 export function AppNavigator() {
-  const { authState } = useAuth();
+  const { authState } = useAuthContext();
+  const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
   const isDark = useColorScheme() === 'dark';
 
   if (authState.status === AUTH_STATUS.BOOTSTRAPPING) {
@@ -36,11 +38,15 @@ export function AppNavigator() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {authState.status === AUTH_STATUS.LOGGED_OUT ? (
-          <RootStack.Screen name={ROOT_SCREEN.AUTH_NAVIGATOR} component={AuthNavigator} />
-        ) : authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME ? (
+        {authState.status === AUTH_STATUS.LOGGED_OUT || authState.status === AUTH_STATUS.OTP_SENT ? (
           <RootStack.Screen
-            key={authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME ? 'welcome' : 'identity'}
+            key={authState.status}
+            name={ROOT_SCREEN.AUTH_NAVIGATOR}
+            component={AuthNavigator}
+          />
+        ) : onboardingLoading || isOnboardingActive || authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME ? (
+          <RootStack.Screen
+            key="onboarding"
             name={ROOT_SCREEN.ONBOARDING_NAVIGATOR}
             component={OnboardingNavigator}
           />

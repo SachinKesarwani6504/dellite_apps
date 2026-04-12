@@ -2,12 +2,11 @@ import { AUTH_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } f
 
 export type AuthStackParamList = {
   [AUTH_SCREENS.phoneLogin]: undefined;
-  [AUTH_SCREENS.otpVerification]: { phoneNumber: string };
+  [AUTH_SCREENS.otpVerification]: undefined;
 };
 
 export type OnboardingStackParamList = {
   [ONBOARDING_SCREENS.identity]: undefined;
-  [ONBOARDING_SCREENS.aadhaar]: undefined;
   [ONBOARDING_SCREENS.serviceSelection]: undefined;
   [ONBOARDING_SCREENS.certification]: undefined;
   [ONBOARDING_SCREENS.welcomeWorker]: undefined;
@@ -20,6 +19,8 @@ export type ProfileStackParamList = {
   [PROFILE_SCREENS.helpSupport]: undefined;
   [PROFILE_SCREENS.referral]: undefined;
   [PROFILE_SCREENS.allSkills]: undefined;
+  [PROFILE_SCREENS.certificateManager]: undefined;
+  [PROFILE_SCREENS.skillManager]: undefined;
 };
 
 export type MainTabParamList = {

@@ -1,5 +1,5 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Image, Text, TextInput, View, useColorScheme } from 'react-native';
 import { Button } from '@/components/common/Button';
@@ -30,7 +30,7 @@ export function PhoneLoginScreen({ navigation }: Props) {
       const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
       if (!isValidPhoneNumber(normalizedPhoneNumber) || loading) return;
       await sendOtpCode(normalizedPhoneNumber, APP_AUTH_ROLE);
-      navigation.navigate(AUTH_SCREENS.otpVerification, { phoneNumber: normalizedPhoneNumber });
+      navigation.navigate(AUTH_SCREENS.otpVerification);
     } catch {
       // Toasts are handled centrally in the HTTP layer.
     }

@@ -2,19 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Text, TextInput, View, useColorScheme } from 'react-native';
 
-import { requestOtp } from '@/actions/authActions';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { TrustPills, type TrustPillItem } from '@/components/common/TrustPills';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { AUTH_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { BRAND } from '@/constants/brand';
-import { AUTH_SCREEN, palette, theme, uiColors } from '@/utils';
-
-type Props = {
-  navigation: {
-    navigate: (screen: string, params: { phone: string }) => void;
-  };
-};
+import { palette, theme, uiColors } from '@/utils';
 
 const TRUST_PILLS: TrustPillItem[] = [
   { id: 'verified', label: 'Verified Experts', icon: 'shield-checkmark-outline' },
@@ -23,11 +18,17 @@ const TRUST_PILLS: TrustPillItem[] = [
   { id: 'services', label: '100+ Services', icon: 'home-outline' },
 ];
 
+type Props = {
+  navigation: {
+    navigate: (screen: typeof AUTH_SCREEN.OTP_VERIFICATION) => void;
+  };
+};
+
 export function PhoneLoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [loading, setLoading] = useState(false);
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [activePillId, setActivePillId] = useState(TRUST_PILLS[0].id);
+  const { sendOtpCode, loading } = useAuthContext();
   const isDark = useColorScheme() === 'dark';
   const normalizedPhone = phoneNumber.replace(/\D/g, '');
   const isPhoneComplete = normalizedPhone.length === 10;
@@ -37,14 +38,9 @@ export function PhoneLoginScreen({ navigation }: Props) {
       return;
     }
 
-    setLoading(true);
-    try {
-      await requestOtp({ phone: normalizedPhone });
-      navigation.navigate(AUTH_SCREEN.OTP_VERIFICATION, { phone: normalizedPhone });
-    } finally {
-      setLoading(false);
-    }
-  }, [isPhoneComplete, navigation, normalizedPhone]);
+    await sendOtpCode(normalizedPhone);
+    navigation.navigate(AUTH_SCREEN.OTP_VERIFICATION);
+  }, [isPhoneComplete, navigation, normalizedPhone, sendOtpCode]);
 
   useEffect(() => {
     const interval = setInterval(() => {

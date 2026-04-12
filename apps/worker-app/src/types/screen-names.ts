@@ -5,7 +5,6 @@ export const AUTH_SCREENS = {
 
 export const ONBOARDING_SCREENS = {
   identity: 'OnboardingIdentity',
-  aadhaar: 'OnboardingAadhaar',
   serviceSelection: 'OnboardingServiceSelection',
   certification: 'OnboardingCertification',
   welcomeWorker: 'WelcomeWorker',
@@ -18,6 +17,8 @@ export const PROFILE_SCREENS = {
   helpSupport: 'HelpSupport',
   referral: 'Referral',
   allSkills: 'AllSkills',
+  certificateManager: 'ProfileCertificateAddAndEdit',
+  skillManager: 'ProfileSkillAddAndEdit',
 } as const;
 
 export const MAIN_TAB_SCREENS = {
@@ -35,5 +36,7 @@ export const SCREEN_TITLES = {
     helpSupport: 'Help & Support',
     referral: 'Referral',
     allSkills: 'All Skills',
+    certificateManager: 'Manage Certificates',
+    skillManager: 'Manage Skills',
   },
 } as const;

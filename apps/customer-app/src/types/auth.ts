@@ -1,6 +1,7 @@
 export const AUTH_STATUS = {
   BOOTSTRAPPING: 'bootstrapping',
   LOGGED_OUT: 'logged_out',
+  OTP_SENT: 'otp_sent',
   ONBOARDING: 'onboarding',
   POST_ONBOARDING_WELCOME: 'post_onboarding_welcome',
   AUTHENTICATED: 'authenticated',
@@ -174,5 +175,6 @@ export type AuthState = {
   status: AuthStatus;
   tokens: AuthTokens | null;
   phoneToken: string | null;
+  phone: string;
   user: AuthUser | null;
 };

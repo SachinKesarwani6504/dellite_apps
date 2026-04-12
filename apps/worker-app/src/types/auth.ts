@@ -51,9 +51,20 @@ export type ReferralInfo = {
   bothRolesRule?: string;
 };
 
+export interface WorkerCurrentStatus {
+  id?: string;
+  workerId?: string;
+  status?: string;
+  isLatest?: boolean;
+  message?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface WorkerProfileLink {
   id?: string;
   userId?: string;
+  currentStatus?: WorkerCurrentStatus;
   skillCount?: number;
   completedJobCount?: number;
   certificatesCount?: number;
@@ -87,12 +98,12 @@ export interface AuthUser {
 export interface WorkerOnboardingFlags {
   hasPhoneVerified?: boolean;
   hasCompletedBasicProfile?: boolean;
-  hasAadhaarVerified?: boolean;
   hasAddedServiceSkills?: boolean;
   hasUploadedRequiredCertificates?: boolean;
   hasSeenSkillSetup?: boolean;
   hasSeenCertificateSetup?: boolean;
   hasSeenOnboardingWelcomeScreen?: boolean;
+  isAnyServiceApprovedToEarnMoney?: boolean;
   currentStep?: string;
 }
 
@@ -179,75 +190,40 @@ export interface CustomerProfilePayload {
 
 export interface WorkerServicePayload {
   city: string;
-  services: string[];
+  skills?: string[];
+  services?: string[];
 }
 
 export interface WorkerServiceUpdatePayload {
-  workerServiceId: string;
+  workerSkillId?: string;
+  workerServiceId?: string;
   cityId?: string;
   experienceYears?: number;
   priceOverride?: number;
+  isAvailable?: boolean;
 }
 
-export interface AadhaarIdentityVerificationPayload {
-  aadhaarVerificationReferenceId: string;
-  aadhaarVerificationScore: number;
-  aadhaarVerificationMethod?: 'QR_SCAN' | string;
-  aadhaarVerificationProvider?: 'INTERNAL' | string;
-  aadhaarFullName: string;
-  aadhaarDateOfBirth: string;
-  aadhaarGender: 'MALE' | 'FEMALE' | 'OTHER' | string;
-  aadhaarLast4: string;
-  aadhaarMaskedNumber: string;
-  aadhaarPhotoFileId: string;
-}
-
-export interface AadhaarIdentityVerificationRecord {
-  id: string;
-  userId: string;
-  aadhaarVerificationStatus: 'VERIFIED' | 'PENDING' | 'REJECTED' | string;
-  aadhaarVerificationMethod?: string;
-  aadhaarVerificationProvider?: string;
-  aadhaarVerificationReferenceId?: string;
-  aadhaarVerificationScore?: number;
-  aadhaarVerifiedAt?: string;
-  aadhaarFullName?: string;
-  aadhaarDateOfBirth?: string;
-  aadhaarGender?: string;
-  aadhaarPhotoFileId?: string;
-  aadhaarLast4?: string;
-  aadhaarMaskedNumber?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  aadhaarPhotoFile?: {
-    id: string;
-    filename?: string;
-    url?: string;
-  };
-}
-
-export interface AadhaarIdentityVerificationSaveResult {
-  isVerified: boolean;
-  message?: string;
-  record?: AadhaarIdentityVerificationRecord;
-}
-
-export interface WorkerCertificateWriteItem {
-  certificateId?: string;
+export interface CreateWorkerCertificateItem {
   certificateType: string;
-  serviceIds: string[];
+  workerSkillIds?: string[];
   fileId?: string;
   fileName?: string;
   fileType?: string;
   fileUrl?: string;
 }
 
+export interface UpdateWorkerCertificateItem extends CreateWorkerCertificateItem {
+  certificateId?: string;
+}
+
+export type WorkerCertificateWriteItem = UpdateWorkerCertificateItem;
+
 export interface WorkerCertificateCreatePayload {
-  certificates: WorkerCertificateWriteItem[];
+  certificates: CreateWorkerCertificateItem[];
 }
 
 export interface WorkerCertificateUpdatePayload {
-  certificates: WorkerCertificateWriteItem[];
+  certificates: UpdateWorkerCertificateItem[];
 }
 
 export interface CategoryService {
@@ -318,7 +294,9 @@ export type WorkerStatusData = {
     status?: string;
     reviewedAt?: string;
     rejectionReason?: string;
-    isActive?: boolean;
+    isAvailable?: boolean;
+    isCertificateRequired?: boolean;
+    isCertificateAdded?: boolean;
   }>;
   certificates: WorkerCertificateCard[];
 };

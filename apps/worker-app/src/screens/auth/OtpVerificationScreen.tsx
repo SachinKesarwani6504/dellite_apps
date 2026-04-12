@@ -17,19 +17,18 @@ import { isValidOtp, normalizeOtp } from '@/utils/validation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, typeof AUTH_SCREENS.otpVerification>;
 
-export function OtpVerificationScreen({ route, navigation }: Props) {
+export function OtpVerificationScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const heroGradient = isDark
     ? ([palette.dark.background, uiColors.surface.cardDefaultDark] as const)
     : theme.gradients.hero;
-  const { phoneNumber } = route.params;
-  const { verifyOtpCode, resendOtpCode, loading } = useAuthContext();
+  const { phone, verifyOtpCode, resendOtpCode, loading } = useAuthContext();
   const [otp, setOtp] = useState('');
   const [resending, setResending] = useState(false);
   const resendDuration = 60;
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [resendAvailableAt, setResendAvailableAt] = useState(() => Date.now() + resendDuration * 1000);
-  const maskedPhone = useMemo(() => maskPhoneNumber(phoneNumber), [phoneNumber]);
+  const maskedPhone = useMemo(() => maskPhoneNumber(phone), [phone]);
   const isBusy = loading || resending;
   const counter = Math.max(0, Math.ceil((resendAvailableAt - nowMs) / 1000));
   const canResend = counter <= 0 && !isBusy;
@@ -54,8 +53,8 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
   const onVerify = async () => {
     try {
       const normalizedOtp = normalizeOtp(otp);
-      if (!isValidOtp(normalizedOtp) || isBusy) return;
-      await verifyOtpCode(phoneNumber, normalizedOtp);
+      if (!phone || !isValidOtp(normalizedOtp) || isBusy) return;
+      await verifyOtpCode(phone, normalizedOtp);
     } catch {
       // Toasts are handled centrally in the HTTP layer.
     }
@@ -65,7 +64,8 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
     if (counter > 0) return;
     try {
       setResending(true);
-      await resendOtpCode(phoneNumber);
+      if (!phone) return;
+      await resendOtpCode(phone);
       setResendAvailableAt(Date.now() + resendDuration * 1000);
       setNowMs(Date.now());
     } catch {

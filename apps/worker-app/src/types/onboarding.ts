@@ -17,6 +17,7 @@ export type OnboardingCurrentStep =
   | string;
 
 export type SelectedCertificateFile = {
+  fileId?: string;
   name: string;
   type: string;
   url: string;

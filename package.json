@@ -10,6 +10,13 @@
     "android:worker": "npm --prefix apps/worker-app run android",
     "ios:worker": "npm --prefix apps/worker-app run ios",
     "web:worker": "npm --prefix apps/worker-app run web",
-    "typecheck:worker": "node ./node_modules/typescript/bin/tsc --project apps/worker-app/tsconfig.json --noEmit"
+    "typecheck:worker": "node ./node_modules/typescript/bin/tsc --project apps/worker-app/tsconfig.json --noEmit",
+    "typecheck:customer": "node ./node_modules/typescript/bin/tsc --project apps/customer-app/tsconfig.json --noEmit",
+    "lint:worker": "node ./scripts/quality-gate.js --app=worker",
+    "lint:customer": "node ./scripts/quality-gate.js --app=customer",
+    "lint:repo": "node ./scripts/quality-gate.js",
+    "verify:worker": "npm run lint:worker && npm run typecheck:worker",
+    "verify:customer": "npm run lint:customer && npm run typecheck:customer",
+    "verify:all": "npm run lint:repo && npm run typecheck:worker && npm run typecheck:customer"
   }
 }

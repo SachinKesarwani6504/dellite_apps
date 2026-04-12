@@ -7,13 +7,14 @@ import { updateWorkerProfile } from '@/actions';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useOnboardingScreenGuard } from '@/hooks/useOnboarding';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AppIcon } from '@/icons';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
+import { extractWorkerOnboardingFlags } from '@/utils/worker-onboarding';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ONBOARDING_SCREENS.welcomeWorker>;
 
@@ -26,7 +27,11 @@ type BenefitItem = {
 
 export function WelcomeWorkerScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { completeOnboardingFlow } = useAuthContext();
+  const { me } = useAuthContext();
+  const {
+    completeOnboardingFlow,
+    getOnboardingRedirect,
+  } = useOnboardingContext();
   const text = APP_TEXT.onboarding.welcome;
   const [starting, setStarting] = useState(false);
   const [step, setStep] = useState(0);
@@ -59,6 +64,28 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
   const confettiValues = useRef(confettiParticles.map(() => new Animated.Value(0))).current;
   const cardBackground = isDark ? uiColors.surface.cardElevatedDark : uiColors.surface.overlayLight95;
   const cardBorder = isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight;
+  const parseCount = (value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  };
+  const resolvedSkillCount = (() => {
+    const fromLinks = parseCount(me?.links?.worker?.skillCount as unknown);
+    if (fromLinks !== null) return fromLinks;
+    const fromUserLink = parseCount(me?.user?.workerLink?.skillCount as unknown);
+    if (fromUserLink !== null) return fromUserLink;
+    return 0;
+  })();
+  const onboardingFlags = extractWorkerOnboardingFlags(me?.onboarding);
+  const hasAnyServiceApprovedToEarnMoney = onboardingFlags?.isAnyServiceApprovedToEarnMoney === true
+    || (() => {
+      const approvedServices = (me?.links?.worker as Record<string, unknown> | undefined)?.approvedServices;
+      return Array.isArray(approvedServices) && approvedServices.length > 0;
+    })();
+  const shouldShowSkillReminder = !hasAnyServiceApprovedToEarnMoney && resolvedSkillCount <= 0;
   const perkGradients = useMemo<readonly [string, string][]>(
     () => [
       isDark
@@ -76,10 +103,12 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
   const benefitLabels = text.benefits;
   const isBusy = starting;
 
-  useOnboardingScreenGuard({
-    currentRoute: ONBOARDING_SCREENS.welcomeWorker,
-    onRedirect: route => navigation.replace(route),
-  });
+  useEffect(() => {
+    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.welcomeWorker);
+    if (redirect) {
+      navigation.replace(redirect);
+    }
+  }, [getOnboardingRedirect, navigation]);
 
   useEffect(() => {
     const t1 = setTimeout(() => setStep(1), 300);
@@ -140,7 +169,10 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
     if (isBusy) return;
     setStarting(true);
     try {
-      await updateWorkerProfile({ hasSeenOnboardingWelcomeScreen: true });
+      await updateWorkerProfile(
+        { hasSeenOnboardingWelcomeScreen: true },
+        { showSuccessToast: false, showErrorToast: false },
+      );
       completeOnboardingFlow();
     } finally {
       setStarting(false);
@@ -320,6 +352,25 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
           >
             {text.subtitle}
           </Animated.Text>
+
+          {shouldShowSkillReminder ? (
+            <Animated.View
+              className="mt-3 w-full rounded-2xl border px-3 py-3"
+              style={{
+                borderColor: theme.colors.caution,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+                opacity: step >= 1 ? 1 : 0,
+                transform: [{ translateY: step >= 1 ? 0 : 12 }],
+              }}
+            >
+              <View className="flex-row items-start">
+                <Ionicons name="information-circle-outline" size={18} color={theme.colors.caution} />
+                <Text className="ml-2 flex-1 text-xs font-semibold" style={{ color: isDark ? palette.dark.text : theme.colors.baseDark }}>
+                  Add at least one skill to start receiving jobs. You can add skills anytime from Profile.
+                </Text>
+              </View>
+            </Animated.View>
+          ) : null}
 
           <Animated.View
             className="mt-4 items-center"

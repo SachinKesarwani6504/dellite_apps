@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { View, useColorScheme } from 'react-native';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
@@ -11,6 +12,7 @@ import { palette, theme } from '@/utils/theme';
 
 export function AppNavigator() {
   const { status } = useAuthContext();
+  const { isOnboardingActive } = useOnboardingContext();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -28,16 +30,15 @@ export function AppNavigator() {
     }),
     [isDark],
   );
-
   return (
     <NavigationContainer theme={navTheme}>
       {status === AuthStatus.BOOTSTRAPPING ? (
         <View className="flex-1 items-center justify-center bg-white dark:bg-baseDark">
           <AppSpinner size="large" color={theme.colors.primary} />
         </View>
-      ) : status === AuthStatus.LOGGED_OUT ? (
-        <AuthNavigator />
-      ) : status === AuthStatus.PHONE_VERIFIED || status === AuthStatus.ONBOARDING ? (
+      ) : status === AuthStatus.LOGGED_OUT || status === AuthStatus.OTP_SENT ? (
+        <AuthNavigator key={status} />
+      ) : status === AuthStatus.PHONE_VERIFIED || (status === AuthStatus.AUTHENTICATED && isOnboardingActive) ? (
         <OnboardingNavigator />
       ) : (
         <MainTabsNavigator />
@@ -45,4 +46,3 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
-

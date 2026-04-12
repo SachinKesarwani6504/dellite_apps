@@ -17,6 +17,7 @@ const defaultState: AuthState = {
   status: AUTH_STATUS.BOOTSTRAPPING,
   tokens: null,
   phoneToken: null,
+  phone: '',
   user: null,
 };
 
@@ -256,9 +257,25 @@ export function useAuthController(): AuthContextType {
         status: AUTH_STATUS.LOGGED_OUT,
         tokens: null,
         phoneToken: null,
+        phone: '',
         user: null,
       });
     }
+  }, []);
+
+  const sendOtpCode = useCallback(async (phone: string) => {
+    await clearAuthTokens();
+    await clearOnboardingPhoneToken();
+    await authActions.sendOtp({ phone, role: 'CUSTOMER' });
+
+    setAuthState((prev) => ({
+      ...prev,
+      status: AUTH_STATUS.OTP_SENT,
+      tokens: null,
+      phoneToken: null,
+      phone,
+      user: null,
+    }));
   }, []);
 
   const verifyOtpAndSignIn = useCallback(
@@ -274,6 +291,7 @@ export function useAuthController(): AuthContextType {
           ...prev,
           tokens,
           phoneToken: null,
+          phone: payload.phone,
         }));
 
         await refreshMe();
@@ -291,6 +309,7 @@ export function useAuthController(): AuthContextType {
         status: AUTH_STATUS.ONBOARDING,
         phoneToken,
         tokens: null,
+        phone: payload.phone,
         user: null,
       }));
     },
@@ -317,6 +336,7 @@ export function useAuthController(): AuthContextType {
         ...prev,
         tokens,
         phoneToken: null,
+        phone: '',
         status: AUTH_STATUS.POST_ONBOARDING_WELCOME,
       }));
 
@@ -349,6 +369,10 @@ export function useAuthController(): AuthContextType {
         status: AUTH_STATUS.AUTHENTICATED,
       };
     });
+  }, []);
+
+  const resendOtpCode = useCallback(async (phone: string) => {
+    await authActions.resendOtp(phone);
   }, []);
 
   const completeWelcomeAndEnterMainTabs = useCallback(async () => {
@@ -385,6 +409,14 @@ export function useAuthController(): AuthContextType {
     (payload: { phone: string; otp: string }) => runWithActionState(() => verifyOtpAndSignIn(payload)),
     [runWithActionState, verifyOtpAndSignIn],
   );
+  const sendOtpCodeWithState = useCallback(
+    (phone: string) => runWithActionState(() => sendOtpCode(phone)),
+    [runWithActionState, sendOtpCode],
+  );
+  const resendOtpCodeWithState = useCallback(
+    (phone: string) => runWithActionState(() => resendOtpCode(phone)),
+    [runWithActionState, resendOtpCode],
+  );
   const completeOnboardingWithState = useCallback(
     (payload: UpdateCustomerIdentityPayload) => runWithActionState(() => completeOnboarding(payload)),
     [runWithActionState, completeOnboarding],
@@ -416,6 +448,7 @@ export function useAuthController(): AuthContextType {
               status: AUTH_STATUS.ONBOARDING,
               tokens: null,
               phoneToken: pendingPhoneToken,
+              phone: '',
               user: null,
             });
             return;
@@ -425,6 +458,7 @@ export function useAuthController(): AuthContextType {
             status: AUTH_STATUS.LOGGED_OUT,
             tokens: null,
             phoneToken: null,
+            phone: '',
             user: null,
           });
           return;
@@ -433,6 +467,7 @@ export function useAuthController(): AuthContextType {
         setAuthState((prev) => ({
           ...prev,
           tokens,
+          phone: prev.phone,
           status: AUTH_STATUS.BOOTSTRAPPING,
         }));
 
@@ -447,6 +482,7 @@ export function useAuthController(): AuthContextType {
             status: resolveAuthStatus(nextUser),
             tokens,
             phoneToken: null,
+            phone: '',
             user: nextUser,
           });
           await clearOnboardingPhoneToken();
@@ -459,6 +495,7 @@ export function useAuthController(): AuthContextType {
             status: AUTH_STATUS.LOGGED_OUT,
             tokens: null,
             phoneToken: null,
+            phone: '',
             user: null,
           });
         }
@@ -476,8 +513,10 @@ export function useAuthController(): AuthContextType {
     () => ({
       authState,
       loading,
+      sendOtpCode: sendOtpCodeWithState,
       refreshMe: refreshMeWithState,
       verifyOtpAndSignIn: verifyOtpAndSignInWithState,
+      resendOtpCode: resendOtpCodeWithState,
       completeOnboarding: completeOnboardingWithState,
       enterMainTabs: enterMainTabsWithState,
       completeWelcomeAndEnterMainTabs: completeWelcomeAndEnterMainTabsWithState,
@@ -486,8 +525,10 @@ export function useAuthController(): AuthContextType {
     [
       authState,
       loading,
+      sendOtpCodeWithState,
       refreshMeWithState,
       verifyOtpAndSignInWithState,
+      resendOtpCodeWithState,
       completeOnboardingWithState,
       enterMainTabsWithState,
       completeWelcomeAndEnterMainTabsWithState,

@@ -1,0 +1,4 @@
+skill_id: dellite-monorepo-defaults
+display_name: Dellite Monorepo Defaults
+short_description: Apply Dellite monorepo contract and parity checks
+default_prompt: Use this skill for Dellite repo coding tasks and enforce parity, naming, structure, and quality gates.

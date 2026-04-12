@@ -1,36 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppState, Image, Pressable, Text, View, useColorScheme } from 'react-native';
 
-import { resendOtp } from '@/actions/authActions';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { APP_TEXT } from '@/utils/appText';
 import { BRAND } from '@/constants/brand';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { AppIcon } from '@/icons';
 import { maskPhoneNumber, palette, theme, uiColors } from '@/utils';
 
 type Props = {
-  route: {
-    params: {
-      phone: string;
-    };
-  };
   navigation: {
     canGoBack: () => boolean;
     goBack: () => void;
   };
 };
 
-export function OtpVerificationScreen({ route, navigation }: Props) {
+export function OtpVerificationScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const phoneNumber = route.params.phone;
-  const { verifyOtpAndSignIn } = useAuth();
+  const { authState, verifyOtpAndSignIn, resendOtpCode, loading } = useAuthContext();
+  const phoneNumber = authState.phone;
 
   const [otp, setOtp] = useState('');
-  const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
   const resendDuration = 60;
@@ -58,26 +51,25 @@ export function OtpVerificationScreen({ route, navigation }: Props) {
   }, []);
 
   const onVerify = async () => {
-    if (otp.length !== 4) {
+    if (otp.length !== 4 || !phoneNumber || loading) {
       return;
     }
 
-    setLoading(true);
     try {
       await verifyOtpAndSignIn({ phone: phoneNumber, otp });
-    } finally {
-      setLoading(false);
+    } catch {
+      // Toast handling is centralized in HTTP layer.
     }
   };
 
   const onResend = async () => {
-    if (!canResend) {
+    if (!canResend || !phoneNumber) {
       return;
     }
 
     try {
       setResending(true);
-      await resendOtp(phoneNumber);
+      await resendOtpCode(phoneNumber);
       setResendAvailableAt(Date.now() + resendDuration * 1000);
       setNowMs(Date.now());
     } finally {

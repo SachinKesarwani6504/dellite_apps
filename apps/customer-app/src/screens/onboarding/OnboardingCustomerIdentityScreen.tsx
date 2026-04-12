@@ -7,7 +7,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { Gender } from '@/types/auth';
 import {
   APP_LAYOUT,
@@ -27,7 +27,7 @@ export function OnboardingCustomerIdentityScreen() {
   const [email, setEmail] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
-  const { completeOnboarding, loading } = useAuth();
+  const { completeOnboarding, loading } = useAuthContext();
   const formDisabled = loading;
   const text = APP_TEXT.onboarding.identity;
 

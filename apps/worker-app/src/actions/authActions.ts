@@ -1,9 +1,6 @@
 import { apiGet, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
 import {
-  AadhaarIdentityVerificationPayload,
-  AadhaarIdentityVerificationRecord,
-  AadhaarIdentityVerificationSaveResult,
   APP_AUTH_ROLE,
   AuthMeResponse,
   AuthTokens,
@@ -114,8 +111,13 @@ function normalizeWorkerLink(value: unknown): AuthUser['workerLink'] | undefined
   if (!isRecord(value)) return undefined;
 
   const source = value as AnyRecord;
+  const currentStatus = isRecord(source.currentStatus)
+    ? source.currentStatus
+    : (isRecord(source.current_status) ? source.current_status : undefined);
+
   return {
     ...source,
+    currentStatus: currentStatus as NonNullable<AuthUser['workerLink']>['currentStatus'],
     skillCount: normalizeCount(source.skillCount),
     completedJobCount: normalizeCount(source.completedJobCount),
     certificatesCount: normalizeCount(source.certificatesCount),
@@ -323,31 +325,4 @@ export async function createProfileWithPhoneToken(
     },
   );
   return unwrapData(workerResponse);
-}
-
-export async function saveAadhaarIdentityVerification(
-  payload: AadhaarIdentityVerificationPayload,
-): Promise<AadhaarIdentityVerificationSaveResult> {
-  const response = await apiPost<ApiEnvelope<unknown>, AadhaarIdentityVerificationPayload>(
-    '/auth/identity-verifications/aadhaar',
-    payload,
-    {
-      auth: true,
-      toast: {
-        successTitle: 'Aadhaar Saved',
-        successMessage: 'Aadhaar verification saved successfully.',
-        errorTitle: 'Aadhaar Save Failed',
-      },
-    },
-  );
-
-  const data = unwrapData(response) as AadhaarIdentityVerificationRecord & { message?: string };
-  const isVerified = typeof data?.aadhaarVerificationStatus === 'string'
-    && data.aadhaarVerificationStatus.toUpperCase() === 'VERIFIED';
-
-  return {
-    isVerified,
-    message: data?.message,
-    record: data,
-  };
 }

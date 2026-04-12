@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   createProfileWithPhoneToken,
   getMe,
@@ -10,16 +11,7 @@ import {
 import { ApiError } from '@/types/api';
 import { AuthContextType } from '@/types/auth-context';
 import { AuthStatus } from '@/types/auth-status';
-import {
-  APP_AUTH_ROLE,
-  AuthMeResponse,
-  AuthUser,
-  UserRole,
-  WorkerOnboardingFlags,
-  WorkerProfilePayload,
-} from '@/types/auth';
-import { OnboardingCurrentStep, OnboardingRouteName, WorkerOnboardingResolution } from '@/types/onboarding';
-import { ONBOARDING_SCREENS } from '@/types/screen-names';
+import { APP_AUTH_ROLE, AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
 import { stripBearerPrefix } from '@/utils/token';
 import {
   clearAuthTokens,
@@ -32,7 +24,56 @@ import {
   saveOnboardingPhoneToken,
 } from '@/utils/key-chain-storage/onboarding-storage';
 
-type OnboardingPayload = AuthMeResponse['onboarding'];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function normalizeTokenValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = stripBearerPrefix(value);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function findTokenInPayload(payload: unknown, tokenKind: 'access' | 'refresh'): string | undefined {
+  const queue: unknown[] = [payload];
+  const visited = new Set<unknown>();
+  const directKeys = tokenKind === 'access'
+    ? ['accessToken', 'access_token']
+    : ['refreshToken', 'refresh_token'];
+  const nestedKeys = tokenKind === 'access'
+    ? ['accessToken', 'access_token']
+    : ['refreshToken', 'refresh_token'];
+
+  let hops = 0;
+  while (queue.length > 0 && hops < 250) {
+    const current = queue.shift();
+    hops += 1;
+    if (!isRecord(current) || visited.has(current)) continue;
+    visited.add(current);
+
+    for (let index = 0; index < directKeys.length; index += 1) {
+      const tokenValue = normalizeTokenValue(current[directKeys[index]]);
+      if (tokenValue) return tokenValue;
+    }
+
+    const nested = current.tokens;
+    if (isRecord(nested)) {
+      for (let index = 0; index < nestedKeys.length; index += 1) {
+        const nestedTokenValue = normalizeTokenValue(nested[nestedKeys[index]]);
+        if (nestedTokenValue) return nestedTokenValue;
+      }
+    }
+
+    const values = Object.values(current);
+    for (let index = 0; index < values.length; index += 1) {
+      if (isRecord(values[index])) {
+        queue.push(values[index]);
+      }
+    }
+  }
+
+  return undefined;
+}
 
 async function setSessionTokens(accessToken: string, refreshToken: string) {
   await saveAuthTokens({
@@ -46,99 +87,16 @@ async function clearAllStoredTokens() {
   await clearOnboardingPhoneToken();
 }
 
-function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): WorkerOnboardingFlags | undefined {
-  if (!onboarding || typeof onboarding !== 'object') {
-    return undefined;
-  }
-
-  const toBoolean = (value: unknown): boolean | undefined => {
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') {
-      if (value === 1) return true;
-      if (value === 0) return false;
-      return undefined;
-    }
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === 'true') return true;
-      if (normalized === 'false') return false;
-    }
-    return undefined;
-  };
-
-  const pickBoolean = (source: Record<string, unknown>, keys: string[]): boolean | undefined => {
-    for (let index = 0; index < keys.length; index += 1) {
-      const next = toBoolean(source[keys[index]]);
-      if (typeof next === 'boolean') {
-        return next;
-      }
-    }
-    return undefined;
-  };
-
-  const normalizeFlags = (raw: unknown): WorkerOnboardingFlags | undefined => {
-    if (!raw || typeof raw !== 'object') return undefined;
-    const source = raw as Record<string, unknown>;
-    return {
-      hasPhoneVerified: pickBoolean(source, ['hasPhoneVerified']),
-      hasCompletedBasicProfile: pickBoolean(source, ['hasCompletedBasicProfile', 'hasBasicInfoCompleted', 'isBasicInfoCompleted']),
-      hasAadhaarVerified: pickBoolean(source, ['hasAadhaarVerified']),
-      hasAddedServiceSkills: pickBoolean(source, ['hasAddedServiceSkills', 'isServicesSelected']),
-      hasUploadedRequiredCertificates: pickBoolean(source, ['hasUploadedRequiredCertificates', 'isDocumentsCompleted']),
-      hasSeenSkillSetup: pickBoolean(source, ['hasSeenSkillSetup']),
-      hasSeenCertificateSetup: pickBoolean(source, ['hasSeenCertificateSetup']),
-      hasSeenOnboardingWelcomeScreen: pickBoolean(source, ['hasSeenOnboardingWelcomeScreen']),
-      currentStep: typeof source.currentStep === 'string' ? source.currentStep : undefined,
-    };
-  };
-
-  if ('WORKER' in onboarding && onboarding.WORKER && typeof onboarding.WORKER === 'object') {
-    return normalizeFlags(onboarding.WORKER);
-  }
-
-  const hasFlatFlags =
-    'hasPhoneVerified' in onboarding ||
-    'hasCompletedBasicProfile' in onboarding ||
-    'hasBasicInfoCompleted' in onboarding ||
-    'isBasicInfoCompleted' in onboarding ||
-    'hasAadhaarVerified' in onboarding ||
-    'hasAddedServiceSkills' in onboarding ||
-    'isServicesSelected' in onboarding ||
-    'hasUploadedRequiredCertificates' in onboarding ||
-    'isDocumentsCompleted' in onboarding ||
-    'hasSeenSkillSetup' in onboarding ||
-    'hasSeenCertificateSetup' in onboarding ||
-    'hasSeenOnboardingWelcomeScreen' in onboarding;
-
-  if (!hasFlatFlags) {
-    return undefined;
-  }
-
-  return normalizeFlags(onboarding);
-}
-
-function mapCurrentStepToRoute(currentStep?: OnboardingCurrentStep): OnboardingRouteName | null {
-  if (!currentStep) return null;
-  const normalized = currentStep.trim().toUpperCase();
-  if (normalized === 'BASIC_PROFILE') return ONBOARDING_SCREENS.identity;
-  if (normalized === 'AADHAAR_VERIFICATION') return ONBOARDING_SCREENS.serviceSelection;
-  if (normalized === 'SERVICE_SELECTION') return ONBOARDING_SCREENS.serviceSelection;
-  if (normalized === 'CERTIFICATE_UPLOAD') return ONBOARDING_SCREENS.certification;
-  if (normalized === 'WELCOME') return ONBOARDING_SCREENS.welcomeWorker;
-  return null;
-}
-
 export function useAuthController(): AuthContextType {
   const [status, setStatus] = useState<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [phone, setPhone] = useState('');
-  const [onboardingRoute, setOnboardingRoute] = useState<OnboardingRouteName>(ONBOARDING_SCREENS.identity);
   const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
-  const localSeenSetupRef = useRef<{ hasSeenSkillSetup: boolean; hasSeenCertificateSetup: boolean }>({
-    hasSeenSkillSetup: false,
-    hasSeenCertificateSetup: false,
-  });
+  const foregroundSyncInFlightRef = useRef(false);
+  const lastForegroundSyncAtRef = useRef(0);
+  const inFlightRefreshMeRef = useRef<Promise<AuthMeResponse> | null>(null);
 
   const loading = pendingActionCount > 0;
 
@@ -151,128 +109,48 @@ export function useAuthController(): AuthContextType {
     }
   }, []);
 
-  const resolveWorkerOnboarding = useCallback((flags?: WorkerOnboardingFlags): WorkerOnboardingResolution => {
-    if (!flags) {
-      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
+  const refreshMe = useCallback(async (): Promise<AuthMeResponse> => {
+    if (!inFlightRefreshMeRef.current) {
+      inFlightRefreshMeRef.current = (async () => {
+        const meResponse = (await getMe()) as AuthMeResponse;
+        setMe(meResponse);
+        setUser(meResponse.user);
+        return meResponse;
+      })().finally(() => {
+        inFlightRefreshMeRef.current = null;
+      }) as Promise<AuthMeResponse>;
     }
 
-    // Some responses omit hasPhoneVerified once basic profile is completed.
-    // In that case we can safely infer phone is verified.
-    const inferredPhoneVerified = typeof flags.hasPhoneVerified === 'boolean'
-      ? flags.hasPhoneVerified
-      : (flags.hasCompletedBasicProfile === true ? true : undefined);
-    const hasPhoneVerified = inferredPhoneVerified === true;
-    const hasCompletedBasicProfile = flags.hasCompletedBasicProfile === true;
-    const hasAadhaarVerified = flags.hasAadhaarVerified === true;
-    const hasAddedServiceSkills = flags.hasAddedServiceSkills === true;
-    const hasUploadedRequiredCertificates = flags.hasUploadedRequiredCertificates === true;
-    const hasSeenSkillSetup = flags.hasSeenSkillSetup === true;
-    const hasSeenCertificateSetup = flags.hasSeenCertificateSetup === true;
-    const hasSeenOnboardingWelcomeScreen = flags.hasSeenOnboardingWelcomeScreen === true;
-    const hasAnyFlag =
-      typeof inferredPhoneVerified === 'boolean'
-      || typeof flags.hasCompletedBasicProfile === 'boolean'
-      || typeof flags.hasAadhaarVerified === 'boolean'
-      || typeof flags.hasAddedServiceSkills === 'boolean'
-      || typeof flags.hasUploadedRequiredCertificates === 'boolean'
-      || typeof flags.hasSeenSkillSetup === 'boolean'
-      || typeof flags.hasSeenCertificateSetup === 'boolean'
-      || typeof flags.hasSeenOnboardingWelcomeScreen === 'boolean';
-
-    if (!hasAnyFlag) {
-      const routeFromCurrentStep = mapCurrentStepToRoute(flags.currentStep);
-      if (routeFromCurrentStep) {
-        return { route: routeFromCurrentStep, status: AuthStatus.ONBOARDING };
-      }
-      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
-    }
-
-    if (!hasPhoneVerified || !hasCompletedBasicProfile) {
-      return { route: ONBOARDING_SCREENS.identity, status: AuthStatus.ONBOARDING };
-    }
-    // Aadhaar screen is intentionally removed from onboarding flow.
-    void hasAadhaarVerified;
-    if (!hasAddedServiceSkills && !hasSeenSkillSetup) {
-      return { route: ONBOARDING_SCREENS.serviceSelection, status: AuthStatus.ONBOARDING };
-    }
-    if (!hasUploadedRequiredCertificates && !hasSeenCertificateSetup) {
-      return { route: ONBOARDING_SCREENS.certification, status: AuthStatus.ONBOARDING };
-    }
-    if (!hasSeenOnboardingWelcomeScreen) {
-      return { route: ONBOARDING_SCREENS.welcomeWorker, status: AuthStatus.ONBOARDING };
-    }
-
-    return { route: ONBOARDING_SCREENS.welcomeWorker, status: AuthStatus.AUTHENTICATED };
+    return inFlightRefreshMeRef.current;
   }, []);
-
-  const applyOnboardingFromWorkerFlags = useCallback((flags?: WorkerOnboardingFlags) => {
-    const next = resolveWorkerOnboarding(flags);
-    setOnboardingRoute(next.route);
-    setStatus(next.status);
-    return next;
-  }, [resolveWorkerOnboarding]);
-
-  const refreshOnboardingSnapshot = useCallback(async () => {
-    const me = (await getMe()) as AuthMeResponse;
-    setUser(me.user);
-    const workerFlags = extractWorkerOnboardingFlags(me.onboarding);
-    const mergedFlags: WorkerOnboardingFlags | undefined = workerFlags
-      ? {
-        ...workerFlags,
-        hasSeenSkillSetup: workerFlags.hasSeenSkillSetup === true || localSeenSetupRef.current.hasSeenSkillSetup,
-        hasSeenCertificateSetup: workerFlags.hasSeenCertificateSetup === true || localSeenSetupRef.current.hasSeenCertificateSetup,
-      }
-      : (localSeenSetupRef.current.hasSeenSkillSetup || localSeenSetupRef.current.hasSeenCertificateSetup
-        ? {
-          hasSeenSkillSetup: localSeenSetupRef.current.hasSeenSkillSetup,
-          hasSeenCertificateSetup: localSeenSetupRef.current.hasSeenCertificateSetup,
-        }
-        : undefined);
-    return applyOnboardingFromWorkerFlags(mergedFlags);
-  }, [applyOnboardingFromWorkerFlags]);
-
-  const refreshMe = useCallback(async () => {
-    const next = await refreshOnboardingSnapshot();
-    return next.status;
-  }, [refreshOnboardingSnapshot]);
-
-  const refreshOnboardingRoute = useCallback(async () => {
-    const next = await refreshOnboardingSnapshot();
-    return next.route;
-  }, [refreshOnboardingSnapshot]);
-
-  const getOnboardingRedirect = useCallback((currentRoute: OnboardingRouteName) => {
-    if (status !== AuthStatus.ONBOARDING && status !== AuthStatus.PHONE_VERIFIED) {
-      return null;
-    }
-    return onboardingRoute === currentRoute ? null : onboardingRoute;
-  }, [onboardingRoute, status]);
 
   const bootstrap = useCallback(async () => {
     try {
-      const tokens = await getAuthTokens();
+      const [tokens, pendingPhoneTokenRaw] = await Promise.all([
+        getAuthTokens(),
+        getOnboardingPhoneToken(),
+      ]);
+      const pendingPhoneToken = pendingPhoneTokenRaw ? stripBearerPrefix(pendingPhoneTokenRaw) : null;
       const accessToken = tokens?.accessToken ? stripBearerPrefix(tokens.accessToken) : null;
+
       if (accessToken) {
-        await clearOnboardingPhoneToken();
-        setPhoneVerificationToken(null);
-        const nextStatus = await refreshMe();
-        setStatus(nextStatus);
-      } else {
-        const pendingPhoneToken = await getOnboardingPhoneToken();
-        if (pendingPhoneToken) {
-          setPhoneVerificationToken(stripBearerPrefix(pendingPhoneToken));
-          setOnboardingRoute(ONBOARDING_SCREENS.identity);
-          setStatus(AuthStatus.PHONE_VERIFIED);
-        } else {
-          setPhoneVerificationToken(null);
-          localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
-          setStatus(AuthStatus.LOGGED_OUT);
-        }
+        setPhoneVerificationToken(pendingPhoneToken);
+        await refreshMe();
+        setStatus(AuthStatus.AUTHENTICATED);
+        return;
       }
+
+      if (pendingPhoneToken) {
+        setPhoneVerificationToken(pendingPhoneToken);
+        setStatus(AuthStatus.PHONE_VERIFIED);
+        return;
+      }
+
+      setPhoneVerificationToken(null);
+      setStatus(AuthStatus.LOGGED_OUT);
     } catch {
       await clearAllStoredTokens();
       setPhoneVerificationToken(null);
-      localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
       setStatus(AuthStatus.LOGGED_OUT);
     }
   }, [refreshMe]);
@@ -281,35 +159,63 @@ export function useAuthController(): AuthContextType {
     void bootstrap();
   }, [bootstrap]);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active') return;
+      if (status !== AuthStatus.AUTHENTICATED && status !== AuthStatus.PHONE_VERIFIED) return;
+      if (foregroundSyncInFlightRef.current) return;
+
+      const now = Date.now();
+      if (now - lastForegroundSyncAtRef.current < 5000) {
+        return;
+      }
+
+      foregroundSyncInFlightRef.current = true;
+      lastForegroundSyncAtRef.current = now;
+      void bootstrap().finally(() => {
+        foregroundSyncInFlightRef.current = false;
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [bootstrap, status]);
+
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
     await clearAllStoredTokens();
     setPhoneVerificationToken(null);
+    setMe(null);
+    setUser(null);
     await sendOtp({ phone: phoneNumber, role });
     setPhone(phoneNumber);
+    setStatus(AuthStatus.OTP_SENT);
   }, []);
 
   const handleVerifyOtpCode = useCallback(
     async (phoneNumber: string, otp: string) => {
       const response = await verifyOtp({ phone: phoneNumber, otp, role: APP_AUTH_ROLE });
       setPhone(phoneNumber);
+      const accessToken = response.accessToken ? stripBearerPrefix(response.accessToken) : null;
+      const refreshToken = response.refreshToken ? stripBearerPrefix(response.refreshToken) : null;
 
       if (response.phoneToken) {
         const cleanPhoneToken = stripBearerPrefix(response.phoneToken);
+        if (accessToken && refreshToken) {
+          await setSessionTokens(accessToken, refreshToken);
+        }
         setPhoneVerificationToken(cleanPhoneToken);
         await saveOnboardingPhoneToken(cleanPhoneToken);
-        localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
-        setOnboardingRoute(ONBOARDING_SCREENS.identity);
         setStatus(AuthStatus.PHONE_VERIFIED);
         return;
       }
 
-      if (response.accessToken && response.refreshToken) {
-        await setSessionTokens(response.accessToken, response.refreshToken);
+      if (accessToken && refreshToken) {
+        await setSessionTokens(accessToken, refreshToken);
         await clearOnboardingPhoneToken();
         setPhoneVerificationToken(null);
-        setStatus(AuthStatus.BOOTSTRAPPING);
-        const nextStatus = await refreshMe();
-        setStatus(nextStatus);
+        setStatus(AuthStatus.AUTHENTICATED);
+        await refreshMe();
         return;
       }
 
@@ -327,9 +233,11 @@ export function useAuthController(): AuthContextType {
       const restoredPhoneTokenRaw = await getOnboardingPhoneToken();
       const restoredPhoneToken = restoredPhoneTokenRaw ? stripBearerPrefix(restoredPhoneTokenRaw) : null;
       const phoneToken = phoneVerificationToken ?? restoredPhoneToken;
+
       if (phoneToken && phoneToken !== phoneVerificationToken) {
         setPhoneVerificationToken(phoneToken);
       }
+
       if (!phoneToken) {
         throw new Error('Session expired. Please verify OTP again.');
       }
@@ -340,6 +248,9 @@ export function useAuthController(): AuthContextType {
         access_token?: string;
         refresh_token?: string;
         tokens?: { accessToken?: string; refreshToken?: string };
+        data?: unknown;
+        result?: unknown;
+        payload?: unknown;
       };
 
       try {
@@ -352,57 +263,37 @@ export function useAuthController(): AuthContextType {
         };
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
-          setOnboardingRoute(ONBOARDING_SCREENS.identity);
           setStatus(AuthStatus.PHONE_VERIFIED);
         }
         throw error;
       }
 
-      const accessToken = response.accessToken ?? response.access_token ?? response.tokens?.accessToken;
-      const refreshToken = response.refreshToken ?? response.refresh_token ?? response.tokens?.refreshToken;
+      const accessToken = findTokenInPayload(response, 'access');
+      const refreshToken = findTokenInPayload(response, 'refresh');
 
-      if (!accessToken || !refreshToken) {
-        throw new Error('Profile created, but auth tokens are missing.');
+      if (accessToken && refreshToken) {
+        await setSessionTokens(accessToken, refreshToken);
+      } else {
+        const existingTokens = await getAuthTokens();
+        const existingAccessToken = existingTokens?.accessToken ? stripBearerPrefix(existingTokens.accessToken) : null;
+        const existingRefreshToken = existingTokens?.refreshToken ? stripBearerPrefix(existingTokens.refreshToken) : null;
+        if (!existingAccessToken || !existingRefreshToken) {
+          throw new Error('Profile created, but auth tokens are missing.');
+        }
       }
-      await setSessionTokens(accessToken, refreshToken);
 
       setPhoneVerificationToken(null);
       await clearOnboardingPhoneToken();
-      // Move to next onboarding step immediately after profile creation.
-      // Do not immediately re-resolve from backend here; API lag can bounce back to identity.
-      setOnboardingRoute(ONBOARDING_SCREENS.serviceSelection);
-      setStatus(AuthStatus.ONBOARDING);
-    },
-    [phoneVerificationToken],
-  );
-
-  const completeOnboardingFlow = useCallback(() => {
-    setStatus(AuthStatus.AUTHENTICATED);
-  }, []);
-
-  const markOnboardingStepSeen = useCallback((step: OnboardingCurrentStep) => {
-    if (step === 'SERVICE_SELECTION') {
-      localSeenSetupRef.current = {
-        ...localSeenSetupRef.current,
-        hasSeenSkillSetup: true,
-      };
-      setOnboardingRoute(ONBOARDING_SCREENS.certification);
-      setStatus(AuthStatus.ONBOARDING);
-      return;
-    }
-    if (step === 'CERTIFICATE_UPLOAD') {
-      localSeenSetupRef.current = {
-        ...localSeenSetupRef.current,
-        hasSeenCertificateSetup: true,
-      };
-      setOnboardingRoute(ONBOARDING_SCREENS.welcomeWorker);
-      setStatus(AuthStatus.ONBOARDING);
-      return;
-    }
-    if (step === 'WELCOME') {
       setStatus(AuthStatus.AUTHENTICATED);
-    }
-  }, []);
+
+      try {
+        await refreshMe();
+      } catch {
+        // Keep authenticated state and retry me fetch later.
+      }
+    },
+    [phoneVerificationToken, refreshMe],
+  );
 
   const handleLogout = useCallback(async () => {
     try {
@@ -416,46 +307,67 @@ export function useAuthController(): AuthContextType {
     } finally {
       await clearAllStoredTokens();
       setPhoneVerificationToken(null);
-      localSeenSetupRef.current = { hasSeenSkillSetup: false, hasSeenCertificateSetup: false };
+      setMe(null);
       setUser(null);
       setPhone('');
       setStatus(AuthStatus.LOGGED_OUT);
     }
   }, []);
 
+  const sendOtpCode = useCallback(
+    (phoneNumber: string, role?: UserRole) => runWithActionState(() => handleSendOtpCode(phoneNumber, role)),
+    [handleSendOtpCode, runWithActionState],
+  );
+
+  const verifyOtpCode = useCallback(
+    (phoneNumber: string, otp: string) => runWithActionState(() => handleVerifyOtpCode(phoneNumber, otp)),
+    [handleVerifyOtpCode, runWithActionState],
+  );
+
+  const resendOtpCode = useCallback(
+    (phoneNumber: string) => runWithActionState(() => handleResendOtpCode(phoneNumber)),
+    [handleResendOtpCode, runWithActionState],
+  );
+
+  const completeOnboarding = useCallback(
+    (payload: WorkerProfilePayload) => runWithActionState(() => handleCompleteOnboarding(payload)),
+    [handleCompleteOnboarding, runWithActionState],
+  );
+
+  const logout = useCallback(
+    () => runWithActionState(handleLogout),
+    [handleLogout, runWithActionState],
+  );
+
+  const refreshMeWithState = useCallback(
+    () => runWithActionState(refreshMe),
+    [refreshMe, runWithActionState],
+  );
+
   return useMemo<AuthContextType>(() => ({
     user,
+    me,
     status,
     loading,
     phone,
-    onboardingRoute,
     isAuthenticated: status === AuthStatus.AUTHENTICATED,
-    sendOtpCode: (phoneNumber, role) => runWithActionState(() => handleSendOtpCode(phoneNumber, role)),
-    verifyOtpCode: (phoneNumber, otp) => runWithActionState(() => handleVerifyOtpCode(phoneNumber, otp)),
-    resendOtpCode: (phoneNumber) => runWithActionState(() => handleResendOtpCode(phoneNumber)),
-    completeOnboarding: payload => runWithActionState(() => handleCompleteOnboarding(payload)),
-    completeOnboardingFlow,
-    logout: () => runWithActionState(handleLogout),
-    refreshMe,
-    refreshOnboardingRoute,
-    getOnboardingRedirect,
-    markOnboardingStepSeen,
+    sendOtpCode,
+    verifyOtpCode,
+    resendOtpCode,
+    completeOnboarding,
+    logout,
+    refreshMe: refreshMeWithState,
   }), [
     user,
+    me,
     status,
     loading,
     phone,
-    onboardingRoute,
-    runWithActionState,
-    handleSendOtpCode,
-    handleVerifyOtpCode,
-    handleResendOtpCode,
-    handleCompleteOnboarding,
-    completeOnboardingFlow,
-    handleLogout,
-    refreshMe,
-    refreshOnboardingRoute,
-    getOnboardingRedirect,
-    markOnboardingStepSeen,
+    sendOtpCode,
+    verifyOtpCode,
+    resendOtpCode,
+    completeOnboarding,
+    logout,
+    refreshMeWithState,
   ]);
 }

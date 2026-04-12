@@ -18,7 +18,3 @@ export function useAuthContext() {
   }
   return context;
 }
-
-export function useAuth() {
-  return useAuthContext();
-}

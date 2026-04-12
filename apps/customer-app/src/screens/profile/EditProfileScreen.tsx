@@ -9,7 +9,7 @@ import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { Gender } from '@/types/auth';
 import { APP_LAYOUT, GENDER_OPTIONS, isValidFirstName, isValidLastName, normalizePersonName, palette, uiColors } from '@/utils';
 
@@ -18,7 +18,7 @@ const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 export function EditProfileScreen() {
   const navigation = useNavigation();
   const isDark = useColorScheme() === 'dark';
-  const { authState, refreshMe, loading } = useAuth();
+  const { authState, refreshMe, loading } = useAuthContext();
   const user = authState.user;
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');

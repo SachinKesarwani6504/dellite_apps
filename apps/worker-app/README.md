@@ -32,8 +32,8 @@ src/
   animations/                 # lottie registry
   assets/                     # local assets (includes lottie folder)
   components/common/          # reusable UI components (Button, Input, OTP input, etc.)
-  contexts/                   # Context API providers (auth/session)
-  hooks/                      # custom hooks (useAuth)
+  contexts/                   # Context API providers (auth + onboarding)
+  hooks/                      # custom hooks (controllers + onboarding)
   icons/                      # centralized icon map
   navigation/                 # app, auth, onboarding, tabs, profile navigators
   screens/                    # feature screens
@@ -103,7 +103,8 @@ npm run web
 
 - Auth context/hook is the single source:
   - `src/contexts/AuthContext.tsx`
-  - `src/hooks/useAuth.ts`
+- Onboarding context is separated for onboarding flow routing:
+  - `src/contexts/OnboardingContext.tsx`
 - Token storage layer:
   - `src/utils/key-chain-storage/*`
 - Primary storage: `react-native-keychain`

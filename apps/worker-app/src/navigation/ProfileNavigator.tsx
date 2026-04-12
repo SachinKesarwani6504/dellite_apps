@@ -2,7 +2,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
 import { HelpSupportScreen } from '@/screens/profile/HelpSupportScreen';
 import { PayoutDetailsScreen } from '@/screens/profile/PayoutDetailsScreen';
+import { ProfileCertificateAddAndEditScreen } from '@/screens/profile/ProfileCertificateAddAndEditScreen';
 import { ProfileHomeScreen } from '@/screens/profile/ProfileHomeScreen';
+import { ProfileSkillAddAndEditScreen } from '@/screens/profile/ProfileSkillAddAndEditScreen';
 import { ProfileSkillsScreen } from '@/screens/profile/ProfileSkillsScreen';
 import { ReferralScreen } from '@/screens/profile/ReferralScreen';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -19,6 +21,8 @@ export function ProfileNavigator() {
       <Stack.Screen name={PROFILE_SCREENS.helpSupport} component={HelpSupportScreen} />
       <Stack.Screen name={PROFILE_SCREENS.referral} component={ReferralScreen} />
       <Stack.Screen name={PROFILE_SCREENS.allSkills} component={ProfileSkillsScreen} />
+      <Stack.Screen name={PROFILE_SCREENS.certificateManager} component={ProfileCertificateAddAndEditScreen} />
+      <Stack.Screen name={PROFILE_SCREENS.skillManager} component={ProfileSkillAddAndEditScreen} />
     </Stack.Navigator>
   );
 }

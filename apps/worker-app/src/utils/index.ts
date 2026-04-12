@@ -47,3 +47,5 @@ export * from '@/utils/profile';
 export * from '@/utils/referral';
 export * from '@/utils/onboarding';
 export * from '@/utils/date';
+export * from '@/utils/certificate-onboarding';
+export * from '@/utils/certificate-payload';

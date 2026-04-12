@@ -16,32 +16,60 @@ function canUseKeychain() {
 }
 
 export async function saveSecureValue(service: string, username: string, value: string): Promise<void> {
+  let keychainSaved = false;
   if (canUseKeychain()) {
     try {
       await Keychain.setGenericPassword(username, value, {
         service,
         accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       });
-      return;
+      keychainSaved = true;
     } catch {
-      // Fallback to SecureStore (e.g., Expo Go / unavailable native module)
+      // Continue and persist fallback copy in SecureStore.
     }
   }
 
-  await SecureStore.setItemAsync(getSecureStoreKey(service, username), value);
+  try {
+    await SecureStore.setItemAsync(getSecureStoreKey(service, username), value);
+  } catch (error) {
+    if (!keychainSaved) {
+      throw error;
+    }
+  }
 }
 
 export async function getSecureValue(service: string, username: string): Promise<string | null> {
   if (canUseKeychain()) {
     try {
       const credentials = await Keychain.getGenericPassword({ service });
-      if (credentials) return credentials.password;
+      if (
+        credentials
+        && typeof credentials === 'object'
+        && 'password' in credentials
+        && typeof credentials.password === 'string'
+      ) {
+        return credentials.password;
+      }
     } catch {
       // Fallback to SecureStore
     }
   }
 
-  return SecureStore.getItemAsync(getSecureStoreKey(service, username));
+  const fallback = await SecureStore.getItemAsync(getSecureStoreKey(service, username));
+  if (!fallback || !canUseKeychain()) {
+    return fallback;
+  }
+
+  try {
+    await Keychain.setGenericPassword(username, fallback, {
+      service,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  } catch {
+    // Keep fallback value even if keychain backfill fails.
+  }
+
+  return fallback;
 }
 
 export async function removeSecureValue(service: string, username: string): Promise<void> {

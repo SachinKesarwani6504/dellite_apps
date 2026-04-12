@@ -8,9 +8,7 @@ export type RootStackParamList = {
 
 export type AuthStackParamList = {
   [AUTH_SCREEN.PHONE_LOGIN]: undefined;
-  [AUTH_SCREEN.OTP_VERIFICATION]: {
-    phone: string;
-  };
+  [AUTH_SCREEN.OTP_VERIFICATION]: undefined;
 };
 
 export type OnboardingStackParamList = {

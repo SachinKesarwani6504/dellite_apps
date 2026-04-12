@@ -8,45 +8,63 @@ import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { useOnboarding, useOnboardingScreenGuard } from '@/hooks/useOnboarding';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { OnboardingStackParamList } from '@/types/navigation';
-import { WorkerCertificateCard } from '@/types/auth';
+import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
 import { SelectedCertificateFile } from '@/types/onboarding';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
-import { titleCase } from '@/utils';
+import {
+  getCertificateCardId,
+  isLockedCertificate,
+  resolveCertificateWorkerSkillIds,
+  titleCase,
+  toWorkerCertificateWriteItem,
+} from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
+import { showError } from '@/utils/toast';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingCertification'>;
+
+function pickCertificateType(card: WorkerCertificateCard, selectedTypeByCard: Record<string, string>) {
+  const cardId = getCertificateCardId(card);
+  return selectedTypeByCard[cardId] ?? '';
+}
+
+function isSupportedCertificateFile(name: string, mimeType?: string | null) {
+  const normalizedMime = (mimeType ?? '').toLowerCase();
+  const normalizedName = name.toLowerCase();
+  if (normalizedMime === 'application/pdf') return true;
+  if (normalizedMime.startsWith('image/')) {
+    return /\.(png|jpe?g)$/i.test(normalizedName);
+  }
+  return /\.(pdf|png|jpe?g)$/i.test(normalizedName);
+}
 
 export function OnboardingCertificationScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const {
-    fetchRequiredCertificates,
-    submitCertificatesAndResolve,
-    syncOnboardingRoute,
-    skipCertificateSetup,
-  } = useOnboarding();
+    getOnboardingRedirect,
+    refreshOnboardingRoute,
+    getRequiredCertificates,
+    completeCertificateUpload,
+    skipCertificateUpload,
+  } = useOnboardingContext();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);
-  const [statusError, setStatusError] = useState<string | null>(null);
-  const [authRefreshError, setAuthRefreshError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [submittingCardId, setSubmittingCardId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
   const [skipLoading, setSkipLoading] = useState(false);
   const [requiredCertificates, setRequiredCertificates] = useState<WorkerCertificateCard[]>([]);
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
   const [selectedFileByCard, setSelectedFileByCard] = useState<Record<string, SelectedCertificateFile>>({});
   const [hasSubmittedThisSession, setHasSubmittedThisSession] = useState(false);
-  const formLocked = submittingCardId === '__bulk__' || skipLoading;
-  const getCardId = (card: WorkerCertificateCard) =>
-    card.latestCertificateId
-    ?? card.workerServiceId
-    ?? card.serviceId
-    ?? `${card.title ?? 'certificate'}-${card.serviceName ?? 'service'}`;
+  const formLocked = isSubmitting || skipLoading;
 
   const loadCertificates = useCallback(async (showLoader = true) => {
     try {
@@ -55,13 +73,12 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       } else {
         setRefreshing(true);
       }
-      setStatusError(null);
-      const certificates = await fetchRequiredCertificates();
+      const certificates = await getRequiredCertificates();
       setRequiredCertificates(certificates);
       setSelectedTypeByCard(prev => {
         const next: Record<string, string> = {};
         certificates.forEach((card: WorkerCertificateCard) => {
-          const cardId = getCardId(card);
+          const cardId = getCertificateCardId(card);
           const existing = prev[cardId];
           if (existing && (card.allowedCertificateTypes ?? []).includes(existing)) {
             next[cardId] = existing;
@@ -70,12 +87,12 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
         return next;
       });
     } catch {
-      setStatusError('Failed to load required certificates. Pull to refresh and try again.');
+      showError('Failed to load required certificates. Pull to refresh and try again.');
     } finally {
       setScreenLoading(false);
       setRefreshing(false);
     }
-  }, [fetchRequiredCertificates]);
+  }, [getRequiredCertificates]);
 
   useEffect(() => {
     void loadCertificates(true);
@@ -90,26 +107,26 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
 
   const onRefresh = useCallback(() => {
     if (screenLoading || formLocked) return;
-    setAuthRefreshError(null);
     setSelectedFileByCard({});
     setSelectedTypeByCard({});
     setHasSubmittedThisSession(false);
     void Promise.all([
-      syncOnboardingRoute().catch(() => {
-        setAuthRefreshError('Could not refresh onboarding flags.');
+      refreshOnboardingRoute(true).catch(() => {
+        showError('Could not refresh onboarding flags.');
       }),
       loadCertificates(false),
     ]);
-  }, [formLocked, loadCertificates, screenLoading, syncOnboardingRoute]);
+  }, [formLocked, loadCertificates, refreshOnboardingRoute, screenLoading]);
 
-  useOnboardingScreenGuard({
-    currentRoute: ONBOARDING_SCREENS.certification,
-    onRedirect: route => navigation.replace(route),
-  });
+  useEffect(() => {
+    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.certification);
+    if (redirect) {
+      navigation.replace(redirect);
+    }
+  }, [getOnboardingRedirect, navigation]);
 
   const onPickFile = async (card: WorkerCertificateCard) => {
-    const cardId = getCardId(card);
-    setStatusError(null);
+    const cardId = getCertificateCardId(card);
     try {
       const picked = await DocumentPicker.getDocumentAsync({
         multiple: false,
@@ -122,6 +139,9 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
       }
 
       const asset = picked.assets[0];
+      if (!isSupportedCertificateFile(asset.name ?? '', asset.mimeType)) {
+        return;
+      }
       const fileType = asset.mimeType ?? (asset.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
       setPickingCardId(cardId);
       setSelectedFileByCard(prev => ({
@@ -132,113 +152,66 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
           url: asset.uri,
         },
       }));
-      setStatusError(null);
     } catch {
-      setStatusError('File selection failed. Please try again.');
+      showError('File selection failed. Please try again.');
     } finally {
       setPickingCardId(null);
     }
   };
-
-  const isLockedCertificate = (card: WorkerCertificateCard) =>
-    card.certificateStatus === 'PENDING' || card.certificateStatus === 'APPROVED';
 
   const cardsNeedingUpload = requiredCertificates.filter(card => !isLockedCertificate(card));
   const cardsToSubmit = cardsNeedingUpload;
   const allCardsLocked = requiredCertificates.length > 0 && cardsNeedingUpload.length === 0;
   const showWaitingState = allCardsLocked || hasSubmittedThisSession;
 
-  const canUploadAll = showWaitingState || cardsToSubmit.every(card => {
-    const cardId = getCardId(card);
-    const selectedFile = selectedFileByCard[cardId];
-    return Boolean(selectedFile);
-  });
+  const readyCertificates = cardsToSubmit
+    .map(card => {
+      const cardId = getCertificateCardId(card);
+      const selectedType = pickCertificateType(card, selectedTypeByCard);
+      const selectedFile = selectedFileByCard[cardId];
+      if (!selectedType || !selectedFile || resolveCertificateWorkerSkillIds(card).length === 0) {
+        return null;
+      }
+      return toWorkerCertificateWriteItem({
+        card,
+        certificateType: selectedType,
+        file: selectedFile,
+      });
+    })
+    .filter((item): item is WorkerCertificateWriteItem => Boolean(item));
+
+  const canUploadAny = showWaitingState || readyCertificates.length > 0;
 
   const onUploadAndContinue = async () => {
     if (formLocked) return;
-    setStatusError(null);
-    setAuthRefreshError(null);
 
     if (showWaitingState || cardsToSubmit.length === 0) {
       try {
-        await syncOnboardingRoute();
+        const nextRoute = await refreshOnboardingRoute(true);
+        navigation.replace(nextRoute);
       } catch {
-        setAuthRefreshError('Could not refresh onboarding flags.');
+        showError('Could not refresh onboarding flags.');
       }
       return;
     }
+    if (readyCertificates.length === 0) return;
 
-    const createPayload: Array<{
-      certificateId?: string;
-      certificateType: string;
-      serviceIds: string[];
-      fileName: string;
-      fileType: string;
-      fileUrl: string;
-    }> = [];
-    const updatePayload: Array<{
-      certificateId: string;
-      certificateType: string;
-      serviceIds: string[];
-      fileName: string;
-      fileType: string;
-      fileUrl: string;
-    }> = [];
-
-    for (let index = 0; index < cardsToSubmit.length; index += 1) {
-      const card = cardsToSubmit[index];
-      const cardId = getCardId(card);
-      const selectedType =
-        selectedTypeByCard[cardId]
-        ?? card.latestCertificateType
-        ?? card.allowedCertificateTypes?.[0]
-        ?? '';
-      const selectedFile = selectedFileByCard[cardId];
-      if (!selectedFile) {
-        setStatusError('Add certificate file for all required cards before continuing.');
-        return;
-      }
-      if (!selectedType) {
-        setStatusError('Certificate type is not available for one of the required cards.');
-        return;
-      }
-
-      const payloadItem = {
-        certificateType: selectedType,
-        serviceIds: card.serviceIds ?? [],
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-        fileUrl: selectedFile.url,
-      };
-
-      if (card.latestCertificateId) {
-        updatePayload.push({
-          certificateId: card.latestCertificateId,
-          ...payloadItem,
-        });
-      } else {
-        createPayload.push({
-          certificateId: undefined,
-          ...payloadItem,
-        });
-      }
-    }
-
-    setSubmittingCardId('__bulk__');
+    setIsSubmitting(true);
     try {
-      const resolution = await submitCertificatesAndResolve(
-        { certificates: createPayload },
-        { certificates: updatePayload },
-      );
-
+      await completeCertificateUpload({ certificates: readyCertificates });
       setHasSubmittedThisSession(true);
       setSelectedFileByCard({});
       setSelectedTypeByCard({});
-      await Promise.all([syncOnboardingRoute(), loadCertificates(false)]);
+      navigation.replace(ONBOARDING_SCREENS.welcomeWorker);
+      void refreshOnboardingRoute(true).then(nextRoute => {
+        if (nextRoute !== ONBOARDING_SCREENS.welcomeWorker) {
+          navigation.replace(nextRoute);
+        }
+      });
     } catch {
-      setStatusError('Certificate upload failed. Please try again.');
+      // API layer already shows backend message via toast.
     } finally {
-      setSubmittingCardId(null);
+      setIsSubmitting(false);
     }
   };
 
@@ -246,7 +219,17 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
     if (formLocked) return;
     setSkipLoading(true);
     try {
-      await skipCertificateSetup();
+      try {
+        await skipCertificateUpload();
+        navigation.replace(ONBOARDING_SCREENS.welcomeWorker);
+        void refreshOnboardingRoute(true).then(nextRoute => {
+          if (nextRoute !== ONBOARDING_SCREENS.welcomeWorker) {
+            navigation.replace(nextRoute);
+          }
+        });
+      } catch {
+        navigation.replace(ONBOARDING_SCREENS.welcomeWorker);
+      }
     } finally {
       setSkipLoading(false);
     }
@@ -265,7 +248,6 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
         />
       )}
     >
-      <View className="rounded-3xl px-4 pb-5 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <View className="flex-row items-center">
           <View className="w-10">
             <BackButton onPress={onBackStep} visible={showBackButton} />
@@ -292,20 +274,18 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
             )}
           </Pressable>
         </View>
-        <Text className="mt-3 text-xs font-bold tracking-widest text-primary">{APP_TEXT.onboarding.certification.step}</Text>
-        <Text className="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">
-          {APP_TEXT.onboarding.certification.title}
-        </Text>
-        <Text className="mt-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {APP_TEXT.onboarding.certification.subtitle}
-        </Text>
-        {statusError ? (
-          <Text className="mt-2 text-xs" style={{ color: theme.colors.negative }}>{statusError}</Text>
-        ) : null}
-        {authRefreshError ? (
-          <Text className="mt-1 text-xs" style={{ color: theme.colors.caution }}>{authRefreshError}</Text>
-        ) : null}
-
+        <View className="mt-3">
+          <SplitGradientTitle
+            eyebrow={APP_TEXT.onboarding.certification.step}
+            prefix={APP_TEXT.onboarding.certification.titlePrefix}
+            highlight={APP_TEXT.onboarding.certification.titleHighlight}
+            subtitle={APP_TEXT.onboarding.certification.subtitle}
+            prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
+            highlightClassName="text-4xl font-extrabold leading-[40px]"
+            subtitleClassName="mt-2 text-sm"
+            showSparkle={false}
+          />
+        </View>
         {screenLoading ? (
           <View className="mt-8 items-center justify-center">
             <AppSpinner size="large" color={uiColors.onboarding.loader} />
@@ -338,16 +318,12 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                   </View>
                 ) : null}
                 {requiredCertificates.map(item => {
-                  const cardId = getCardId(item);
+                  const cardId = getCertificateCardId(item);
                   const selectedType = selectedTypeByCard[cardId] ?? '';
                   const isViewOnly = isLockedCertificate(item);
-                  const isSubmitting = submittingCardId === '__bulk__' || skipLoading;
+                  const cardSubmitting = isSubmitting || skipLoading;
                   const isPicking = pickingCardId === cardId;
                   const selectedFile = selectedFileByCard[cardId];
-                  const isPdfFile = Boolean(
-                    selectedFile?.type?.toLowerCase().includes('pdf')
-                    || selectedFile?.name?.toLowerCase().endsWith('.pdf'),
-                  );
 
                   return (
                   <View key={cardId} className="overflow-hidden rounded-2xl border border-accent/40 bg-white dark:border-white/10" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}>
@@ -388,7 +364,7 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                     </View>
 
                     <Text className="mt-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                      Unlocks Services
+                      Linked Skills
                     </Text>
                     <View className="mt-2 flex-row flex-wrap gap-2">
                       {(item.serviceNames ?? []).map((serviceName, chipIndex) => (
@@ -400,9 +376,12 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
 
                     {!isViewOnly ? (
                       <>
-                        <Text className="mt-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                          Certificate Type *
-                        </Text>
+                        <View className="mt-3 flex-row items-center">
+                          <Text className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
+                            Certificate Type
+                          </Text>
+                          <Text className="ml-1 text-[10px] font-semibold" style={{ color: theme.colors.negative }}>*</Text>
+                        </View>
                         <View className="mt-2 flex-row flex-wrap gap-2">
                           {(item.allowedCertificateTypes ?? []).map((type, typeIndex) => {
                             const isSelected = selectedType === type;
@@ -410,10 +389,10 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                               <Pressable
                                 key={`${cardId}-type-${typeIndex}`}
                                 onPress={() => {
-                                  if (isSubmitting || isPicking) return;
+                                  if (cardSubmitting || isPicking) return;
                                   setSelectedTypeByCard(prev => ({ ...prev, [cardId]: type }));
                                 }}
-                                disabled={isSubmitting || isPicking}
+                                disabled={cardSubmitting || isPicking}
                                 className="rounded-full border px-2.5 py-1"
                                 style={{
                                   borderColor: isSelected
@@ -432,55 +411,17 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
                           })}
                         </View>
 
-                      <Pressable
+                      <FileUploadCard
+                        files={selectedFile ? [selectedFile] : []}
                         onPress={() => {
                           void onPickFile(item);
                         }}
-                        disabled={isPicking || isSubmitting}
-                        className="mt-3 items-center rounded-2xl border border-dashed px-4 py-6"
-                        style={{
-                          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                          backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.trackLight,
-                        }}
-                      >
-                        <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-                          <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.primary} />
-                        </View>
-                        <Text className="mt-2 text-base font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                          {isPicking ? 'Adding file...' : 'Tap to upload'}
-                        </Text>
-                        <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                          or drag and drop your file here
-                        </Text>
-                        <Text className="mt-2 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                          PDF, JPG, PNG up to 5MB
-                        </Text>
-                        {selectedFile ? (
-                          <View className="mt-3 w-full flex-row items-start rounded-xl border px-3 py-2" style={{ borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight, backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85 }}>
-                            <View className="mr-2 mt-0.5 h-7 w-7 items-center justify-center rounded-md" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-                              <Ionicons
-                                name={isPdfFile ? 'document-text-outline' : 'image-outline'}
-                                size={15}
-                                color={theme.colors.primary}
-                              />
-                            </View>
-                            <View className="flex-1">
-                              <Text className="text-xs font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                                {selectedFile.name}
-                              </Text>
-                              <Text className="mt-0.5 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                                {isPdfFile ? 'PDF file selected' : 'Image file selected'}
-                              </Text>
-                            </View>
-                          </View>
-                        ) : (
-                          <View className="mt-3 w-full rounded-xl border px-3 py-2" style={{ borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight, backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85 }}>
-                            <Text className="text-xs font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                              No file selected yet
-                            </Text>
-                          </View>
-                        )}
-                      </Pressable>
+                        disabled={isPicking || cardSubmitting}
+                        isPicking={isPicking}
+                        isDark={isDark}
+                        multiple={false}
+                        isRequired
+                      />
                       </>
                     ) : (
                       <View className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: theme.colors.accent, backgroundColor: uiColors.surface.accentSoft20 }}>
@@ -513,15 +454,14 @@ export function OnboardingCertificationScreen({ navigation }: Props) {
             )}
           </View>
         )}
-      </View>
 
       {!showWaitingState ? (
         <View className="mt-4">
           <Button
             label="Upload and Continue"
             onPress={onUploadAndContinue}
-            loading={submittingCardId === '__bulk__'}
-            disabled={!canUploadAll || skipLoading}
+            loading={isSubmitting}
+            disabled={!canUploadAny || skipLoading}
           />
         </View>
       ) : null}

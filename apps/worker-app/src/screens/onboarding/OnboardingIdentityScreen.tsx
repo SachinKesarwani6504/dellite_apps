@@ -1,6 +1,6 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useRef, useState } from 'react';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Button } from '@/components/common/Button';
@@ -8,9 +8,10 @@ import { AppInput } from '@/components/common/AppInput';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { Gender } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
+import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
@@ -22,14 +23,14 @@ import {
   normalizePersonName,
 } from '@/utils/validation';
 
-type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingIdentity'>;
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
+type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ONBOARDING_SCREENS.identity>;
 type AadhaarFileSelection = {
   path: string;
   name: string;
 };
 
-export function OnboardingIdentityScreen({}: Props) {
+export function OnboardingIdentityScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -39,20 +40,48 @@ export function OnboardingIdentityScreen({}: Props) {
   const [aadhaarBack, setAadhaarBack] = useState<AadhaarFileSelection | null>(null);
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
   const submittingRef = useRef(false);
-  const { completeOnboarding, loading } = useAuthContext();
+  const {
+    completeIdentityProfile,
+    loading,
+    getOnboardingRedirect,
+    refreshOnboardingRoute,
+  } = useOnboardingContext();
   const formDisabled = loading;
 
-  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && Boolean(gender);
+  useEffect(() => {
+    void refreshOnboardingRoute(true)
+      .then(route => {
+        if (route !== ONBOARDING_SCREENS.identity) {
+          navigation.replace(route);
+        }
+      })
+      .catch(() => {
+        // Existing onboarding route in context still guards the current screen.
+      });
+  }, [navigation, refreshOnboardingRoute]);
+
+  useEffect(() => {
+    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.identity);
+    if (redirect) {
+      navigation.replace(redirect);
+    }
+  }, [getOnboardingRedirect, navigation]);
+
+  const isValid = isValidFirstName(firstName)
+    && isValidLastName(lastName)
+    && Boolean(gender)
+    && Boolean(aadhaarFront)
+    && Boolean(aadhaarBack);
 
   const onContinue = async () => {
     if (loading || submittingRef.current) return;
     if (!isValid) {
-      showError('Please enter first name, last name, and select gender.');
+      showError('Please enter first name, last name, select gender, and upload Aadhaar front/back.');
       return;
     }
     submittingRef.current = true;
     try {
-      await completeOnboarding({
+      await completeIdentityProfile({
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
         gender: gender ?? undefined,
@@ -62,6 +91,7 @@ export function OnboardingIdentityScreen({}: Props) {
         aadhaarBackFilePath: aadhaarBack?.path ?? '',
         aadhaarBackFileName: aadhaarBack?.name ?? '',
       });
+      navigation.replace(ONBOARDING_SCREENS.serviceSelection);
     } catch (error) {
       const message = error instanceof Error && error.message.trim().length > 0
         ? error.message

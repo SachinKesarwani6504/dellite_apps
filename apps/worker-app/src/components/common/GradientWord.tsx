@@ -9,7 +9,11 @@ type GradientWordProps = {
 
 const DEFAULT_PALETTE = theme.gradients.cta;
 
-export function GradientWord({ word = '', className = 'text-[44px] font-extrabold leading-[45px]', palette = DEFAULT_PALETTE }: GradientWordProps) {
+export function GradientWord({
+  word = '',
+  className = 'text-[44px] font-extrabold leading-[45px]',
+  palette = DEFAULT_PALETTE,
+}: GradientWordProps) {
   const letters = String(word).split('');
   const colors = letters.map((_, index) => {
     const paletteIndex = Math.round((index / Math.max(letters.length - 1, 1)) * (palette.length - 1));

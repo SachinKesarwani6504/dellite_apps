@@ -1,7 +1,12 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
-import { useOnboarding, useOnboardingScreenGuard } from '@/hooks/useOnboarding';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { createWorkerServices, getCategories, updateWorkerProfile } from '@/actions';
+import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
+import { WorkerSkillReviewList } from '@/components/worker-skills/WorkerSkillReviewList';
+import { WorkerSkillServicesList } from '@/components/worker-skills/WorkerSkillServicesList';
+import { WorkerSkillSubcategoryTabs } from '@/components/worker-skills/WorkerSkillSubcategoryTabs';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AppIcon } from '@/icons';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
@@ -16,28 +21,41 @@ import {
 } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
-import { normalizeServices, titleCase, toIconBadgeText } from '@/utils';
+import { normalizeServices, titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingServiceSelection'>;
+type SkillStep = 'select' | 'preview';
 
 const ONBOARDING_CITY = 'PRAYAGRAJ';
 
 export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
-  const { fetchServiceCategories, saveWorkerServicesAndResolve, skipServiceSetup } = useOnboarding();
+  const {
+    getOnboardingRedirect,
+    refreshOnboardingRoute,
+    markOnboardingStepSeen,
+  } = useOnboardingContext();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [serviceSaving, setServiceSaving] = useState(false);
   const [skipLoading, setSkipLoading] = useState(false);
+  const [step, setStep] = useState<SkillStep>('select');
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<ServiceSubcategory | null>(null);
-  const [selectedServices, setSelectedServices] = useState<Record<string, CategoryService>>({});
+  const [selectedServiceIds, setSelectedServiceIds] = useState<Record<string, CategoryService>>({});
   const formLocked = serviceSaving || skipLoading;
+
+  useEffect(() => {
+    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.serviceSelection);
+    if (redirect) {
+      navigation.replace(redirect);
+    }
+  }, [getOnboardingRedirect, navigation]);
 
   const fetchCategories = useCallback(async (showLoader = false) => {
     try {
@@ -47,7 +65,13 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         setRefreshing(true);
       }
 
-      const nextCategories = await fetchServiceCategories(ONBOARDING_CITY);
+      const categoriesResponse = await getCategories({
+        city: ONBOARDING_CITY,
+        includeSubcategory: true,
+        includeServices: true,
+        includePriceOptions: true,
+      });
+      const nextCategories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
       setCategories(nextCategories);
 
       setSelectedCategory(prevSelectedCategory => {
@@ -71,7 +95,7 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
       setCategoriesLoading(false);
       setRefreshing(false);
     }
-  }, [fetchServiceCategories]);
+  }, []);
 
   useEffect(() => {
     void fetchCategories(true);
@@ -81,11 +105,6 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
     if (categoriesLoading || formLocked) return;
     void fetchCategories(false);
   }, [categoriesLoading, fetchCategories, formLocked]);
-
-  useOnboardingScreenGuard({
-    currentRoute: ONBOARDING_SCREENS.serviceSelection,
-    onRedirect: route => navigation.replace(route),
-  });
 
   const currentServices = useMemo(
     () => normalizeServices(selectedSubcategory ?? undefined),
@@ -100,15 +119,23 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
     [selectedCategory],
   );
 
-  const selectedServiceNames = useMemo(() => Object.keys(selectedServices), [selectedServices]);
+  const selectedServices = useMemo(
+    () => Object.values(selectedServiceIds),
+    [selectedServiceIds],
+  );
+
+  const selectedServiceNames = useMemo(
+    () => selectedServices.map(service => service.name),
+    [selectedServices],
+  );
 
   const toggleService = (service: CategoryService) => {
-    setSelectedServices(prev => {
+    setSelectedServiceIds(prev => {
       const next = { ...prev };
-      if (next[service.name]) {
-        delete next[service.name];
+      if (next[service.id]) {
+        delete next[service.id];
       } else {
-        next[service.name] = service;
+        next[service.id] = service;
       }
       return next;
     });
@@ -118,8 +145,16 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
     if (selectedServiceNames.length === 0 || formLocked) return;
     try {
       setServiceSaving(true);
-      const resolution = await saveWorkerServicesAndResolve(ONBOARDING_CITY, selectedServiceNames);
-      navigation.replace(resolution.nextRoute);
+      await createWorkerServices(
+        { city: ONBOARDING_CITY, skills: selectedServiceNames },
+        { showSuccessToast: false },
+      );
+      markOnboardingStepSeen('SERVICE_SELECTION');
+      navigation.replace(ONBOARDING_SCREENS.certification);
+      const nextRoute = await refreshOnboardingRoute(true);
+      if (nextRoute !== ONBOARDING_SCREENS.certification) {
+        navigation.replace(nextRoute);
+      }
     } finally {
       setServiceSaving(false);
     }
@@ -127,18 +162,27 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
 
   const onResetServices = () => {
     if (formLocked) return;
-    setSelectedServices({});
+    setSelectedServiceIds({});
     setSelectedSubcategory(null);
     setSelectedCategory(null);
+    setStep('select');
   };
 
   const onSkipServices = async () => {
     if (formLocked) return;
     setSkipLoading(true);
     try {
-      const nextRoute = await skipServiceSetup();
-      if (nextRoute !== ONBOARDING_SCREENS.serviceSelection) {
-        navigation.replace(nextRoute);
+      try {
+        await updateWorkerProfile(
+          { hasSeenSkillSetup: true, hasSeenCertificateSetup: true },
+          { showSuccessToast: false, showErrorToast: false },
+        );
+        markOnboardingStepSeen('SERVICE_SELECTION');
+        markOnboardingStepSeen('CERTIFICATE_UPLOAD');
+        navigation.replace(ONBOARDING_SCREENS.welcomeWorker);
+        void refreshOnboardingRoute(true);
+      } catch {
+        navigation.replace(ONBOARDING_SCREENS.welcomeWorker);
       }
     } finally {
       setSkipLoading(false);
@@ -147,16 +191,27 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
 
   const onBackStep = () => {
     if (formLocked) return;
+
+    if (step === 'preview') {
+      setStep('select');
+      return;
+    }
+
     if (selectedCategory) {
       setSelectedSubcategory(null);
       setSelectedCategory(null);
       return;
     }
+
     if (navigation.canGoBack()) {
       navigation.goBack();
     }
   };
-  const showBackButton = Boolean(selectedCategory || selectedSubcategory || navigation.canGoBack());
+
+  const showBackButton = Boolean(step === 'preview' || selectedCategory || selectedSubcategory || navigation.canGoBack());
+  const isPreviewStep = step === 'preview';
+  const canOpenPreview = selectedServices.length > 0;
+  const currentSkillStep = isPreviewStep ? 3 : (selectedCategory ? 2 : 1);
 
   return (
     <GradientScreen
@@ -170,39 +225,43 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         />
       )}
     >
-      <View className="rounded-3xl px-4 pb-5 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <View className="flex-row items-center">
           <View className="w-10">
             <BackButton onPress={onBackStep} visible={showBackButton} />
           </View>
           <View className="flex-1" />
-          <Pressable
-            onPress={() => {
-              void onSkipServices();
-            }}
-            disabled={formLocked}
-            className={`flex-row items-center rounded-full border px-3 py-1.5 ${formLocked ? 'opacity-60' : ''}`}
-            style={{
-              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-            }}
-          >
-            {skipLoading ? (
-              <AppSpinner size="small" color={theme.colors.primary} />
-            ) : (
-              <>
-                <Text className="text-xs font-semibold text-primary">{APP_TEXT.onboarding.vehicle.skipButton}</Text>
-                <AppIcon name="chevronRight" size={14} color={theme.colors.primary} />
-              </>
-            )}
-          </Pressable>
+          {!isPreviewStep ? (
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => {
+                  void onSkipServices();
+                }}
+                disabled={formLocked}
+                className={`flex-row items-center rounded-full border px-3 py-1.5 ${formLocked ? 'opacity-60' : ''}`}
+                style={{
+                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+                }}
+              >
+                {skipLoading ? (
+                  <AppSpinner size="small" color={theme.colors.primary} />
+                ) : (
+                  <>
+                    <Text className="text-xs font-semibold text-primary">{APP_TEXT.onboarding.vehicle.skipButton}</Text>
+                    <AppIcon name="chevronRight" size={14} color={theme.colors.primary} />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
         </View>
+
         <View className="mt-3">
           <SplitGradientTitle
             eyebrow={APP_TEXT.onboarding.vehicle.step}
-            prefix="Choose Your"
-            highlight="Services"
-            subtitle={APP_TEXT.onboarding.vehicle.subtitle}
+            prefix={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewTitlePrefix : APP_TEXT.onboarding.vehicle.selectTitlePrefix}
+            highlight={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewTitleHighlight : APP_TEXT.onboarding.vehicle.selectTitleHighlight}
+            subtitle={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewSubtitle : APP_TEXT.onboarding.vehicle.subtitle}
             prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
             highlightClassName="text-4xl font-extrabold leading-[40px]"
             subtitleClassName="mt-2 text-sm"
@@ -211,8 +270,12 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         </View>
 
         <View className="mt-4 flex-row gap-2">
-          <View className="h-1.5 flex-1 rounded-full bg-primary" />
-          <View className={`h-1.5 flex-1 rounded-full ${selectedCategory ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`} />
+          {[1, 2, 3].map(stepIndex => (
+            <View
+              key={`skill-step-${stepIndex}`}
+              className={`h-1.5 flex-1 rounded-full ${stepIndex <= currentSkillStep ? 'bg-primary' : 'bg-accent/30 dark:bg-white/10'}`}
+            />
+          ))}
         </View>
 
         {categoriesLoading ? (
@@ -221,164 +284,106 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
           </View>
         ) : (
           <View className="mt-4">
-            {!selectedCategory && (
-              <View className="mt-3 flex-row flex-wrap justify-between gap-y-3">
-                {categoryList.map(category => (
-                  <Pressable
-                    key={category.id}
-                    onPress={() => {
-                      if (formLocked) return;
+            {!isPreviewStep ? (
+              <>
+                {!selectedCategory ? (
+                  <WorkerSkillCategoryGrid
+                    categories={categoryList}
+                    selectedCategoryId={null}
+                    disabled={formLocked}
+                    isDark={isDark}
+                    onSelectCategory={category => {
                       const firstSubcategory = Array.isArray(category.subcategories)
                         ? category.subcategories[0] ?? null
                         : null;
                       setSelectedCategory(category);
                       setSelectedSubcategory(firstSubcategory);
                     }}
-                    disabled={formLocked}
-                    className="w-[48%] rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
-                    style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
-                  >
-                    <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                      <Text className="text-sm font-bold text-primary">
-                        {toIconBadgeText(category.name, category.iconText)}
-                      </Text>
-                    </View>
-                    <Text className="mt-2 text-sm font-bold text-baseDark dark:text-white">{titleCase(category.name)}</Text>
-                    <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                      {(category.subcategories?.length ?? 0).toString()} subcategories
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
+                  />
+                ) : null}
 
-            {selectedCategory && selectedSubcategory && (
-              <View>
-                <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedCategory.name)}</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingVertical: 4, paddingRight: 8 }}
-                  className="mb-3"
-                >
-                  <View className="flex-row gap-2">
-                    {subcategoryList.map(subcategory => {
-                      const isSelectedSubcategory = selectedSubcategory.id === subcategory.id;
-                      return (
-                        <Pressable
-                          key={subcategory.id}
-                          onPress={() => {
-                            if (formLocked) return;
-                            setSelectedSubcategory(subcategory);
-                          }}
-                          disabled={formLocked}
-                          className="rounded-full border px-3 py-2"
-                          style={{
-                            borderColor: isSelectedSubcategory ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                            backgroundColor: isSelectedSubcategory ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
-                          }}
-                        >
-                          <View className="flex-row items-center">
-                            <View className="mr-1.5 h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-                              <Text className="text-[10px] font-bold text-primary">
-                                {toIconBadgeText(subcategory.name, subcategory.iconText)}
-                              </Text>
-                            </View>
-                            <Text
-                              className="text-xs font-semibold"
-                              style={{ color: isSelectedSubcategory ? theme.colors.primary : (isDark ? palette.dark.text : palette.light.text) }}
-                            >
-                              {titleCase(subcategory.name)}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
+                {selectedCategory && selectedSubcategory ? (
+                  <View>
+                    <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedCategory.name)}</Text>
+                    <WorkerSkillSubcategoryTabs
+                      subcategories={subcategoryList}
+                      selectedSubcategoryId={selectedSubcategory.id}
+                      disabled={formLocked}
+                      isDark={isDark}
+                      onSelectSubcategory={subcategory => {
+                        setSelectedSubcategory(subcategory);
+                      }}
+                    />
+                    <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedSubcategory.name)}</Text>
+                    <WorkerSkillServicesList
+                      services={currentServices}
+                      selectedServiceIds={selectedServiceIds}
+                      disabled={formLocked}
+                      isDark={isDark}
+                      onToggleService={toggleService}
+                    />
                   </View>
-                </ScrollView>
-
-                <Text className="mb-2 text-lg font-bold text-baseDark dark:text-white">{titleCase(selectedSubcategory.name)}</Text>
-                <View className="gap-2">
-                  {currentServices.map(service => {
-                    const selected = Boolean(selectedServices[service.name]);
-                    return (
-                      <Pressable
-                        key={service.id}
-                        onPress={() => {
-                          if (formLocked) return;
-                          toggleService(service);
-                        }}
-                        disabled={formLocked}
-                        className={`rounded-2xl border p-3 ${
-                          selected
-                            ? 'border-primary bg-primary/10'
-                            : 'border-accent/40 bg-white dark:border-white/10'
-                        }`}
-                        style={!selected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
-                      >
-                        <View className="flex-row items-center justify-between">
-                          <View className="mr-3 h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                            <Text className="font-bold text-primary">
-                              {toIconBadgeText(service.name, service.iconText)}
-                            </Text>
-                          </View>
-                          <View className="flex-1 pr-2">
-                            <Text className={`text-sm font-bold ${selected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
-                              {titleCase(service.description || service.name)}
-                            </Text>
-                            {service.isCertificateRequired ? (
-                              <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                                Certificate required
-                              </Text>
-                            ) : null}
-                          </View>
-                          <View
-                            className={`h-6 w-6 items-center justify-center rounded-full border ${
-                              selected ? 'border-primary bg-primary' : 'bg-white dark:bg-transparent'
-                            }`}
-                            style={!selected ? { borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight } : undefined}
-                          >
-                            {selected ? <Text className="text-[10px] font-bold text-white">OK</Text> : null}
-                          </View>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+                ) : null}
+              </>
+            ) : (
+              <WorkerSkillReviewList
+                selectedServices={selectedServices}
+                disabled={formLocked}
+                isDark={isDark}
+                onRemoveService={serviceId => {
+                  if (formLocked) return;
+                  setSelectedServiceIds(prev => {
+                    const next = { ...prev };
+                    delete next[serviceId];
+                    return next;
+                  });
+                }}
+              />
             )}
           </View>
         )}
-      </View>
-      <View className="mt-4">
-        <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-primary">
-            {selectedServiceNames.length} Selected
-          </Text>
-          <Pressable
-            onPress={onResetServices}
-            disabled={formLocked || selectedServiceNames.length === 0}
-            className={`flex-row items-center rounded-full px-3 py-1.5 ${
-              formLocked || selectedServiceNames.length === 0
-                ? 'bg-accent/20 opacity-60'
-                : 'bg-primary/10'
-            }`}
-            style={formLocked || selectedServiceNames.length === 0 ? { backgroundColor: isDark ? uiColors.surface.chipDark : uiColors.surface.accentSoft20 } : undefined}
-          >
-            <AppIcon name="refresh" size={12} color={theme.colors.primary} />
-            <Text className="text-xs font-semibold text-primary">
-              {' '}Reset Selection
+
+      {isPreviewStep ? (
+        <View className="mt-4">
+          <View className="mb-4 flex-row items-center justify-between">
+            <Text className="text-sm font-bold text-primary">
+              {selectedServices.length} {APP_TEXT.onboarding.vehicle.selectedSkillCountLabel}
             </Text>
-          </Pressable>
+            <Pressable
+              onPress={onResetServices}
+              disabled={formLocked || selectedServices.length === 0}
+              className={`flex-row items-center rounded-full px-3 py-1.5 ${
+                formLocked || selectedServices.length === 0
+                  ? 'bg-accent/20 opacity-60'
+                  : 'bg-primary/10'
+              }`}
+              style={formLocked || selectedServices.length === 0 ? { backgroundColor: isDark ? uiColors.surface.chipDark : uiColors.surface.accentSoft20 } : undefined}
+            >
+              <AppIcon name="refresh" size={12} color={theme.colors.primary} />
+              <Text className="text-xs font-semibold text-primary">
+                {' '}{APP_TEXT.onboarding.vehicle.resetSkillsButton}
+              </Text>
+            </Pressable>
+          </View>
+          <Button
+            label={APP_TEXT.onboarding.vehicle.saveServicesButton}
+            onPress={onSaveServices}
+            loading={serviceSaving}
+            disabled={formLocked || selectedServices.length === 0}
+          />
         </View>
-        <Button
-          label={APP_TEXT.onboarding.vehicle.saveServicesButton}
-          onPress={onSaveServices}
-          loading={serviceSaving}
-          disabled={formLocked || selectedServiceNames.length === 0}
-        />
-      </View>
+      ) : (
+        <View className="mt-4">
+          <Button
+            label={APP_TEXT.onboarding.vehicle.previewSkillsButton}
+            onPress={() => {
+              if (formLocked || !canOpenPreview) return;
+              setStep('preview');
+            }}
+            disabled={formLocked || !canOpenPreview}
+          />
+        </View>
+      )}
     </GradientScreen>
   );
 }
-

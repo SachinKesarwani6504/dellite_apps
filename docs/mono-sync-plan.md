@@ -51,3 +51,10 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 
 1. Move shared HTTP/token helpers into `packages/app-core`.
 2. Add root `typecheck:worker` and `typecheck:customer` scripts for parity validation.
+
+## In Progress: Onboarding Context Split
+
+- [x] Worker app: split auth/session state and onboarding flow state into separate contexts.
+- [x] Worker app: onboarding navigator route decisions now come from onboarding context and `/auth/me` worker flags.
+- [x] Customer app: mirrored onboarding context split and onboarding navigator route ownership.
+- [x] Worker + Customer: removed `hooks/useAuth.ts` wrapper and standardized direct context hook usage.

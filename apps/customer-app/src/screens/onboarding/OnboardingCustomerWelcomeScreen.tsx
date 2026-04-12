@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
-import { useAuth } from '@/hooks/useAuth';
+import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AppIcon } from '@/icons';
 import { APP_LAYOUT, palette, theme, uiColors } from '@/utils';
 
@@ -35,7 +35,7 @@ const BURST_PARTICLES = [
 ] as const;
 
 export function OnboardingCustomerWelcomeScreen() {
-  const { completeWelcomeAndEnterMainTabs, loading } = useAuth();
+  const { completeOnboardingFlow, loading } = useOnboardingContext();
   const isDark = useColorScheme() === 'dark';
   const text = APP_TEXT.onboarding.welcome;
   const [step, setStep] = useState(0);
@@ -129,7 +129,7 @@ export function OnboardingCustomerWelcomeScreen() {
 
   const onStart = async () => {
     if (loading) return;
-    await completeWelcomeAndEnterMainTabs();
+    await completeOnboardingFlow();
   };
 
   return (

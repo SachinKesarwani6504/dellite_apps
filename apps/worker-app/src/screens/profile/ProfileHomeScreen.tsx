@@ -7,6 +7,7 @@ import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SectionCard } from '@/components/common/SectionCard';
+import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
@@ -25,16 +26,22 @@ type ProfileStats = {
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
-  const { user, phone, logout, loading, refreshMe } = useAuthContext();
+  const { user, me, phone, logout, loading, refreshMe } = useAuthContext();
   const [refreshing, setRefreshing] = useState(false);
 
-  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
+  const displayFirstName = typeof me?.user?.firstName === 'string' && me.user.firstName.trim().length > 0
+    ? me.user.firstName.trim()
+    : (typeof user?.firstName === 'string' ? user.firstName.trim() : '');
+  const displayLastName = typeof me?.user?.lastName === 'string' && me.user.lastName.trim().length > 0
+    ? me.user.lastName.trim()
+    : (typeof user?.lastName === 'string' ? user.lastName.trim() : '');
+  const displayName = [displayFirstName, displayLastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
   const initials = useMemo(() => {
-    const first = String(user?.firstName ?? '').trim().charAt(0).toUpperCase();
-    const last = String(user?.lastName ?? '').trim().charAt(0).toUpperCase();
+    const first = String(displayFirstName ?? '').trim().charAt(0).toUpperCase();
+    const last = String(displayLastName ?? '').trim().charAt(0).toUpperCase();
     const value = `${first}${last}`.trim();
     return value || 'DP';
-  }, [user?.firstName, user?.lastName]);
+  }, [displayFirstName, displayLastName]);
   const genderLabel = toDisplayGender(user?.gender, 'Not set');
   const roleLabel = APP_TEXT.profile.roleLabel;
   const memberSinceDate = formatDateToDdMmmYyyy(getUserCreatedAt(user));
@@ -59,12 +66,76 @@ export function ProfileHomeScreen({ navigation }: Props) {
       }
       return 0;
     };
+    const toOptionalCount = (value: unknown) => {
+      if (value === null || typeof value === 'undefined') return null;
+      const parsed = toCount(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const workerLinkFromMe = me?.links?.worker as Record<string, unknown> | undefined;
+    const roleLinkFromMe = (me as Record<string, unknown> | null | undefined)?.roleLink as Record<string, unknown> | undefined;
+    const approvedServicesFromLinks = workerLinkFromMe?.approvedServices;
+    const approvedServicesFromRoleLink = roleLinkFromMe?.approvedServices;
+    const approvedSkillsFromLinks = workerLinkFromMe?.approvedSkills;
+    const approvedSkillsFromRoleLink = roleLinkFromMe?.approvedSkills;
+    const totalSkillsFromApprovedCollections =
+      (Array.isArray(approvedServicesFromLinks) ? approvedServicesFromLinks.length : null)
+      ?? (Array.isArray(approvedServicesFromRoleLink) ? approvedServicesFromRoleLink.length : null)
+      ?? (Array.isArray(approvedSkillsFromLinks) ? approvedSkillsFromLinks.length : null)
+      ?? (Array.isArray(approvedSkillsFromRoleLink) ? approvedSkillsFromRoleLink.length : null);
+    const totalSkillsFromMeCount =
+      toOptionalCount(workerLinkFromMe?.skillCount)
+      ?? toOptionalCount(roleLinkFromMe?.skillCount)
+      ?? toOptionalCount(roleLinkFromMe?.totalSkills);
     return {
-      totalSkills: toCount(source?.skillCount),
+      totalSkills: totalSkillsFromApprovedCollections ?? totalSkillsFromMeCount ?? toCount(source?.skillCount),
       completedJobs: toCount(source?.completedJobCount),
       certificates: toCount(source?.certificatesCount),
     };
-  }, [user?.workerLink]);
+  }, [me, user?.workerLink]);
+  const currentStatus = useMemo(() => {
+    const toBoolean = (value: unknown): boolean | undefined => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value === 1 ? true : (value === 0 ? false : undefined);
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true') return true;
+        if (normalized === 'false') return false;
+      }
+      return undefined;
+    };
+
+    const normalizeCurrentStatus = (value: unknown) => {
+      if (!value || typeof value !== 'object') return null;
+      const raw = value as Record<string, unknown>;
+      return {
+        id: typeof raw.id === 'string' ? raw.id : undefined,
+        workerId: typeof raw.workerId === 'string' ? raw.workerId : (typeof raw.worker_id === 'string' ? raw.worker_id : undefined),
+        status: typeof raw.status === 'string' ? raw.status : undefined,
+        isLatest: toBoolean(raw.isLatest ?? raw.is_latest),
+        message: typeof raw.message === 'string' ? raw.message : undefined,
+        createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : (typeof raw.created_at === 'string' ? raw.created_at : undefined),
+        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : (typeof raw.updated_at === 'string' ? raw.updated_at : undefined),
+      };
+    };
+
+    const linksWorker = me?.links?.worker as Record<string, unknown> | undefined;
+    const roleLink = (me as Record<string, unknown> | undefined)?.roleLink as Record<string, unknown> | undefined;
+    const candidates: unknown[] = [
+      linksWorker?.currentStatus,
+      linksWorker?.current_status,
+      roleLink?.currentStatus,
+      roleLink?.current_status,
+      user?.workerLink?.currentStatus,
+    ];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const normalized = normalizeCurrentStatus(candidates[index]);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return null;
+  }, [me, user?.workerLink?.currentStatus]);
 
   useEffect(() => {
     void refreshMe();
@@ -164,6 +235,8 @@ export function ProfileHomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
       </View>
+
+      <WorkerCurrentStatusBanner currentStatus={currentStatus} />
 
       <View className="mt-4 flex-row gap-3">
         <View className="flex-1 items-center rounded-2xl border p-4" style={cardStyle}>

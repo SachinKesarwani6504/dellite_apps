@@ -36,7 +36,11 @@ packages/
   - `src/types/*`
 - Context API filenames must stay parallel in both apps:
   - `src/contexts/AuthContext.tsx`
-  - `src/hooks/useAuth.ts`
+  - `src/contexts/OnboardingContext.tsx`
+  - `src/hooks/useAuthController.ts`
+  - `src/hooks/useOnboardingController.ts`
+- Keep context files only under `src/contexts/*` and hook files only under `src/hooks/*`.
+- Avoid wrapper hook aliases like `src/hooks/useAuth.ts`; import directly from context hooks (example: `useAuthContext`, `useOnboardingContext`).
 - Do not use mixed naming styles for equivalent modules (example: avoid `screenNames.ts` in one app and `screen-names.ts` in the other).
 
 ## 3) HTTP Client Rules
@@ -97,6 +101,8 @@ Before finishing:
 - Worker typecheck passes.
 - Customer typecheck passes.
 - Equivalent foundational files are compared and aligned.
+- Repo lint/structure/parity checks pass (`npm run lint:repo`).
+- Full verification passes (`npm run verify:all`) before merge.
 
 ## 10) Component Cleanliness Rules
 
@@ -104,3 +110,35 @@ Before finishing:
 - Move small reusable helpers (number formatting, reward labels, event label formatting, etc.) into `src/utils/*`.
 - Export reusable helpers via `src/utils/index.ts` so screens can import from one place.
 - Apply the same helper structure in both apps whenever files are equivalent.
+- For required form/card fields, always show a red asterisk (`*`) as the required indicator and keep this styling consistent across screens.
+
+## 11) Repo-Local Skills
+
+- Reusable Codex skills live in:
+  - `skills/dellite-monorepo-defaults/SKILL.md`
+  - `skills/dellite-refactor-execution/SKILL.md`
+- Prefer using these skills for day-to-day implementation to reduce repeated prompting, avoid regression, and keep worker/customer parity.
+- Keep skill instructions aligned with this `AGENTS.md` contract.
+
+## 12) Automation Commands
+
+- Root verification commands:
+  - `npm run lint:repo`
+  - `npm run verify:worker`
+  - `npm run verify:customer`
+  - `npm run verify:all`
+- CI (`.github/workflows/quality-gate.yml`) must stay green before merge.
+
+## 13) Context + Hook Architecture
+
+- Keep Context files thin and clean:
+  - `src/contexts/*Context.tsx` should only create/provide context and expose `use*Context`.
+  - Avoid embedding business logic, state machines, API orchestration, or route resolution directly in context files.
+- Keep logic in dedicated hook controllers:
+  - `src/hooks/use*Controller.ts` should own state, effects, API calls, and flow decisions.
+  - Context providers should consume these hooks and pass values down.
+- Consumption rule (strict):
+  - Screens/components must import Context APIs only (`useAuthContext`, `useOnboardingContext`, etc.).
+  - Screens/components must not import controller hooks directly (`useAuthController`, `useOnboardingController`).
+  - If a temporary wrapper hook (example: `src/hooks/useOnboarding.ts`) becomes unused after migration, delete it immediately.
+- Apply the same architecture pattern in both `apps/worker-app` and `apps/customer-app` for equivalent contexts.

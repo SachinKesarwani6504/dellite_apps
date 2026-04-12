@@ -1,0 +1,4 @@
+skill_id: dellite-refactor-execution
+display_name: Dellite Refactor Execution
+short_description: Execute large refactors safely with strict checks
+default_prompt: Use this skill to run medium-to-large refactors in Dellite with safe sequencing and validation.
