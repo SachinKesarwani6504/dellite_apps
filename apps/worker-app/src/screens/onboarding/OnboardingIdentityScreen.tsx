@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
 import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -28,7 +28,17 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ONBOARDING_
 type AadhaarFileSelection = {
   path: string;
   name: string;
+  type: string;
 };
+
+type ProfileImageSelection = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
+const AADHAAR_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
 export function OnboardingIdentityScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -36,17 +46,18 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
+  const [profileImage, setProfileImage] = useState<ProfileImageSelection | null>(null);
   const [aadhaarFront, setAadhaarFront] = useState<AadhaarFileSelection | null>(null);
   const [aadhaarBack, setAadhaarBack] = useState<AadhaarFileSelection | null>(null);
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
-  const submittingRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     completeIdentityProfile,
     loading,
     getOnboardingRedirect,
     refreshOnboardingRoute,
   } = useOnboardingContext();
-  const formDisabled = loading;
+  const formDisabled = loading || isSubmitting;
 
   useEffect(() => {
     void refreshOnboardingRoute(true)
@@ -74,22 +85,21 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     && Boolean(aadhaarBack);
 
   const onContinue = async () => {
-    if (loading || submittingRef.current) return;
+    if (formDisabled) return;
     if (!isValid) {
       showError('Please enter first name, last name, select gender, and upload Aadhaar front/back.');
       return;
     }
-    submittingRef.current = true;
+    setIsSubmitting(true);
     try {
       await completeIdentityProfile({
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
         gender: gender ?? undefined,
         referralCode: referralCode.trim() || undefined,
-        aadhaarFrontFilePath: aadhaarFront?.path ?? '',
-        aadhaarFrontFileName: aadhaarFront?.name ?? '',
-        aadhaarBackFilePath: aadhaarBack?.path ?? '',
-        aadhaarBackFileName: aadhaarBack?.name ?? '',
+        profileImage: profileImage ? { uri: profileImage.uri, name: profileImage.name, type: profileImage.type } : undefined,
+        aadhaarFront: aadhaarFront ? { uri: aadhaarFront.path, name: aadhaarFront.name, type: aadhaarFront.type } : undefined,
+        aadhaarBack: aadhaarBack ? { uri: aadhaarBack.path, name: aadhaarBack.name, type: aadhaarBack.type } : undefined,
       });
       navigation.replace(ONBOARDING_SCREENS.serviceSelection);
     } catch (error) {
@@ -98,7 +108,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         : 'Could not continue onboarding. Please try again.';
       showError(message);
     } finally {
-      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -115,9 +125,14 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       const fileName = asset.name ?? `aadhaar-${side}-${Date.now()}`;
       const isSupportedImage = /\.(png|jpg|jpeg)$/i.test(fileName);
       if (!isSupportedImage) return;
+      if (typeof asset.size === 'number' && asset.size > AADHAAR_MAX_SIZE_BYTES) {
+        showError('Aadhaar file size must be 5MB or less.');
+        return;
+      }
       const selection = {
         path: asset.uri,
         name: fileName,
+        type: asset.mimeType ?? 'image/jpeg',
       };
       if (side === 'front') {
         setAadhaarFront(selection);
@@ -128,6 +143,30 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       // Toasts are shown from API layer.
     } finally {
       setPickingSide(null);
+    }
+  };
+
+  const pickProfileImage = async () => {
+    if (formDisabled) return;
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
+        type: ['image/png', 'image/jpeg'],
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      if (typeof asset.size === 'number' && asset.size > PROFILE_IMAGE_MAX_SIZE_BYTES) {
+        showError('Profile image size must be 2MB or less.');
+        return;
+      }
+      setProfileImage({
+        uri: asset.uri,
+        name: asset.name ?? `profile-${Date.now()}.jpg`,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+    } catch {
+      showError('Could not pick profile image. Please try again.');
     }
   };
 
@@ -145,7 +184,11 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
-            subtitle={APP_TEXT.onboarding.identity.uploadPhotoSubtitle}
+            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} â€¢ Max 2MB`}
+            imageUri={profileImage?.uri ?? null}
+            onPress={() => {
+              void pickProfileImage();
+            }}
           />
         </View>
 
@@ -181,118 +224,35 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
           <Text className="ml-1 text-sm font-semibold" style={{ color: theme.colors.negative }}>*</Text>
         </View>
         <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {APP_TEXT.onboarding.identity.aadhaarUploadHint}
+          {`${APP_TEXT.onboarding.identity.aadhaarUploadHint} • Max 5MB each`}
         </Text>
         <View className="mt-2 gap-2">
-          <Pressable
+          <AadhaarUploadInput
+            label={APP_TEXT.onboarding.identity.aadhaarFrontLabel}
+            required
+            fileName={aadhaarFront?.name ?? null}
+            previewUri={aadhaarFront?.path ?? null}
+            isLoading={pickingSide === 'front'}
+            disabled={formDisabled || pickingSide !== null}
+            iconName="document-attach-outline"
             onPress={() => {
               if (formDisabled || pickingSide !== null) return;
               void pickAadhaarFile('front');
             }}
+          />
+          <AadhaarUploadInput
+            label={APP_TEXT.onboarding.identity.aadhaarBackLabel}
+            required
+            fileName={aadhaarBack?.name ?? null}
+            previewUri={aadhaarBack?.path ?? null}
+            isLoading={pickingSide === 'back'}
             disabled={formDisabled || pickingSide !== null}
-            className="rounded-2xl border border-dashed p-3"
-            style={{
-              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.trackLight,
-            }}
-          >
-            <View className="flex-row items-center">
-              <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
-                <Ionicons name="document-attach-outline" size={18} color={theme.colors.primary} />
-              </View>
-              <View className="ml-3 flex-1">
-                <View className="flex-row items-center">
-                  <Text className="text-sm font-semibold text-baseDark dark:text-white">{APP_TEXT.onboarding.identity.aadhaarFrontLabel}</Text>
-                  <Text className="ml-1 text-sm font-semibold" style={{ color: theme.colors.negative }}>*</Text>
-                </View>
-                <Text className="mt-0.5 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {aadhaarFront?.name ?? 'PNG, JPG only'}
-                </Text>
-              </View>
-              <Text className="text-xs font-semibold text-primary">
-                {pickingSide === 'front'
-                  ? 'Adding...'
-                  : aadhaarFront
-                    ? 'Update File'
-                    : APP_TEXT.onboarding.identity.aadhaarUploadButton}
-              </Text>
-            </View>
-            {aadhaarFront ? (
-              <View
-                className="mt-3 overflow-hidden rounded-xl border"
-                style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-                }}
-              >
-                <View className="px-2 pt-2">
-                  <Text className="text-[11px] font-semibold" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                    Full Preview
-                  </Text>
-                </View>
-                <Image
-                  source={{ uri: aadhaarFront.path }}
-                  resizeMode="contain"
-                  style={{ width: '100%', height: 220, marginTop: 4, marginBottom: 6 }}
-                />
-              </View>
-            ) : null}
-          </Pressable>
-
-          <Pressable
+            iconName="document-text-outline"
             onPress={() => {
               if (formDisabled || pickingSide !== null) return;
               void pickAadhaarFile('back');
             }}
-            disabled={formDisabled || pickingSide !== null}
-            className="rounded-2xl border border-dashed p-3"
-            style={{
-              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.trackLight,
-            }}
-          >
-            <View className="flex-row items-center">
-              <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
-                <Ionicons name="document-text-outline" size={18} color={theme.colors.primary} />
-              </View>
-              <View className="ml-3 flex-1">
-                <View className="flex-row items-center">
-                  <Text className="text-sm font-semibold text-baseDark dark:text-white">{APP_TEXT.onboarding.identity.aadhaarBackLabel}</Text>
-                  <Text className="ml-1 text-sm font-semibold" style={{ color: theme.colors.negative }}>*</Text>
-                </View>
-                <Text className="mt-0.5 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {aadhaarBack?.name ?? 'PNG, JPG only'}
-                </Text>
-              </View>
-              <Text className="text-xs font-semibold text-primary">
-                {pickingSide === 'back'
-                  ? 'Adding...'
-                  : aadhaarBack
-                    ? 'Update File'
-                    : APP_TEXT.onboarding.identity.aadhaarUploadButton}
-              </Text>
-            </View>
-            {aadhaarBack ? (
-              <View
-                className="mt-3 overflow-hidden rounded-xl border"
-                style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-                }}
-              >
-                <View className="px-2 pt-2">
-                  <Text className="text-[11px] font-semibold" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                    Full Preview
-                  </Text>
-                </View>
-                <Image
-                  source={{ uri: aadhaarBack.path }}
-                  resizeMode="contain"
-                  style={{ width: '100%', height: 220, marginTop: 4, marginBottom: 6 }}
-                />
-              </View>
-            ) : null}
-          </Pressable>
+          />
         </View>
 
         <Text className="mt-5 text-sm font-semibold text-baseDark dark:text-white">{APP_TEXT.onboarding.identity.genderLabel}</Text>
@@ -329,8 +289,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       </View>
 
       <View className="mt-5">
-        <Button label={APP_TEXT.onboarding.identity.nextButton} onPress={onContinue} loading={loading} disabled={loading} />
+        <Button label={APP_TEXT.onboarding.identity.nextButton} onPress={onContinue} loading={isSubmitting} disabled={formDisabled} />
       </View>
     </GradientScreen>
   );
 }
+

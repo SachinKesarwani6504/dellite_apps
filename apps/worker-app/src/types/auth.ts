@@ -1,3 +1,5 @@
+import type { MultipartFile } from '@/types/http';
+
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
 export const APP_AUTH_ROLE: UserRole = 'WORKER';
 export const REFERRAL_ROLES = {
@@ -71,6 +73,29 @@ export interface WorkerProfileLink {
   [key: string]: unknown;
 }
 
+export interface AadharFileMeta {
+  id?: string;
+  filename?: string;
+  filepath?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface UserAadharData {
+  id?: string;
+  status?: string;
+  isVerified?: boolean;
+  hasAadharFrontFile?: boolean;
+  hasAadharBackFile?: boolean;
+  aadharFrontFileId?: string;
+  aadharBackFileId?: string;
+  aadharFrontFile?: AadharFileMeta | null;
+  aadharBackFile?: AadharFileMeta | null;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -82,12 +107,39 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   email?: string;
+  profileImageId?: string;
+  profileImage?: {
+    id?: string;
+    url?: string;
+    filename?: string;
+    [key: string]: unknown;
+  };
   gender?: Gender;
   referralCode?: string;
   referral?: ReferralInfo;
   roles?: Record<UserRole, boolean> & Record<string, boolean>;
   userIdentityVerification?: {
+    id?: string;
+    status?: string;
     isVerified?: boolean | string | number;
+    hasAadhaarFrontFile?: boolean;
+    hasAadhaarBackFile?: boolean;
+    aadhaarFrontFileId?: string;
+    aadhaarBackFileId?: string;
+    aadhaarFrontFile?: {
+      id?: string;
+      filename?: string;
+      url?: string;
+      [key: string]: unknown;
+    };
+    aadhaarBackFile?: {
+      id?: string;
+      filename?: string;
+      url?: string;
+      [key: string]: unknown;
+    };
+    createdAt?: string;
+    updatedAt?: string;
     [key: string]: unknown;
   };
   workerLink?: WorkerProfileLink;
@@ -169,9 +221,17 @@ export interface WorkerProfilePayload {
   lastName?: string;
   email?: string;
   gender?: Gender;
+  preferredLanguage?: 'EN' | 'HI';
   bio?: string;
   experienceYears?: number;
   referralCode?: string;
+  profileImage?: MultipartFile;
+  aadhaarFront?: MultipartFile;
+  aadhaarBack?: MultipartFile;
+  aadhaarFrontFilepath?: string;
+  aadhaarFrontFilename?: string;
+  aadhaarBackFilepath?: string;
+  aadhaarBackFilename?: string;
   aadhaarFrontFilePath?: string;
   aadhaarFrontFileName?: string;
   aadhaarBackFilePath?: string;
@@ -204,12 +264,15 @@ export interface WorkerServiceUpdatePayload {
 }
 
 export interface CreateWorkerCertificateItem {
+  certificateId?: string;
   certificateType: string;
   workerSkillIds?: string[];
+  serviceIds?: string[];
   fileId?: string;
   fileName?: string;
   fileType?: string;
   fileUrl?: string;
+  fileField?: string;
 }
 
 export interface UpdateWorkerCertificateItem extends CreateWorkerCertificateItem {

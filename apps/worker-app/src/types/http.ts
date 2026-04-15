@@ -7,3 +7,9 @@ export type RequestOptions = ApiRequestOptions & {
   cache?: 'default' | 'no-store';
   retryOnAuthFailure?: boolean;
 };
+
+export type MultipartFile = {
+  uri: string;
+  name: string;
+  type?: string;
+};

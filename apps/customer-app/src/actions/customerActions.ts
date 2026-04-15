@@ -7,6 +7,7 @@ import type {
   UpdateCustomerIdentityPayload,
   UpdateCustomerProfilePayload,
 } from '@/types/customer';
+import { toFormData } from '@/utils/form-data';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
   if (typeof payload === 'object' && payload !== null && 'data' in payload) {
@@ -27,10 +28,22 @@ export async function getCustomerProfile(): Promise<CustomerProfile> {
 export async function createCustomerProfile(
   payload: UpdateCustomerIdentityPayload,
 ): Promise<CreateCustomerProfileResponse> {
+  // Example: await createCustomerProfile({ firstName: 'Sachin', gender: 'MALE', file: { uri, name, type } });
+  const formData = toFormData(
+    {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      gender: payload.gender,
+      referralCode: payload.referralCode,
+    },
+    payload.file ? { file: payload.file } : undefined,
+  );
+
   const response = await apiPost<
     ApiEnvelope<CreateCustomerProfileResponse> | CreateCustomerProfileResponse,
-    UpdateCustomerIdentityPayload
-  >('/customer/profile', payload, {
+    FormData
+  >('/customer/profile', formData, {
     tokenType: 'phone',
     retryOnAuthFailure: false,
   });
@@ -39,9 +52,22 @@ export async function createCustomerProfile(
 }
 
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<void> {
-  await apiPatch<{ profile?: CustomerProfile }, UpdateCustomerProfilePayload>(
+  // Example: await updateCustomerProfile({ preferredLanguage: 'EN', hasSeenOnboardingWelcomeScreen: true });
+  const formData = toFormData(
+    {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      gender: payload.gender,
+      preferredLanguage: payload.preferredLanguage,
+      hasSeenOnboardingWelcomeScreen: payload.hasSeenOnboardingWelcomeScreen,
+    },
+    payload.file ? { file: payload.file } : undefined,
+  );
+
+  await apiPatch<{ profile?: CustomerProfile }, FormData>(
     '/customer/profile',
-    payload,
+    formData,
     {
       auth: true,
       toast: {
@@ -52,9 +78,10 @@ export async function updateCustomerProfile(payload: UpdateCustomerProfilePayloa
 }
 
 export async function markOnboardingWelcomeSeen(): Promise<void> {
-  await apiPatch<{ profile?: CustomerProfile }, { hasSeenOnboardingWelcomeScreen: boolean }>(
+  const formData = toFormData({ hasSeenOnboardingWelcomeScreen: true });
+  await apiPatch<{ profile?: CustomerProfile }, FormData>(
     '/customer/profile',
-    { hasSeenOnboardingWelcomeScreen: true },
+    formData,
     {
       auth: true,
       toast: {

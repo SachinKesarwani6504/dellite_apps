@@ -7,13 +7,30 @@ import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import * as DocumentPicker from 'expo-document-picker';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { Gender } from '@/types/auth';
 import { APP_LAYOUT, GENDER_OPTIONS, isValidFirstName, isValidLastName, normalizePersonName, palette, uiColors } from '@/utils';
+import { showError } from '@/utils/toast';
 
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
+const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
+
+function extractImageUrl(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
 
 export function EditProfileScreen() {
   const navigation = useNavigation();
@@ -24,6 +41,7 @@ export function EditProfileScreen() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [gender, setGender] = useState<Gender>('MALE');
+  const [profileImage, setProfileImage] = useState<{ uri: string; name: string; type: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const formDisabled = saving || loading;
 
@@ -35,10 +53,43 @@ export function EditProfileScreen() {
       setGender(user.gender);
     }
   }, [user?.email, user?.firstName, user?.gender, user?.lastName]);
+  const existingProfileImageUrl = (() => {
+    const rawUser = user as Record<string, unknown> | null | undefined;
+    return (
+      extractImageUrl(rawUser?.profileImage)
+      ?? extractImageUrl(rawUser?.profile_image)
+      ?? (typeof rawUser?.profileImageUrl === 'string' ? rawUser.profileImageUrl : null)
+      ?? (typeof rawUser?.profile_image_url === 'string' ? rawUser.profile_image_url : null)
+    );
+  })();
 
   const normalizedEmail = useMemo(() => email.trim(), [email]);
   const hasValidEmail = normalizedEmail.length === 0 || /\S+@\S+\.\S+/.test(normalizedEmail);
   const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && hasValidEmail;
+
+  const onPickProfileImage = async () => {
+    if (formDisabled) return;
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
+        type: ['image/png', 'image/jpeg'],
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      if (typeof asset.size === 'number' && asset.size > PROFILE_IMAGE_MAX_SIZE_BYTES) {
+        showError('Profile image size must be 2MB or less.');
+        return;
+      }
+      setProfileImage({
+        uri: asset.uri,
+        name: asset.name ?? `profile-${Date.now()}.jpg`,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+    } catch {
+      showError('Could not pick profile image. Please try again.');
+    }
+  };
 
   const handleSave = async () => {
     if (!isValid || formDisabled) {
@@ -52,6 +103,7 @@ export function EditProfileScreen() {
         lastName: normalizePersonName(lastName).trim(),
         email: normalizedEmail || undefined,
         gender,
+        file: profileImage ?? undefined,
       });
       await refreshMe();
       navigation.goBack();
@@ -77,6 +129,17 @@ export function EditProfileScreen() {
           highlight={APP_TEXT.profile.edit.titleGradientWord}
           subtitle={APP_TEXT.profile.edit.subtitle}
         />
+
+        <View className="mt-5 items-center">
+          <ProfilePhotoUploadPlaceholder
+            title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
+            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
+            imageUri={profileImage?.uri ?? existingProfileImageUrl}
+            onPress={() => {
+              void onPickProfileImage();
+            }}
+          />
+        </View>
 
         <View className="mt-6 gap-3">
           <AppInput

@@ -1,3 +1,4 @@
+import type { MultipartFile } from '@/types/http';
 import type { Gender, OnboardingFlags } from '@/types/auth';
 
 export type CustomerProfile = {
@@ -12,17 +13,21 @@ export type CustomerProfile = {
 
 export type UpdateCustomerIdentityPayload = {
   firstName: string;
-  lastName: string;
+  lastName?: string;
   email?: string;
   gender?: Gender;
   referralCode?: string;
+  file?: MultipartFile;
 };
 
 export type UpdateCustomerProfilePayload = {
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   gender?: Gender;
+  preferredLanguage?: 'EN' | 'HI';
+  hasSeenOnboardingWelcomeScreen?: boolean;
+  file?: MultipartFile;
 };
 
 export type CustomerProfileResponse = {

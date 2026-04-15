@@ -2,7 +2,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Image, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
@@ -23,6 +23,24 @@ type ProfileStats = {
   certificates: number;
 };
 
+function extractImageUrl(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const candidates = [
+    raw.url,
+    raw.fileUrl,
+    raw.file_url,
+    raw.uri,
+  ];
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
@@ -36,6 +54,23 @@ export function ProfileHomeScreen({ navigation }: Props) {
     ? me.user.lastName.trim()
     : (typeof user?.lastName === 'string' ? user.lastName.trim() : '');
   const displayName = [displayFirstName, displayLastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
+  const profileImageUrl = useMemo(() => {
+    const meUser = me?.user as Record<string, unknown> | undefined;
+    const userRaw = user as Record<string, unknown> | undefined;
+    const fromMe =
+      extractImageUrl(meUser?.profileImage)
+      ?? extractImageUrl(meUser?.profile_image)
+      ?? (typeof meUser?.profileImageUrl === 'string' ? meUser.profileImageUrl : null)
+      ?? (typeof meUser?.profile_image_url === 'string' ? meUser.profile_image_url : null);
+    if (fromMe) return fromMe;
+    const fromUser =
+      extractImageUrl(userRaw?.profileImage)
+      ?? extractImageUrl(userRaw?.profile_image)
+      ?? (typeof userRaw?.profileImageUrl === 'string' ? userRaw.profileImageUrl : null)
+      ?? (typeof userRaw?.profile_image_url === 'string' ? userRaw.profile_image_url : null);
+    if (fromUser) return fromUser;
+    return null;
+  }, [me?.user, user]);
   const initials = useMemo(() => {
     const first = String(displayFirstName ?? '').trim().charAt(0).toUpperCase();
     const last = String(displayLastName ?? '').trim().charAt(0).toUpperCase();
@@ -192,7 +227,11 @@ export function ProfileHomeScreen({ navigation }: Props) {
               className="h-24 w-24 items-center justify-center rounded-full border-4 bg-primary"
               style={{ borderColor: isDark ? theme.colors.baseDark : theme.colors.onPrimary }}
             >
-              <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
+              {profileImageUrl ? (
+                <Image source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
+              ) : (
+                <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
+              )}
             </View>
             {isVerified ? (
               <View
@@ -202,12 +241,6 @@ export function ProfileHomeScreen({ navigation }: Props) {
                 <Ionicons name="checkmark" size={14} color={theme.colors.onPrimary} />
               </View>
             ) : null}
-            <View
-              className="absolute -bottom-0.5 right-1 h-7 w-7 items-center justify-center rounded-full border bg-primary/90"
-              style={{ borderColor: theme.colors.onPrimary }}
-            >
-              <Ionicons name="camera-outline" size={14} color={theme.colors.onPrimary} />
-            </View>
           </View>
 
           <Text className="mt-3 text-center text-[28px] font-extrabold text-baseDark dark:text-white">
@@ -302,6 +335,17 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
           onPress={() => navigation.navigate(PROFILE_SCREENS.helpSupport)}
+          showDivider
+        />
+
+        <ProfileActionRow
+          title={APP_TEXT.profile.identityVerification.menuTitle}
+          subtitle={APP_TEXT.profile.identityVerification.menuSubtitle}
+          icon="shield-checkmark-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigation.navigate(PROFILE_SCREENS.identityVerification)}
           showDivider
         />
 

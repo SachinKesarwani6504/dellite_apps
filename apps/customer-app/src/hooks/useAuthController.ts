@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { authActions, customerActions } from '@/actions';
+import { ApiError } from '@/types/api';
 import { AUTH_STATUS, type AuthMeResponse, type AuthState, type AuthStatus, type AuthTokens } from '@/types/auth';
 import type { AuthContextType } from '@/types/auth-context';
 import type { UpdateCustomerIdentityPayload } from '@/types/customer';
@@ -324,7 +325,20 @@ export function useAuthController(): AuthContextType {
         throw new Error('Your phone verification session expired. Please verify OTP again.');
       }
 
-      const profile = await customerActions.createCustomerProfile(payload);
+      let profile: Awaited<ReturnType<typeof customerActions.createCustomerProfile>>;
+      try {
+        profile = await customerActions.createCustomerProfile(payload);
+      } catch (error) {
+        if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+          await clearOnboardingPhoneToken();
+          setAuthState((prev) => ({
+            ...prev,
+            status: AUTH_STATUS.LOGGED_OUT,
+            phoneToken: null,
+          }));
+        }
+        throw error;
+      }
       const tokens = {
         accessToken: normalizeBearerToken(profile.accessToken),
         refreshToken: normalizeBearerToken(profile.refreshToken),

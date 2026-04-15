@@ -15,16 +15,21 @@ function filterValidUuids(values: string[]): string[] {
 }
 
 export function normalizeCertificatePayload(item: WorkerCertificateWriteItem): WorkerCertificateWriteItem {
-  const workerSkillIds = filterValidUuids(toNormalizedIdArray(item.workerSkillIds));
+  const workerSkillIdsSource = toNormalizedIdArray(item.workerSkillIds);
+  const legacyServiceIdsSource = toNormalizedIdArray(item.serviceIds);
+  const idsToNormalize = workerSkillIdsSource.length > 0 ? workerSkillIdsSource : legacyServiceIdsSource;
+  const workerSkillIds = filterValidUuids(idsToNormalize);
 
   return {
     certificateId: item.certificateId,
     certificateType: item.certificateType,
     workerSkillIds,
+    serviceIds: undefined,
     fileId: item.fileId,
     fileName: item.fileName,
     fileType: item.fileType,
     fileUrl: item.fileUrl,
+    fileField: item.fileField,
   };
 }
 

@@ -26,10 +26,10 @@ const API_BASE_URL = runtimeGlobal.process?.env?.EXPO_PUBLIC_API_BASE_URL ?? 'ht
 const client = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 const PROFILE_CREATE_PATHS = new Set(['/worker/profile', '/customer/profile']);
+const PHONE_TOKEN_EXPIRED_MESSAGE = 'Session expired. Please verify OTP again to continue onboarding.';
 
 function normalizePath(path: string) {
   return path.split('?')[0].trim().toLowerCase();
@@ -103,8 +103,11 @@ async function refreshAccessToken(): Promise<string | null> {
   return normalizeBearerToken(refreshed.accessToken);
 }
 
-async function clearAllTokens() {
+async function clearAuthSessionTokens() {
   await clearAuthTokens();
+}
+
+async function clearPhoneTokenOnly() {
   await clearOnboardingPhoneToken();
 }
 
@@ -113,6 +116,23 @@ function shouldRefresh(errorStatus: number | undefined, tokenType: TokenType, op
   if (options.retryOnAuthFailure === false) return false;
   if (hasExplicitAuthorization) return false;
   return errorStatus === 401 || errorStatus === 403;
+}
+
+function buildRequestUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedBase = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
+
+async function parseFetchPayload(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
 }
 
 async function request<TResponse, TBody = unknown>(
@@ -130,6 +150,11 @@ async function request<TResponse, TBody = unknown>(
     ...(options.headers ?? {}),
     ...(token ? { Authorization: toBearerToken(token) } : {}),
   };
+  const isMultipartRequest = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (isMultipartRequest) {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+  }
 
   if (options.cache === 'no-store') {
     headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';
@@ -143,7 +168,62 @@ async function request<TResponse, TBody = unknown>(
     data: body,
     headers,
     withCredentials: options.withCredentials,
+    transformRequest: isMultipartRequest ? ((data: unknown) => data) : undefined,
   };
+
+  if (isMultipartRequest) {
+    const sendMultipart = async (requestHeaders: Record<string, string>) => fetch(buildRequestUrl(path), {
+      method,
+      headers: requestHeaders,
+      body: body as unknown as BodyInit,
+    });
+
+    try {
+      let multipartResponse = await sendMultipart(headers);
+
+      if (!multipartResponse.ok && shouldRefresh(multipartResponse.status, tokenType, options, hasExplicitAuthorization)) {
+        const nextAccessToken = await refreshAccessToken();
+        if (!nextAccessToken) {
+          await clearAuthSessionTokens();
+          throw new ApiError('Session expired. Please login again.', 401);
+        }
+
+        multipartResponse = await sendMultipart({
+          ...headers,
+          Authorization: toBearerToken(nextAccessToken),
+        });
+      }
+
+      const payload = await parseFetchPayload(multipartResponse);
+      if (!multipartResponse.ok) {
+        if (tokenType === 'phone' && (multipartResponse.status === 401 || multipartResponse.status === 403)) {
+          await clearPhoneTokenOnly();
+          if (method !== 'GET' && options.toast?.showError !== false) {
+            showApiErrorToast(PHONE_TOKEN_EXPIRED_MESSAGE);
+          }
+          throw new ApiError(PHONE_TOKEN_EXPIRED_MESSAGE, multipartResponse.status, payload);
+        }
+        const message = extractApiMessage(payload, multipartResponse.statusText || 'Request failed');
+        if (method !== 'GET' && options.toast?.showError !== false) {
+          showApiErrorToast(message);
+        }
+        throw new ApiError(message, multipartResponse.status, payload);
+      }
+
+      if (method !== 'GET' && options.toast?.showSuccess !== false) {
+        showApiSuccessToast(extractApiMessage(payload, 'Completed successfully'));
+      }
+      return payload as TResponse;
+    } catch (error: unknown) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast('Network Error');
+      }
+      throw new ApiError('Network Error', 500, error);
+    }
+  }
 
   try {
     const response = await client.request<TResponse>(config);
@@ -163,7 +243,7 @@ async function request<TResponse, TBody = unknown>(
       try {
         const nextAccessToken = await refreshAccessToken();
         if (!nextAccessToken) {
-          await clearAllTokens();
+          await clearAuthSessionTokens();
           throw new ApiError('Session expired. Please login again.', 401, error.response?.data);
         }
 
@@ -180,9 +260,17 @@ async function request<TResponse, TBody = unknown>(
         }
         return retryResponse.data;
       } catch {
-        await clearAllTokens();
+        await clearAuthSessionTokens();
         throw new ApiError('Session expired. Please login again.', 401, error.response?.data);
       }
+    }
+
+    if (tokenType === 'phone' && (error.response?.status === 401 || error.response?.status === 403)) {
+      await clearPhoneTokenOnly();
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast(PHONE_TOKEN_EXPIRED_MESSAGE);
+      }
+      throw new ApiError(PHONE_TOKEN_EXPIRED_MESSAGE, error.response?.status ?? 401, error.response?.data);
     }
 
     const statusCode = error.response?.status ?? 500;

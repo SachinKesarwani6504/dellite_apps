@@ -80,6 +80,13 @@ export type AuthUser = {
   firstName?: string;
   lastName?: string;
   email?: string;
+  profileImageId?: string;
+  profileImage?: {
+    id?: string;
+    url?: string;
+    filename?: string;
+    [key: string]: unknown;
+  };
   gender?: Gender;
   referralCode?: string;
   referral?: ReferralInfo;

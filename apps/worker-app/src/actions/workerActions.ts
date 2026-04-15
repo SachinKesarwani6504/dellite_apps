@@ -21,6 +21,8 @@ import {
 } from '@/types/auth';
 import { ApiError } from '@/types/api';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
+import { toFormData } from '@/utils/form-data';
+import type { MultipartFile } from '@/types/http';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
   if (typeof payload === 'object' && payload !== null && 'data' in payload) {
@@ -255,6 +257,46 @@ function normalizeWorkerServiceUpdateResponse(payload: unknown): WorkerServiceUp
   };
 }
 
+function toMultipartCertificateFile(item: WorkerCertificateCreatePayload['certificates'][number]): MultipartFile | null {
+  if (!item.fileUrl || !item.fileName) return null;
+  const normalizedUri = item.fileUrl.trim();
+  const normalizedName = item.fileName.trim();
+  if (!normalizedUri || !normalizedName) return null;
+  return {
+    uri: normalizedUri,
+    name: normalizedName,
+    type: item.fileType ?? 'application/octet-stream',
+  };
+}
+
+function buildWorkerCertificatesFormData(payload: WorkerCertificateCreatePayload | WorkerCertificateUpdatePayload) {
+  const filesMap: Record<string, MultipartFile> = {};
+  const certificates = (payload.certificates ?? []).map((certificate, index) => {
+    const file = toMultipartCertificateFile(certificate);
+    if (!file || certificate.fileId) {
+      return certificate;
+    }
+
+    const fileField = certificate.fileField?.trim() || `certificateFile_${index}`;
+    filesMap[fileField] = file;
+    return {
+      ...certificate,
+      fileField,
+      fileId: undefined,
+      fileName: undefined,
+      fileType: undefined,
+      fileUrl: undefined,
+    };
+  });
+
+  return toFormData(
+    {
+      certificates,
+    },
+    filesMap,
+  );
+}
+
 export async function listWorkers<T = unknown>() {
   const response = await apiGet<ApiEnvelope<T>>('/worker', { auth: true });
   return unwrapData(response);
@@ -294,9 +336,31 @@ export async function getWorkerById<T = unknown>(id: string) {
 }
 
 export async function createWorkerProfile(payload: WorkerProfilePayload) {
-  const response = await apiPost<ApiEnvelope<unknown>, WorkerProfilePayload>(
+  // Example: await createWorkerProfile({ firstName: 'Sachin', aadhaarFront: { uri, name, type }, aadhaarBack: { uri, name, type } });
+  const formData = toFormData(
+    {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      gender: payload.gender,
+      bio: payload.bio,
+      experienceYears: payload.experienceYears,
+      referralCode: payload.referralCode,
+      aadhaarFrontFilepath: payload.aadhaarFrontFilepath ?? payload.aadhaarFrontFilePath,
+      aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
+      aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
+      aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+    },
+    {
+      profileImage: payload.profileImage,
+      aadhaarFront: payload.aadhaarFront,
+      aadhaarBack: payload.aadhaarBack,
+    },
+  );
+
+  const response = await apiPost<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
-    payload,
+    formData,
     {
       tokenType: 'phone',
       toast: {
@@ -313,9 +377,34 @@ export async function updateWorkerProfile(
   payload: Partial<WorkerProfilePayload>,
   options?: { showSuccessToast?: boolean; showErrorToast?: boolean },
 ) {
-  const response = await apiPatch<ApiEnvelope<unknown>, Partial<WorkerProfilePayload>>(
+  // Example: await updateWorkerProfile({ firstName: 'Sachin', preferredLanguage: 'EN', profileImage: { uri, name, type } });
+  const formData = toFormData(
+    {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      gender: payload.gender,
+      preferredLanguage: payload.preferredLanguage,
+      bio: payload.bio,
+      experienceYears: payload.experienceYears,
+      hasSeenOnboardingWelcomeScreen: payload.hasSeenOnboardingWelcomeScreen,
+      hasSeenSkillSetup: payload.hasSeenSkillSetup,
+      hasSeenCertificateSetup: payload.hasSeenCertificateSetup,
+      aadhaarFrontFilepath: payload.aadhaarFrontFilepath ?? payload.aadhaarFrontFilePath,
+      aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
+      aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
+      aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+    },
+    {
+      profileImage: payload.profileImage,
+      aadhaarFront: payload.aadhaarFront,
+      aadhaarBack: payload.aadhaarBack,
+    },
+  );
+
+  const response = await apiPatch<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
-    payload,
+    formData,
     {
       auth: true,
       toast: {
@@ -513,14 +602,16 @@ export async function updateWorkerServices(payload: WorkerServiceUpdatePayload) 
 }
 
 export async function createWorkerCertificates(payload: WorkerCertificateCreatePayload) {
+  // Example: await createWorkerCertificates({ certificates: [{ certificateType: 'BEAUTY_WELLNESS_CERTIFICATE', workerSkillIds: ['uuid'], fileName: 'cert.jpg', fileType: 'image/jpeg', fileUrl: 'file:///...' }] });
   const normalizedCertificates = (payload.certificates ?? []).map(normalizeCertificatePayload);
   validateCertificatePayloadItems(normalizedCertificates, { requireAtLeastOne: true });
   const requestPayload: WorkerCertificateCreatePayload = {
     certificates: normalizedCertificates,
   };
-  const response = await apiPost<ApiEnvelope<unknown>, WorkerCertificateCreatePayload>(
+  const formData = buildWorkerCertificatesFormData(requestPayload);
+  const response = await apiPost<ApiEnvelope<unknown>, FormData>(
     '/worker/certificates',
-    requestPayload,
+    formData,
     {
       auth: true,
       toast: {
@@ -534,14 +625,21 @@ export async function createWorkerCertificates(payload: WorkerCertificateCreateP
 }
 
 export async function updateWorkerCertificates(payload: WorkerCertificateUpdatePayload) {
+  // Example: await updateWorkerCertificates({ certificates: [{ certificateId: 'certificate-uuid', certificateType: 'BEAUTY_WELLNESS_CERTIFICATE', workerSkillIds: ['uuid'], fileId: 'file-uuid' }] });
   const normalizedCertificates = (payload.certificates ?? []).map(normalizeCertificatePayload);
   validateCertificatePayloadItems(normalizedCertificates);
+  normalizedCertificates.forEach((item, index) => {
+    if (!item.certificateId || item.certificateId.trim().length === 0) {
+      throw new Error(`certificateId is required for certificate at index ${index}.`);
+    }
+  });
   const requestPayload: WorkerCertificateUpdatePayload = {
     certificates: normalizedCertificates,
   };
-  const response = await apiPatch<ApiEnvelope<unknown>, WorkerCertificateUpdatePayload>(
+  const formData = buildWorkerCertificatesFormData(requestPayload);
+  const response = await apiPatch<ApiEnvelope<unknown>, FormData>(
     '/worker/certificates',
-    requestPayload,
+    formData,
     {
       auth: true,
       toast: {

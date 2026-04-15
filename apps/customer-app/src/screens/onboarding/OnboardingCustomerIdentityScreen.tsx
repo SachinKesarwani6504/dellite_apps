@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { AppInput } from '@/components/common/AppInput';
 import { Button } from '@/components/common/Button';
@@ -18,7 +19,10 @@ import {
   palette,
   uiColors,
 } from '@/utils';
+import { showError } from '@/utils/toast';
+
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
+const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 
 export function OnboardingCustomerIdentityScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -27,16 +31,43 @@ export function OnboardingCustomerIdentityScreen() {
   const [email, setEmail] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
+  const [profileImage, setProfileImage] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { completeOnboarding, loading } = useAuthContext();
-  const formDisabled = loading;
+  const formDisabled = loading || isSubmitting;
   const text = APP_TEXT.onboarding.identity;
 
   const normalizedEmail = email.trim();
   const hasValidEmail = normalizedEmail.length === 0 || /\S+@\S+\.\S+/.test(normalizedEmail);
   const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && hasValidEmail && Boolean(gender);
 
+  const onPickProfileImage = async () => {
+    if (formDisabled) return;
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        multiple: false,
+        copyToCacheDirectory: true,
+        type: ['image/png', 'image/jpeg'],
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      if (typeof asset.size === 'number' && asset.size > PROFILE_IMAGE_MAX_SIZE_BYTES) {
+        showError('Profile image size must be 2MB or less.');
+        return;
+      }
+      setProfileImage({
+        uri: asset.uri,
+        name: asset.name ?? `profile-${Date.now()}.jpg`,
+        type: asset.mimeType ?? 'image/jpeg',
+      });
+    } catch {
+      showError('Could not pick profile image. Please try again.');
+    }
+  };
+
   const onContinue = async () => {
-    if (!isValid || loading) return;
+    if (!isValid || formDisabled) return;
+    setIsSubmitting(true);
     try {
       await completeOnboarding({
         firstName: normalizePersonName(firstName).trim(),
@@ -44,9 +75,12 @@ export function OnboardingCustomerIdentityScreen() {
         email: normalizedEmail || undefined,
         gender: gender ?? undefined,
         referralCode: referralCode.trim() || undefined,
+        file: profileImage ?? undefined,
       });
     } catch {
       // Toasts are shown from API layer.
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -64,7 +98,11 @@ export function OnboardingCustomerIdentityScreen() {
         <View className="mt-5 items-center">
           <ProfilePhotoUploadPlaceholder
             title={text.uploadPhotoTitle}
-            subtitle={text.uploadPhotoSubtitle}
+            subtitle={`${text.uploadPhotoSubtitle} • Max 2MB`}
+            imageUri={profileImage?.uri ?? null}
+            onPress={() => {
+              void onPickProfileImage();
+            }}
           />
         </View>
 
@@ -138,7 +176,7 @@ export function OnboardingCustomerIdentityScreen() {
         </View>
       </View>
       <View className="mt-5">
-        <Button label={text.nextButton} onPress={onContinue} loading={loading} disabled={!isValid || loading} />
+        <Button label={text.nextButton} onPress={onContinue} loading={isSubmitting} disabled={!isValid || formDisabled} />
       </View>
     </GradientScreen>
   );

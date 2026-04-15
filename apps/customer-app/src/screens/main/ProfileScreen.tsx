@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo } from 'react';
-import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Image, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -12,6 +12,19 @@ import { formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGende
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PROFILE_SCREEN } from '@/types/screen-names';
+
+function extractImageUrl(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -27,6 +40,15 @@ export function ProfileScreen() {
   }, [refreshMe]);
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
+  const profileImageUrl = useMemo(() => {
+    const rawUser = user as Record<string, unknown> | null | undefined;
+    return (
+      extractImageUrl(rawUser?.profileImage)
+      ?? extractImageUrl(rawUser?.profile_image)
+      ?? (typeof rawUser?.profileImageUrl === 'string' ? rawUser.profileImageUrl : null)
+      ?? (typeof rawUser?.profile_image_url === 'string' ? rawUser.profile_image_url : null)
+    );
+  }, [user]);
   const initials = useMemo(() => {
     const first = String(user?.firstName ?? '').trim().charAt(0).toUpperCase();
     const last = String(user?.lastName ?? '').trim().charAt(0).toUpperCase();
@@ -91,13 +113,11 @@ export function ProfileScreen() {
               className="h-24 w-24 items-center justify-center rounded-full border-4 bg-primary"
               style={{ borderColor: isDark ? theme.colors.baseDark : theme.colors.onPrimary }}
             >
-              <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
-            </View>
-            <View
-              className="absolute -bottom-0.5 right-1 h-7 w-7 items-center justify-center rounded-full border bg-primary/90"
-              style={{ borderColor: theme.colors.onPrimary }}
-            >
-              <Ionicons name="camera-outline" size={14} color={theme.colors.onPrimary} />
+              {profileImageUrl ? (
+                <Image source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
+              ) : (
+                <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
+              )}
             </View>
           </View>
 

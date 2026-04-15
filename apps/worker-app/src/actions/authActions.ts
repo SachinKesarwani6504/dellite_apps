@@ -11,6 +11,7 @@ import {
   VerifyOtpResult,
   WorkerProfilePayload,
 } from '@/types/auth';
+import { toFormData } from '@/utils/form-data';
 import { stripBearerPrefix } from '@/utils';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
@@ -316,13 +317,50 @@ export async function getMe(role: UserRole = APP_AUTH_ROLE): Promise<AuthMeRespo
 export async function createProfileWithPhoneToken(
   payload: WorkerProfilePayload,
 ) {
-  const workerResponse = await apiPost<ApiEnvelope<unknown>, WorkerProfilePayload>(
+  console.log('[worker/profile] create:payload_summary', {
+    firstName: payload.firstName,
+    hasLastName: Boolean(payload.lastName),
+    hasEmail: Boolean(payload.email),
+    gender: payload.gender ?? null,
+    hasReferralCode: Boolean(payload.referralCode),
+    hasProfileImage: Boolean(payload.profileImage?.uri),
+    hasAadhaarFront: Boolean(payload.aadhaarFront?.uri),
+    hasAadhaarBack: Boolean(payload.aadhaarBack?.uri),
+    aadhaarFrontUri: payload.aadhaarFront?.uri ?? null,
+    aadhaarBackUri: payload.aadhaarBack?.uri ?? null,
+    aadhaarFrontType: payload.aadhaarFront?.type ?? null,
+    aadhaarBackType: payload.aadhaarBack?.type ?? null,
+  });
+
+  const formData = toFormData(
+    {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email: payload.email,
+      gender: payload.gender,
+      bio: payload.bio,
+      experienceYears: payload.experienceYears,
+      referralCode: payload.referralCode,
+      aadhaarFrontFilepath: payload.aadhaarFrontFilepath ?? payload.aadhaarFrontFilePath,
+      aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
+      aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
+      aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+    },
+    {
+      profileImage: payload.profileImage,
+      aadhaarFront: payload.aadhaarFront,
+      aadhaarBack: payload.aadhaarBack,
+    },
+  );
+
+  const workerResponse = await apiPost<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
-    payload,
+    formData,
     {
       tokenType: 'phone',
       retryOnAuthFailure: false,
     },
   );
+  console.log('[worker/profile] create:response_received');
   return unwrapData(workerResponse);
 }

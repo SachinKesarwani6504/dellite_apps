@@ -8,3 +8,8 @@ export type RequestOptions = ApiRequestOptions & {
   retryOnAuthFailure?: boolean;
 };
 
+export type MultipartFile = {
+  uri: string;
+  name: string;
+  type?: string;
+};
