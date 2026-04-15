@@ -35,11 +35,12 @@ const BURST_PARTICLES = [
 ] as const;
 
 export function OnboardingCustomerWelcomeScreen() {
-  const { completeOnboardingFlow, loading } = useOnboardingContext();
+  const { completeOnboardingFlow, loading: onboardingLoading } = useOnboardingContext();
   const isDark = useColorScheme() === 'dark';
   const text = APP_TEXT.onboarding.welcome;
   const [step, setStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const animatedValues = useRef(BURST_PARTICLES.map(() => new Animated.Value(0))).current;
   const ctaFloat = useRef(new Animated.Value(0)).current;
   const confettiParticles = useMemo(
@@ -128,8 +129,13 @@ export function OnboardingCustomerWelcomeScreen() {
   }, [animatedValues, confettiParticles, confettiValues, ctaFloat]);
 
   const onStart = async () => {
-    if (loading) return;
-    await completeOnboardingFlow();
+    if (isSubmitting || onboardingLoading) return;
+    setIsSubmitting(true);
+    try {
+      await completeOnboardingFlow();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -359,8 +365,8 @@ export function OnboardingCustomerWelcomeScreen() {
           >
             <Pressable
               onPress={() => void onStart()}
-              disabled={loading}
-              className={loading ? 'opacity-70' : ''}
+              disabled={isSubmitting || onboardingLoading}
+              className={isSubmitting || onboardingLoading ? 'opacity-70' : ''}
               style={{ borderRadius: 999, overflow: 'hidden' }}
             >
               <LinearGradient
@@ -378,7 +384,7 @@ export function OnboardingCustomerWelcomeScreen() {
                   gap: 8,
                 }}
               >
-                {loading ? (
+                {isSubmitting || onboardingLoading ? (
                   <ActivityIndicator color={theme.colors.onPrimary} />
                 ) : (
                   <>

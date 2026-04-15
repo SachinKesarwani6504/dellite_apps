@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useColorScheme } from 'react-native';
+import { ActivityIndicator, View, useColorScheme } from 'react-native';
 
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
@@ -16,9 +16,25 @@ export function AppNavigator() {
   const { authState } = useAuthContext();
   const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
   const isDark = useColorScheme() === 'dark';
+  const needsOnboardingSnapshot =
+    (authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME)
+    && Boolean(authState.tokens?.accessToken)
+    && !authState.user;
 
-  if (authState.status === AUTH_STATUS.BOOTSTRAPPING) {
-    return null;
+  if (
+    authState.status === AUTH_STATUS.BOOTSTRAPPING
+    || needsOnboardingSnapshot
+    || (
+      onboardingLoading
+      && authState.status !== AUTH_STATUS.LOGGED_OUT
+      && authState.status !== AUTH_STATUS.OTP_SENT
+    )
+  ) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white dark:bg-baseDark">
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
   }
 
   const navigationTheme = {
@@ -44,7 +60,9 @@ export function AppNavigator() {
             name={ROOT_SCREEN.AUTH_NAVIGATOR}
             component={AuthNavigator}
           />
-        ) : onboardingLoading || isOnboardingActive || authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME ? (
+        ) : authState.status === AUTH_STATUS.ONBOARDING
+          || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME
+          || (authState.status === AUTH_STATUS.AUTHENTICATED && isOnboardingActive) ? (
           <RootStack.Screen
             key="onboarding"
             name={ROOT_SCREEN.ONBOARDING_NAVIGATOR}

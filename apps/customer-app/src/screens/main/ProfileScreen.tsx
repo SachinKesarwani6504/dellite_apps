@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
@@ -188,67 +189,42 @@ export function ProfileScreen() {
       </SectionCard>
 
       <View className="mt-4 overflow-hidden rounded-2xl border" style={cardStyle}>
-        <Pressable className="flex-row items-center px-4 py-4">
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
-            <Ionicons name="settings-outline" size={18} color={theme.colors.primary} />
-          </View>
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.settingsTitle}</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.settingsSubtitle}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
-        </Pressable>
+        <ProfileActionRow
+          title={APP_TEXT.profile.helpTitle}
+          subtitle={APP_TEXT.profile.helpSubtitle}
+          icon="help-buoy-outline"
+          iconColor={theme.colors.accent}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          showDivider
+        />
 
-        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
-
-        <Pressable className="flex-row items-center px-4 py-4">
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-accent/15">
-            <Ionicons name="help-buoy-outline" size={18} color={theme.colors.accent} />
-          </View>
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.helpTitle}</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.helpSubtitle}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
-        </Pressable>
-
-        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
-
-        <Pressable
+        <ProfileActionRow
+          title={APP_TEXT.profile.referral.menuTitle}
+          subtitle={APP_TEXT.profile.referral.menuSubtitle}
+          icon="gift-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
           onPress={() => navigation.navigate(PROFILE_SCREEN.REFERRAL)}
-          className="flex-row items-center px-4 py-4"
-        >
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/12">
-            <Ionicons name="gift-outline" size={18} color={theme.colors.primary} />
-          </View>
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-baseDark dark:text-white">{APP_TEXT.profile.referral.menuTitle}</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.referral.menuSubtitle}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={isDark ? palette.dark.text : theme.colors.baseDark} />
-        </Pressable>
+          showDivider
+        />
 
-        <View className="h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
-
-        <Pressable
+        <ProfileActionRow
+          title={APP_TEXT.profile.logoutTitle}
+          subtitle={APP_TEXT.profile.logoutSubtitle}
+          icon="log-out-outline"
+          iconColor={theme.colors.negative}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          titleColor={theme.colors.negative}
+          isDark={isDark}
+          loading={loading}
+          disabled={loading}
+          showChevron={false}
           onPress={() => {
             void logout();
           }}
-          disabled={loading}
-          className="flex-row items-center px-4 py-4"
-        >
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-negative/12">
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.colors.negative} />
-            ) : (
-              <Ionicons name="log-out-outline" size={18} color={theme.colors.negative} />
-            )}
-          </View>
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-semibold text-negative">{APP_TEXT.profile.logoutTitle}</Text>
-            <Text className="text-xs text-textPrimary/70 dark:text-white/70">{APP_TEXT.profile.logoutSubtitle}</Text>
-          </View>
-        </Pressable>
+        />
       </View>
     </GradientScreen>
   );
