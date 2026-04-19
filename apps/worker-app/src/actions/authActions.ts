@@ -317,21 +317,6 @@ export async function getMe(role: UserRole = APP_AUTH_ROLE): Promise<AuthMeRespo
 export async function createProfileWithPhoneToken(
   payload: WorkerProfilePayload,
 ) {
-  console.log('[worker/profile] create:payload_summary', {
-    firstName: payload.firstName,
-    hasLastName: Boolean(payload.lastName),
-    hasEmail: Boolean(payload.email),
-    gender: payload.gender ?? null,
-    hasReferralCode: Boolean(payload.referralCode),
-    hasProfileImage: Boolean(payload.profileImage?.uri),
-    hasAadhaarFront: Boolean(payload.aadhaarFront?.uri),
-    hasAadhaarBack: Boolean(payload.aadhaarBack?.uri),
-    aadhaarFrontUri: payload.aadhaarFront?.uri ?? null,
-    aadhaarBackUri: payload.aadhaarBack?.uri ?? null,
-    aadhaarFrontType: payload.aadhaarFront?.type ?? null,
-    aadhaarBackType: payload.aadhaarBack?.type ?? null,
-  });
-
   const formData = toFormData(
     {
       firstName: payload.firstName,
@@ -361,6 +346,5 @@ export async function createProfileWithPhoneToken(
       retryOnAuthFailure: false,
     },
   );
-  console.log('[worker/profile] create:response_received');
   return unwrapData(workerResponse);
 }

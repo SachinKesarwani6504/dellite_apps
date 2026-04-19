@@ -29,15 +29,10 @@ const client = axios.create({
 });
 
 const PROFILE_CREATE_PATHS = new Set(['/worker/profile', '/customer/profile']);
-const MULTIPART_DEBUG_PATHS = new Set(['/worker/profile', '/worker/certificates']);
 const PHONE_TOKEN_EXPIRED_MESSAGE = 'Session expired. Please verify OTP again to continue onboarding.';
 
 function normalizePath(path: string) {
   return path.split('?')[0].trim().toLowerCase();
-}
-
-function shouldDebugMultipart(path: string) {
-  return MULTIPART_DEBUG_PATHS.has(normalizePath(path));
 }
 
 function extractApiMessage(payload: unknown, fallback: string) {
@@ -176,17 +171,6 @@ async function request<TResponse, TBody = unknown>(
     transformRequest: isMultipartRequest ? ((data: unknown) => data) : undefined,
   };
 
-  if (shouldDebugMultipart(path)) {
-    console.log('[http][multipart] request:prepare', {
-      method,
-      path,
-      isMultipartRequest,
-      tokenType,
-      hasAuthorizationHeader: Boolean(headers.Authorization),
-      headerKeys: Object.keys(headers),
-    });
-  }
-
   if (isMultipartRequest) {
     const sendMultipart = async (requestHeaders: Record<string, string>) => fetch(buildRequestUrl(path), {
       method,
@@ -219,14 +203,6 @@ async function request<TResponse, TBody = unknown>(
           }
           throw new ApiError(PHONE_TOKEN_EXPIRED_MESSAGE, multipartResponse.status, payload);
         }
-        if (shouldDebugMultipart(path)) {
-          console.log('[http][multipart] request:fetch_error', {
-            method,
-            path,
-            statusCode: multipartResponse.status,
-            payload,
-          });
-        }
         const message = extractApiMessage(payload, multipartResponse.statusText || 'Request failed');
         if (method !== 'GET' && options.toast?.showError !== false) {
           showApiErrorToast(message);
@@ -234,12 +210,6 @@ async function request<TResponse, TBody = unknown>(
         throw new ApiError(message, multipartResponse.status, payload);
       }
 
-      if (shouldDebugMultipart(path)) {
-        console.log('[http][multipart] request:success', {
-          method,
-          path,
-        });
-      }
       if (method !== 'GET' && options.toast?.showSuccess !== false) {
         showApiSuccessToast(extractApiMessage(payload, 'Completed successfully'));
       }
@@ -247,13 +217,6 @@ async function request<TResponse, TBody = unknown>(
     } catch (error: unknown) {
       if (error instanceof ApiError) {
         throw error;
-      }
-      if (shouldDebugMultipart(path)) {
-        console.log('[http][multipart] request:fetch_transport_error', {
-          method,
-          path,
-          message: error instanceof Error ? error.message : String(error),
-        });
       }
       if (method !== 'GET' && options.toast?.showError !== false) {
         showApiErrorToast('Network Error');
@@ -264,40 +227,16 @@ async function request<TResponse, TBody = unknown>(
 
   try {
     const response = await client.request<TResponse>(config);
-    if (shouldDebugMultipart(path)) {
-      console.log('[http][multipart] request:success', {
-        method,
-        path,
-      });
-    }
     if (method !== 'GET' && options.toast?.showSuccess !== false) {
       showApiSuccessToast(extractApiMessage(response.data, 'Completed successfully'));
     }
     return response.data;
   } catch (error: unknown) {
     if (!axios.isAxiosError(error)) {
-      if (shouldDebugMultipart(path)) {
-        console.log('[http][multipart] request:non_axios_error', {
-          method,
-          path,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
       if (method !== 'GET' && options.toast?.showError !== false) {
         showApiErrorToast('Unknown network error');
       }
       throw new ApiError('Unknown network error', 500, error);
-    }
-
-    if (shouldDebugMultipart(path)) {
-      console.log('[http][multipart] request:axios_error', {
-        method,
-        path,
-        statusCode: error.response?.status ?? null,
-        code: error.code ?? null,
-        message: error.message ?? null,
-        responseData: error.response?.data ?? null,
-      });
     }
 
     if (shouldRefresh(error.response?.status, tokenType, options, hasExplicitAuthorization)) {

@@ -7,5 +7,6 @@ export * from '@/utils/token';
 export * from '@/utils/toast';
 export * from '@/utils/profile';
 export * from '@/utils/referral';
+export * from '@/utils/home';
 export * from '@/utils/validation';
 

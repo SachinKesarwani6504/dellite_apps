@@ -21,6 +21,14 @@ export const MAIN_TAB_SCREEN = {
   PROFILE: 'Profile',
 } as const;
 
+export const HOME_SCREEN = {
+  HOME: 'HomeRoot',
+  CATEGORY_SUBCATEGORIES: 'CategorySubcategories',
+  SUBCATEGORY_SERVICES: 'SubcategoryServices',
+  BOOKING_DETAILS: 'BookingDetails',
+  BOOKING_CONFIRMATION: 'BookingConfirmation',
+} as const;
+
 export const PROFILE_SCREEN = {
   PROFILE_HOME: 'ProfileHome',
   EDIT_PROFILE: 'EditProfile',

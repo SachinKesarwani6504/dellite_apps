@@ -4,7 +4,7 @@ import { useColorScheme } from 'react-native';
 import { APP_TEXT } from '@/utils/appText';
 import { AppIcon } from '@/icons';
 import { BookingsScreen } from '@/screens/main/BookingsScreen';
-import { HomeScreen } from '@/screens/main/HomeScreen';
+import { HomeNavigator } from '@/navigation/HomeNavigator';
 import { OngoingScreen } from '@/screens/main/OngoingScreen';
 import { ProfileNavigator } from '@/navigation/ProfileNavigator';
 import type { MainTabsParamList } from '@/types/navigation';
@@ -41,7 +41,7 @@ export function MainTabsNavigator() {
     >
       <Tab.Screen
         name={MAIN_TAB_SCREEN.HOME}
-        component={HomeScreen}
+        component={HomeNavigator}
         options={{ title: APP_TEXT.tabs.homeLabel }}
       />
       <Tab.Screen

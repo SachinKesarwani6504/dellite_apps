@@ -230,14 +230,6 @@ export function useAuthController(): AuthContextType {
 
   const handleCompleteOnboarding = useCallback(
     async (payload: WorkerProfilePayload) => {
-      console.log('[onboarding] complete:start', {
-        hasFirstName: Boolean(payload.firstName?.trim()),
-        hasLastName: Boolean(payload.lastName?.trim()),
-        hasAadhaarFront: Boolean(payload.aadhaarFront?.uri),
-        hasAadhaarBack: Boolean(payload.aadhaarBack?.uri),
-        status,
-      });
-
       const restoredPhoneTokenRaw = await getOnboardingPhoneToken();
       const restoredPhoneToken = restoredPhoneTokenRaw ? stripBearerPrefix(restoredPhoneTokenRaw) : null;
       const phoneToken = phoneVerificationToken ?? restoredPhoneToken;
@@ -270,10 +262,6 @@ export function useAuthController(): AuthContextType {
           tokens?: { accessToken?: string; refreshToken?: string };
         };
       } catch (error) {
-        console.log('[onboarding] complete:create_profile_failed', {
-          statusCode: error instanceof ApiError ? error.statusCode : null,
-          message: error instanceof Error ? error.message : String(error),
-        });
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
           setPhoneVerificationToken(null);
           setStatus(AuthStatus.LOGGED_OUT);
@@ -298,7 +286,6 @@ export function useAuthController(): AuthContextType {
       setPhoneVerificationToken(null);
       await clearOnboardingPhoneToken();
       setStatus(AuthStatus.AUTHENTICATED);
-      console.log('[onboarding] complete:profile_created_authenticated');
 
       try {
         await refreshMe();

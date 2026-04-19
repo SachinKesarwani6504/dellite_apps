@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   Image,
   ImageBackground,
-  LayoutChangeEvent,
   Pressable,
   RefreshControl,
   Text,
@@ -53,7 +52,6 @@ export function HomeScreen() {
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [topBarHeight, setTopBarHeight] = useState(0);
   const [nearbyJobsLoadError, setNearbyJobsLoadError] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData>({ availableNearbyJobs: [] });
 
@@ -83,11 +81,6 @@ export function HomeScreen() {
     if (refreshing) return;
     void loadHomeData(true);
   }, [loadHomeData, refreshing]);
-
-  const onTopBarLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = event.nativeEvent.layout.height;
-    if (height > 0 && height !== topBarHeight) setTopBarHeight(height);
-  }, [topBarHeight]);
 
   const currentCity = useMemo(() => {
     const workerLink = me?.links?.worker as Record<string, unknown> | undefined;
@@ -146,9 +139,9 @@ export function HomeScreen() {
           style={{ opacity: isDark ? 0.08 : 0.22 }}
         />
       )}
-      floatingBackgroundTopInset={topBarHeight + 16}
+      floatingBackgroundTopInset={0}
     >
-      <View className="mb-4 flex-row items-center justify-between" onLayout={onTopBarLayout}>
+      <View className="mb-4 flex-row items-center justify-between">
         <Image source={logo} resizeMode="contain" style={{ width: 104, height: 30 }} />
         <View
           className="flex-row items-center rounded-full border px-3 py-1.5"

@@ -16,6 +16,8 @@ type GradientScreenProps = PropsWithChildren<{
   stickyFooterContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: ScrollViewProps['refreshControl'];
   variant?: GradientVariant;
+  floatingBackground?: ReactNode;
+  floatingBackgroundTopInset?: number;
 }>;
 
 export function GradientScreen({
@@ -29,12 +31,23 @@ export function GradientScreen({
   stickyFooterContainerStyle,
   refreshControl,
   variant,
+  floatingBackground,
+  floatingBackgroundTopInset = 0,
 }: GradientScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const resolvedUseGradient = variant ? true : useGradient;
   const resolvedGradientColors = variant ? theme.gradients[variant] : gradientColors;
   const content = (
     <View className="flex-1">
+      {floatingBackground ? (
+        <View
+          pointerEvents="none"
+          className="absolute left-0 right-0"
+          style={{ top: floatingBackgroundTopInset, bottom: 0 }}
+        >
+          {floatingBackground}
+        </View>
+      ) : null}
       <ScrollView
         className="flex-1"
         refreshControl={refreshControl}

@@ -122,7 +122,6 @@ export function EditProfileScreen() {
         <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} disabled={formDisabled} />
       </View>
 
-      <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <SplitGradientTitle
           eyebrow={APP_TEXT.profile.edit.step}
           prefix={APP_TEXT.profile.edit.titlePrefix}
@@ -204,7 +203,6 @@ export function EditProfileScreen() {
             );
           })}
         </View>
-      </View>
 
       <View className="mt-5">
         <Button

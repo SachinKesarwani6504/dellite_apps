@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { createWorkerCertificates, getWorkerStatus } from '@/actions';
+import { createWorkerCertificates, getWorkerStatus, updateWorkerCertificates } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
@@ -166,7 +166,15 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
     if (isSubmitting || !canSaveCertificates) return;
     setIsSubmitting(true);
     try {
-      await createWorkerCertificates({ certificates: readyCertificates });
+      const updateItems = readyCertificates.filter(item => typeof item.certificateId === 'string' && item.certificateId.trim().length > 0);
+      const createItems = readyCertificates.filter(item => !(typeof item.certificateId === 'string' && item.certificateId.trim().length > 0));
+
+      if (createItems.length > 0) {
+        await createWorkerCertificates({ certificates: createItems });
+      }
+      if (updateItems.length > 0) {
+        await updateWorkerCertificates({ certificates: updateItems });
+      }
       setSelectedFileByCard({});
       setSelectedTypeByCard({});
       await loadCertificates(false);
