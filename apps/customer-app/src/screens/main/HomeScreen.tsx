@@ -20,11 +20,11 @@ import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { useLocation } from '@/hooks/useLocation';
 import type { CustomerHomePayload, CustomerHomeService } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
-import { formatTitle, palette, safeImageUrl, theme, uiColors } from '@/utils';
+import { DEFAULT_HOME_CITY, formatTitle, palette, safeImageUrl, theme, uiColors } from '@/utils';
 
-const HOME_CITY = 'PRAYAGRAJ';
 const LOGO = require('@/assets/images/png/dellite_logo.png');
 const HOME_DOODLES = require('@/assets/images/png/home_page_doddles.png');
 
@@ -33,9 +33,18 @@ function getErrorMessage(error: unknown) {
   return 'Unable to load home data right now.';
 }
 
+function getPopularFallbackLabel(service: CustomerHomeService) {
+  if (service.iconText?.trim()) return service.iconText.trim();
+  if (service.category?.iconText?.trim()) return service.category.iconText.trim();
+  if (service.name?.trim()) return service.name.trim().charAt(0).toUpperCase();
+  return '?';
+}
+
 export function HomeScreen({ navigation }: { navigation: { navigate: (screen: string, params?: unknown) => void } }) {
   const { beginFlow } = useBookingFlowContext();
+  const { city } = useLocation();
   const isDark = useColorScheme() === 'dark';
+  const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
   const [homeData, setHomeData] = useState<CustomerHomePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +67,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     if (showLoader) setLoading(true);
     setError(null);
     try {
-      const data = await customerActions.getCustomerHome(HOME_CITY);
+      const data = await customerActions.getCustomerHome(selectedCity);
       setHomeData(data);
       setFailedPopularImages({});
     } catch (fetchError) {
@@ -66,10 +75,10 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCity]);
 
   useEffect(() => {
-    const cached = customerActions.getCachedCustomerHome(HOME_CITY);
+    const cached = customerActions.getCachedCustomerHome(selectedCity);
     if (cached) {
       setHomeData(cached);
       setLoading(false);
@@ -77,7 +86,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       return;
     }
     void fetchHome(true);
-  }, [fetchHome]);
+  }, [fetchHome, selectedCity]);
 
   const refreshControlProps = useBrandRefreshControl(async () => {
     await fetchHome(false);
@@ -92,8 +101,9 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       sourceType: 'popular_service',
       categoryId: service.category?.id,
       serviceId: service.id,
+      city: selectedCity,
     });
-  }, [beginFlow, navigation]);
+  }, [beginFlow, navigation, selectedCity]);
 
   const onOpenCategory = useCallback((categoryId: string, categoryName?: string) => {
     void categoryName;
@@ -104,8 +114,9 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     navigation.navigate(HOME_SCREEN.CATEGORY_SUBCATEGORIES, {
       sourceType: 'category',
       categoryId,
+      city: selectedCity,
     });
-  }, [beginFlow, navigation]);
+  }, [beginFlow, navigation, selectedCity]);
 
   const headerTitle = homeData?.header?.title ?? 'Home';
   const headerSubtitle = homeData?.header?.subtitle ?? '';
@@ -115,8 +126,8 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     if (cityMatch?.[1]?.trim()) {
       return cityMatch[1].trim();
     }
-    return HOME_CITY;
-  }, [headerSubtitle]);
+    return selectedCity;
+  }, [headerSubtitle, selectedCity]);
 
   if (loading && !homeData) {
     return (
@@ -198,11 +209,22 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
               title={headerTitle}
               subtitle={headerSubtitle}
             />
+            {homeData.header?.searchPlaceholder ? (
+              <View
+                className="mt-3 flex-row items-center rounded-xl border px-3 py-2.5"
+                style={{
+                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                }}
+              >
+                <Ionicons name="search-outline" size={14} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+                <Text className="ml-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                  {homeData.header.searchPlaceholder}
+                </Text>
+              </View>
+            ) : null}
 
             <View className="mt-5">
-              <Text className="text-lg font-extrabold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                Popular Services
-              </Text>
               {popularServices.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
                   <View className="flex-row gap-3">
@@ -231,6 +253,11 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
                               end={{ x: 0, y: 1 }}
                               style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12, paddingVertical: 12 }}
                             >
+                              {hideImage ? (
+                                <View className="mb-2 self-start rounded-md bg-white/90 px-2 py-1">
+                                  <Text className="text-[10px] font-bold text-primary">{getPopularFallbackLabel(service)}</Text>
+                                </View>
+                              ) : null}
                               <Text className="text-base font-extrabold text-white">
                                 {formatTitle(service.name)}
                               </Text>
@@ -260,9 +287,6 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
             </View>
 
             <View className="mt-5">
-              <Text className="text-lg font-extrabold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                All Services
-              </Text>
               {allServices.length > 0 ? (
                 <WorkerSkillCategoryGrid
                   categories={allServices}
@@ -295,10 +319,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
                   backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
                 }}
               >
-                <Text className="text-[30px] font-extrabold" style={{ color: theme.colors.primary }}>
-                  Why Dellite?
-                </Text>
-                <View className="mt-3 flex-row flex-wrap justify-between gap-y-3">
+                <View className="flex-row flex-wrap justify-between gap-y-3">
                   {whyDellite.map((point, index) => (
                     <View key={`${point}-${index}`} className="w-[48%] flex-row items-center">
                       <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
@@ -333,11 +354,6 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
                     word={homeData.footer.region}
                     className="mt-1 text-[36px] font-extrabold"
                   />
-                ) : null}
-                {homeData.footer.activeStatusValue ? (
-                  <Text className="mt-1 text-xs uppercase tracking-wide" style={{ color: theme.colors.primary }}>
-                    {homeData.footer.activeStatusValue}
-                  </Text>
                 ) : null}
                 {homeData.footer.copyright ? (
                   <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>

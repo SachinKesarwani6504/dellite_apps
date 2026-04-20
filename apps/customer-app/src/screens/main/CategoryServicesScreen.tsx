@@ -9,17 +9,17 @@ import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import type { CustomerCatalogService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
+import { DEFAULT_HOME_CITY } from '@/utils/options';
 import { APP_TEXT } from '@/utils/appText';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { theme, uiColors } from '@/utils/theme';
-
-const HOME_CITY = 'PRAYAGRAJ';
 
 type CategoryServicesRouteParams = {
   sourceType: 'popular_service' | 'category';
   categoryId?: string;
   subcategoryId?: string;
   serviceId?: string;
+  city?: string;
 };
 
 type CategoryServicesScreenProps = {
@@ -88,6 +88,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   const [activeCategory, setActiveCategory] = useState<CustomerHomeCategory | null>(null);
   const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
   const initialServiceAppliedRef = useRef(false);
+  const selectedCity = route.params.city ?? DEFAULT_HOME_CITY;
 
   const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
 
@@ -137,17 +138,17 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   ]);
 
   const onRefreshCatalog = useCallback(async () => {
-    const nextCatalog = await refreshCatalog(HOME_CITY);
+    const nextCatalog = await refreshCatalog(selectedCity);
     resolveActiveNodes(nextCatalog);
-  }, [refreshCatalog, resolveActiveNodes]);
+  }, [refreshCatalog, resolveActiveNodes, selectedCity]);
   const refreshControlProps = useBrandRefreshControl(onRefreshCatalog);
 
   useEffect(() => {
     void (async () => {
-      const nextCatalog = await ensureCatalog(HOME_CITY);
+      const nextCatalog = await ensureCatalog(selectedCity);
       resolveActiveNodes(nextCatalog);
     })();
-  }, [ensureCatalog, resolveActiveNodes]);
+  }, [ensureCatalog, resolveActiveNodes, selectedCity]);
 
   const subcategories = useMemo(
     () => (Array.isArray(activeCategory?.subcategories) ? activeCategory.subcategories : []),

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
@@ -6,6 +6,7 @@ import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { useLocation } from '@/hooks/useLocation';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { bookingSlotOptions, type BookingSlotValue } from '@/utils/options';
@@ -21,6 +22,13 @@ type BookingDetailsScreenProps = {
 export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const {
+    city,
+    formattedAddress,
+    refreshLocation,
+    refreshing: locationRefreshing,
+    error: locationError,
+  } = useLocation();
+  const {
     categoryName,
     subcategoryName,
     selectedServices,
@@ -33,6 +41,16 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   const [selectedSlot, setSelectedSlot] = useState<BookingSlotValue>(contextSlotValue);
   const [address, setAddress] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
+
+  useEffect(() => {
+    if (contextAddress.trim().length > 0) {
+      return;
+    }
+
+    if (formattedAddress?.trim()) {
+      setAddress(current => (current.trim().length > 0 ? current : formattedAddress));
+    }
+  }, [contextAddress, formattedAddress]);
 
   const slotLabel = useMemo(
     () => bookingSlotOptions.find(slot => slot.value === selectedSlot)?.label ?? bookingSlotOptions[0].label,
@@ -103,6 +121,21 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       </View>
 
       <View className="mt-4">
+        <View className="mb-2 flex-row items-center justify-between">
+          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            {city ? `Detected city: ${city}` : 'City not detected yet'}
+          </Text>
+          <Pressable onPress={() => void refreshLocation()}>
+            <Text className="text-xs font-semibold text-primary">
+              {locationRefreshing ? 'Refreshing...' : 'Use current location'}
+            </Text>
+          </Pressable>
+        </View>
+        {locationError ? (
+          <Text className="mb-2 text-xs" style={{ color: theme.colors.negative }}>
+            {locationError}
+          </Text>
+        ) : null}
         <AppInput
           label={APP_TEXT.main.bookingFlow.notesLabel}
           value={notes}

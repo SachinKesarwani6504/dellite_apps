@@ -49,3 +49,5 @@ export * from '@/utils/onboarding';
 export * from '@/utils/date';
 export * from '@/utils/certificate-onboarding';
 export * from '@/utils/certificate-payload';
+export * from '@/modules/location/utils/distance.util';
+export * from '@/modules/location/utils/location.mapper';

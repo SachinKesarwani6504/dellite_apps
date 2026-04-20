@@ -9,4 +9,6 @@ export * from '@/utils/profile';
 export * from '@/utils/referral';
 export * from '@/utils/home';
 export * from '@/utils/validation';
+export * from '@/modules/location/utils/distance.util';
+export * from '@/modules/location/utils/location.mapper';
 

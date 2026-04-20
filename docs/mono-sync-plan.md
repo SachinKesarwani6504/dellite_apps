@@ -58,3 +58,9 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Worker app: onboarding navigator route decisions now come from onboarding context and `/auth/me` worker flags.
 - [x] Customer app: mirrored onboarding context split and onboarding navigator route ownership.
 - [x] Worker + Customer: removed `hooks/useAuth.ts` wrapper and standardized direct context hook usage.
+
+## In Progress: City-Based Home APIs
+
+- [x] Customer app: wired `GET /customer/home?city=...` with cache-first load, retry, and payload-driven footer/sections.
+- [x] Worker app: wired `GET /worker/home?city=...` with auth, cache-first load, retry, and strict footer model (no action fields).
+- [x] Worker + Customer: aligned home banner treatment and image-first cards with graceful fallback behavior.

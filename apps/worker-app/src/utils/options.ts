@@ -6,3 +6,4 @@ export const GENDER_OPTIONS: Array<{ label: string; value: Gender; icon: string 
   { label: 'Other', value: 'OTHER', icon: '🧑' },
 ];
 
+export const DEFAULT_HOME_CITY = 'PRAYAGRAJ';

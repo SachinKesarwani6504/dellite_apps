@@ -1,6 +1,6 @@
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import type { CustomerHomeCategory } from '@/types/customer';
-import { palette, titleCase, toIconBadgeText, uiColors } from '@/utils';
+import { palette, safeImageUrl, titleCase, toIconBadgeText, uiColors } from '@/utils';
 
 type WorkerSkillCategoryGridProps = {
   categories: CustomerHomeCategory[];
@@ -30,6 +30,7 @@ export function WorkerSkillCategoryGrid({
     <View className="mt-3 flex-row flex-wrap justify-between gap-y-3">
       {categories.map(category => {
         const isSelected = selectedCategoryId === category.id;
+        const iconImageUrl = safeImageUrl(category.iconImage?.url) ?? safeImageUrl(category.mainImage?.url);
         return (
           <Pressable
             key={category.id}
@@ -43,10 +44,14 @@ export function WorkerSkillCategoryGrid({
             }`}
             style={!isSelected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
           >
-            <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Text className="text-sm font-bold text-primary">
-                {toIconBadgeText(category.name, category.iconText)}
-              </Text>
+            <View className="h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+              {iconImageUrl ? (
+                <Image source={{ uri: iconImageUrl }} resizeMode="cover" className="h-full w-full" />
+              ) : (
+                <Text className="text-sm font-bold text-primary">
+                  {toIconBadgeText(category.name, category.iconText)}
+                </Text>
+              )}
             </View>
             <Text className="mt-2 text-sm font-bold text-baseDark dark:text-white">{titleCase(category.name)}</Text>
             <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>

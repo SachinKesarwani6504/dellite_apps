@@ -110,7 +110,6 @@ export type CustomerHomeFooter = {
   from?: string;
   region?: string;
   copyright?: string;
-  activeStatusValue?: string;
 };
 
 export type CustomerHomePayload = {

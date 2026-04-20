@@ -35,3 +35,5 @@ export const bookingSlotOptions: OptionItem<BookingSlotValue>[] = [
   { label: 'Today Afternoon (12:00 PM - 4:00 PM)', value: 'afternoon' },
   { label: 'Today Evening (4:00 PM - 8:00 PM)', value: 'evening' },
 ];
+
+export const DEFAULT_HOME_CITY = 'PRAYAGRAJ';

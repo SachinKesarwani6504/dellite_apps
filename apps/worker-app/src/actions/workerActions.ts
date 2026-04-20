@@ -12,14 +12,13 @@ import {
   WorkerServicePayload,
   WorkerServiceUpdatePayload,
   WorkerHomeData,
-  WorkerHomeFooterActions,
+  WorkerHomeFooter,
   WorkerHomeHeaderBanner,
   WorkerHomeNearbyJob,
   WorkerHomeTodayStats,
   WorkerStatusData,
   WorkerStatusResponse,
 } from '@/types/auth';
-import { ApiError } from '@/types/api';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 import { toFormData } from '@/utils/form-data';
 import type { MultipartFile } from '@/types/http';
@@ -30,6 +29,12 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
     return (envelope.data ?? ({} as T)) as T;
   }
   return payload as T;
+}
+
+const workerHomeCacheByCity = new Map<string, WorkerHomeData>();
+
+function normalizeCity(city: string) {
+  return city.trim().toUpperCase();
 }
 
 type RawServiceSubcategory = Omit<ServiceSubcategory, 'services'> & {
@@ -69,7 +74,6 @@ function normalizeWorkerHomeHeaderBanner(value: unknown): WorkerHomeHeaderBanner
     name: toOptionalString(raw.name),
     averageRating: toOptionalNumber(raw.averageRating ?? raw.average_rating),
     reviewsCount: toOptionalNumber(raw.reviewsCount ?? raw.reviews_count),
-    currentCity: toOptionalString(raw.currentCity ?? raw.current_city),
   };
 }
 
@@ -92,32 +96,22 @@ function normalizeWorkerHomeNearbyJob(value: unknown): WorkerHomeNearbyJob | nul
   const raw = value as Record<string, unknown>;
   return {
     id: toOptionalString(raw.id),
-    name: toOptionalString(raw.name),
-    title: toOptionalString(raw.title ?? raw.serviceName ?? raw.service_name),
+    title: toOptionalString(raw.title ?? raw.name ?? raw.serviceName ?? raw.service_name),
     distanceKm: toOptionalNumber(raw.distanceKm ?? raw.distance_km),
-    location: toOptionalString(raw.location ?? raw.city ?? raw.area),
     city: toOptionalString(raw.city),
-    schedule: toOptionalString(raw.schedule),
-    timeRange: toOptionalString(raw.timeRange ?? raw.time_range),
-    price: toOptionalNumber(raw.price ?? raw.payout),
     payout: toOptionalNumber(raw.payout),
-    priceLabel: toOptionalString(raw.priceLabel ?? raw.price_label),
     imageUrl: toOptionalString(raw.imageUrl ?? raw.image_url),
   };
 }
 
-function normalizeWorkerHomeFooterActions(value: unknown): WorkerHomeFooterActions | undefined {
+function normalizeWorkerHomeFooter(value: unknown): WorkerHomeFooter | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const raw = value as Record<string, unknown>;
   return {
-    currentCity: toOptionalString(raw.currentCity ?? raw.current_city),
-    primaryAction: toOptionalString(raw.primaryAction ?? raw.primary_action),
-    secondaryAction: toOptionalString(raw.secondaryAction ?? raw.secondary_action),
     madeWith: toOptionalString(raw.madeWith ?? raw.made_with),
     from: toOptionalString(raw.from),
     region: toOptionalString(raw.region),
     copyright: toOptionalString(raw.copyright),
-    activeStatusValue: toOptionalString(raw.activeStatusValue ?? raw.active_status_value),
   };
 }
 
@@ -151,7 +145,7 @@ function normalizeWorkerHomeData(value: unknown): WorkerHomeData {
     headerBanner: normalizeWorkerHomeHeaderBanner(raw.headerBanner ?? raw.header_banner),
     todayStats: normalizeWorkerHomeTodayStats(raw.todayStats ?? raw.today_stats),
     availableNearbyJobs,
-    footerActions: normalizeWorkerHomeFooterActions(raw.footerActions ?? raw.footer_actions ?? raw.footer),
+    footer: normalizeWorkerHomeFooter(raw.footer),
   };
 }
 type WorkerServiceCreateResponse = {
@@ -528,19 +522,23 @@ export async function getWorkerStatus<T = WorkerStatusData>(query?: WorkerStatus
   } as T;
 }
 
-export async function getWorkerHome(): Promise<WorkerHomeData> {
-  try {
-    const response = await apiGet<ApiEnvelope<unknown>>('/woker/home', { auth: true });
-    return normalizeWorkerHomeData(unwrapData(response));
-  } catch (error) {
-    const shouldFallback = error instanceof ApiError && error.statusCode === 404;
-    if (!shouldFallback) {
-      throw error;
-    }
-  }
+export function getCachedWorkerHome(city: string): WorkerHomeData | null {
+  return workerHomeCacheByCity.get(normalizeCity(city)) ?? null;
+}
 
-  const fallbackResponse = await apiGet<ApiEnvelope<unknown>>('/worker/home', { auth: true });
-  return normalizeWorkerHomeData(unwrapData(fallbackResponse));
+export async function getWorkerHome(city: string): Promise<WorkerHomeData> {
+  const normalizedCity = normalizeCity(city);
+  const response = await apiGet<ApiEnvelope<unknown>>(
+    `/worker/home?city=${encodeURIComponent(normalizedCity)}`,
+    {
+      auth: true,
+      retryOnAuthFailure: true,
+      cache: 'no-store',
+    },
+  );
+  const payload = normalizeWorkerHomeData(unwrapData(response));
+  workerHomeCacheByCity.set(normalizedCity, payload);
+  return payload;
 }
 
 export async function createWorkerServices(

@@ -1,26 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useMemo, useState } from 'react';
-import {
-  Image,
-  ImageBackground,
-  Pressable,
-  RefreshControl,
-  Text,
-  View,
-  useColorScheme,
-} from 'react-native';
-import { getWorkerHome } from '@/actions';
+import { Image, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { getCachedWorkerHome, getWorkerHome } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
+import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
+import { NearbyJobCard } from '@/components/common/NearbyJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { WorkerHomeData, WorkerHomeNearbyJob } from '@/types/auth';
+import { useLocation } from '@/hooks/useLocation';
+import type { WorkerHomeData } from '@/types/auth';
 import { APP_TEXT } from '@/utils/appText';
+import { DEFAULT_HOME_CITY } from '@/utils/options';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const logo = require('@/assets/images/png/dellite_logo.png');
@@ -38,88 +33,78 @@ function formatGrowth(value?: number | string) {
   return `${sign}${growth}%`;
 }
 
-function getJobTitle(job: WorkerHomeNearbyJob) {
-  return job.title ?? job.name ?? APP_TEXT.home.jobFallback;
-}
-
-function getJobSchedule(job: WorkerHomeNearbyJob) {
-  return job.timeRange ?? job.schedule ?? '';
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Unable to load home data right now.';
 }
 
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
-  const { me } = useAuthContext();
+  const { city } = useLocation();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [nearbyJobsLoadError, setNearbyJobsLoadError] = useState(false);
-  const [homeData, setHomeData] = useState<WorkerHomeData>({ availableNearbyJobs: [] });
+  const [error, setError] = useState<string | null>(null);
+  const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
 
-  const loadHomeData = useCallback(async (isPullToRefresh = false) => {
-    if (isPullToRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadHomeData = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    else setRefreshing(true);
+    setError(null);
     try {
-      const data = await getWorkerHome();
+      const data = await getWorkerHome(selectedCity);
       setHomeData(data);
-      setNearbyJobsLoadError(false);
-    } catch {
-      setHomeData({ availableNearbyJobs: [] });
-      setNearbyJobsLoadError(true);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedCity]);
 
   useFocusEffect(
     useCallback(() => {
-      void loadHomeData(false);
-    }, [loadHomeData]),
+      const cached = getCachedWorkerHome(selectedCity);
+      if (cached) {
+        setHomeData(cached);
+        setLoading(false);
+        void loadHomeData(false);
+        return;
+      }
+      void loadHomeData(true);
+    }, [loadHomeData, selectedCity]),
   );
 
   const onRefresh = useCallback(() => {
     if (refreshing) return;
-    void loadHomeData(true);
+    void loadHomeData(false);
   }, [loadHomeData, refreshing]);
 
-  const currentCity = useMemo(() => {
-    const workerLink = me?.links?.worker as Record<string, unknown> | undefined;
-    const roleLink = (me as Record<string, unknown> | undefined)?.roleLink as Record<string, unknown> | undefined;
-    const nearbyJobCity = Array.isArray(homeData.availableNearbyJobs)
-      ? homeData.availableNearbyJobs.find(job => typeof job.city === 'string' && job.city.trim().length > 0)?.city
-      : undefined;
-    const candidates: unknown[] = [
-      workerLink?.currentCityName,
-      workerLink?.currentCity,
-      workerLink?.city,
-      roleLink?.currentCityName,
-      roleLink?.currentCity,
-      roleLink?.city,
-      homeData.footerActions?.currentCity,
-      homeData.headerBanner?.currentCity,
-      nearbyJobCity,
-    ];
-    for (let index = 0; index < candidates.length; index += 1) {
-      const value = candidates[index];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
-    return APP_TEXT.home.cityFallback;
-  }, [homeData.availableNearbyJobs, homeData.footerActions?.currentCity, homeData.headerBanner?.currentCity, me]);
-  const status = String(homeData.currentStatus?.status ?? '').trim().toUpperCase();
-  const activeValue = String(homeData.footerActions?.activeStatusValue ?? APP_TEXT.home.currentStatusActiveValue).trim().toUpperCase();
-  const shouldShowCurrentStatus = Boolean(status) && status !== activeValue;
+  const nearbyJobs = useMemo(
+    () => (Array.isArray(homeData?.availableNearbyJobs) ? homeData.availableNearbyJobs : []),
+    [homeData?.availableNearbyJobs],
+  );
+  const headerBannerName = homeData?.headerBanner?.name?.trim() || APP_TEXT.home.welcomeFallbackName;
+  const ratingLabel = useMemo(() => {
+    const averageRating = typeof homeData?.headerBanner?.averageRating === 'number'
+      ? homeData.headerBanner.averageRating.toFixed(1)
+      : APP_TEXT.home.ratingFallback;
+    const reviewsCount = typeof homeData?.headerBanner?.reviewsCount === 'number'
+      ? homeData.headerBanner.reviewsCount.toLocaleString('en-IN')
+      : '0';
+    return `${averageRating} (${reviewsCount} ${APP_TEXT.home.reviewsSuffix})`;
+  }, [homeData?.headerBanner?.averageRating, homeData?.headerBanner?.reviewsCount]);
 
-  const nearbyJobs = Array.isArray(homeData.availableNearbyJobs) ? homeData.availableNearbyJobs : [];
-  const headerBannerName = homeData.headerBanner?.name?.trim() || APP_TEXT.home.welcomeFallbackName;
-  const averageRating = typeof homeData.headerBanner?.averageRating === 'number'
-    ? homeData.headerBanner.averageRating.toFixed(1)
-    : APP_TEXT.home.ratingFallback;
-  const reviewsCount = typeof homeData.headerBanner?.reviewsCount === 'number'
-    ? homeData.headerBanner.reviewsCount
-    : 0;
-  const headerBannerImage = homeData.headerBanner?.imageUrl;
+  if (loading && !homeData) {
+    return (
+      <GradientScreen>
+        <View className="flex-1 items-center justify-center">
+          <AppSpinner size="large" color={theme.colors.primary} />
+        </View>
+      </GradientScreen>
+    );
+  }
 
   return (
     <GradientScreen
@@ -151,172 +136,141 @@ export function HomeScreen() {
           }}
         >
           <Ionicons name="location-outline" size={13} color={theme.colors.primary} />
-          <Text className="ml-1 text-xs font-semibold text-primary">{currentCity}</Text>
+          <Text className="ml-1 text-xs font-semibold text-primary">{selectedCity}</Text>
         </View>
       </View>
 
-      {shouldShowCurrentStatus ? (
-        <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus ?? null} />
+      {error && !homeData ? (
+        <ListErrorState
+          title="Could not load home"
+          description={error}
+          onAction={() => {
+            void loadHomeData(true);
+          }}
+        />
       ) : null}
 
-      <View className={shouldShowCurrentStatus ? 'mt-4' : ''}>
-        <ImageBackground
-          source={headerBannerImage ? { uri: headerBannerImage } : undefined}
-          imageStyle={{ borderRadius: 16 }}
-          style={{
-            borderRadius: 16,
-            overflow: 'hidden',
-            backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-          }}
-        >
-          <View
-            className="px-4 py-4"
-            style={{
-              backgroundColor: headerBannerImage ? 'rgba(0, 0, 0, 0.28)' : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
-            }}
-          >
-            <Text className="text-xs font-semibold text-white/90">{APP_TEXT.home.welcomeBack}</Text>
-            <Text className="mt-1 text-3xl font-extrabold text-white">{headerBannerName}</Text>
-            <View className="mt-2 flex-row items-center">
-              <Ionicons name="star" size={14} color={theme.colors.positive} />
-              <Text className="ml-1 text-sm font-semibold text-white">{averageRating}</Text>
-              <Text className="ml-1 text-xs text-white/85">{reviewsCount} {APP_TEXT.home.reviewsSuffix}</Text>
-            </View>
-          </View>
-        </ImageBackground>
-      </View>
-
-      <View className="mt-3 flex-row gap-2">
+      {error && homeData ? (
         <View
-          className="flex-1 items-center rounded-ui-md border px-3 py-3"
+          className="mb-3 rounded-xl border px-3 py-2"
           style={{
-            borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-            backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+            borderColor: theme.colors.caution,
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
           }}
         >
-          <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
-          <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{homeData.todayStats?.totalJobs ?? 0}</Text>
-          <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.todayJobsLabel}</Text>
-        </View>
-        <View
-          className="flex-1 items-center rounded-ui-md border px-3 py-3"
-          style={{
-            borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-            backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-          }}
-        >
-          <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
-          <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatCurrency(homeData.todayStats?.totalEarning)}</Text>
-          <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
-        </View>
-        <View
-          className="flex-1 items-center rounded-ui-md border px-3 py-3"
-          style={{
-            borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-            backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-          }}
-        >
-          <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
-          <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatGrowth(homeData.todayStats?.growth)}</Text>
-          <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
-        </View>
-      </View>
-
-      <View className="mt-4">
-        <Text className="text-lg font-bold text-baseDark dark:text-white">{APP_TEXT.home.nearbyJobsTitle}</Text>
-        {loading ? (
-          <View className="mt-3 rounded-ui-md border p-4" style={{ borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }}>
-            <View className="flex-row items-center">
-              <AppSpinner size="small" color={theme.colors.primary} />
-              <Text className="ml-2 text-sm text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.nearbyJobsLoading}</Text>
-            </View>
-          </View>
-        ) : nearbyJobsLoadError ? (
-          <ListErrorState
-            containerClassName="mt-3"
-            title="Could not load nearby jobs"
-            description="Pull to refresh or tap retry."
-            onAction={() => {
-              void loadHomeData(true);
-            }}
-          />
-        ) : nearbyJobs.length === 0 ? (
-          <ListEmptyState
-            containerClassName="mt-3"
-            icon="briefcase-outline"
-            title={APP_TEXT.home.nearbyJobsEmpty}
-            description="New jobs will appear here when available."
-          />
-        ) : (
-          <View className="mt-2 gap-2">
-            {nearbyJobs.map((job, index) => {
-              const id = job.id ?? `${job.name ?? job.title ?? APP_TEXT.home.jobFallback}-${index}`;
-              const jobTitle = getJobTitle(job);
-              const jobSchedule = getJobSchedule(job);
-              const price = job.priceLabel ?? formatCurrency(job.payout ?? job.price);
-              const jobLocation = job.city ?? job.location;
-              return (
-                <Pressable
-                  key={id}
-                  className="flex-row overflow-hidden rounded-ui-md border"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-                    backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-                  }}
-                >
-                  <View className="h-20 w-20">
-                    {job.imageUrl ? (
-                      <Image source={{ uri: job.imageUrl }} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                      <View className="h-full w-full items-center justify-center bg-primary/10">
-                        <Ionicons name="briefcase-outline" size={18} color={theme.colors.primary} />
-                      </View>
-                    )}
-                  </View>
-                  <View className="flex-1 flex-row items-center justify-between px-3 py-2">
-                    <View className="flex-1 pr-2">
-                      <Text className="text-base font-semibold text-baseDark dark:text-white">{jobTitle}</Text>
-                      {jobLocation ? (
-                        <View className="mt-1 flex-row items-center">
-                          <Ionicons name="location-outline" size={12} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-                          <Text className="ml-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                            {jobLocation}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {jobSchedule ? (
-                        <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                          {jobSchedule}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text className="text-sm font-bold text-primary">{price}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
-      <View className="mt-6">
-        <View className="flex-row items-center">
-          <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">
-            {homeData.footerActions?.madeWith ?? APP_TEXT.home.footerMadeWith}
-          </Text>
-          <Ionicons name="heart" size={18} color={theme.colors.negative} style={{ marginHorizontal: 6, marginTop: 2 }} />
-          <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">
-            {homeData.footerActions?.from ?? APP_TEXT.home.footerFrom}
+          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            Showing cached data. Pull to refresh.
           </Text>
         </View>
-        <GradientWord
-          word={homeData.footerActions?.region ?? APP_TEXT.home.footerRegionFallback}
-          className="mt-1 text-[36px] font-extrabold"
-        />
-        <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-          {homeData.footerActions?.copyright ?? APP_TEXT.home.footerCopyrightFallback}
-        </Text>
-      </View>
+      ) : null}
+
+      {homeData ? (
+        <>
+          {homeData.currentStatus ? (
+            <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
+          ) : null}
+
+          <View className={homeData.currentStatus ? 'mt-4' : ''}>
+            <ImageOverlayBanner
+              imageUrl={homeData.headerBanner?.imageUrl}
+              overline={APP_TEXT.home.welcomeBack}
+              title={headerBannerName}
+              subtitle={ratingLabel}
+              pillText={selectedCity}
+            />
+          </View>
+
+          <View className="mt-3 flex-row gap-2">
+            <View
+              className="flex-1 items-center rounded-ui-md border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+              }}
+            >
+              <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
+              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{homeData.todayStats?.totalJobs ?? 0}</Text>
+              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.todayJobsLabel}</Text>
+            </View>
+            <View
+              className="flex-1 items-center rounded-ui-md border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+              }}
+            >
+              <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
+              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatCurrency(homeData.todayStats?.totalEarning)}</Text>
+              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
+            </View>
+            <View
+              className="flex-1 items-center rounded-ui-md border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+              }}
+            >
+              <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
+              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatGrowth(homeData.todayStats?.growth)}</Text>
+              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
+            </View>
+          </View>
+
+          <View className="mt-4">
+            <Text className="text-lg font-bold text-baseDark dark:text-white">{APP_TEXT.home.nearbyJobsTitle}</Text>
+            {nearbyJobs.length === 0 ? (
+              <ListEmptyState
+                containerClassName="mt-3"
+                icon="briefcase-outline"
+                title={APP_TEXT.home.nearbyJobsEmpty}
+                description="New jobs will appear here when available."
+              />
+            ) : (
+              <View className="mt-2 gap-3">
+                {nearbyJobs.map((job, index) => {
+                  const id = job.id ?? `${job.title ?? APP_TEXT.home.jobFallback}-${index}`;
+                  const title = job.title ?? APP_TEXT.home.jobFallback;
+                  return (
+                    <NearbyJobCard
+                      key={id}
+                      title={title}
+                      city={job.city}
+                      distanceKm={job.distanceKm}
+                      payoutLabel={formatCurrency(job.payout)}
+                      imageUrl={job.imageUrl}
+                      isDark={isDark}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {homeData.footer ? (
+            <View className="mt-6">
+              {(homeData.footer.madeWith || homeData.footer.from) ? (
+                <View className="flex-row items-center">
+                  {homeData.footer.madeWith ? (
+                    <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.madeWith}</Text>
+                  ) : null}
+                  <Ionicons name="heart" size={18} color={theme.colors.negative} style={{ marginHorizontal: 6, marginTop: 2 }} />
+                  {homeData.footer.from ? (
+                    <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.from}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {homeData.footer.region ? (
+                <GradientWord word={homeData.footer.region} className="mt-1 text-[36px] font-extrabold" />
+              ) : null}
+              {homeData.footer.copyright ? (
+                <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
+                  {homeData.footer.copyright}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </>
+      ) : null}
     </GradientScreen>
   );
 }

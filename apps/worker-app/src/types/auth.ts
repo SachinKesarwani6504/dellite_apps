@@ -377,7 +377,6 @@ export interface WorkerHomeHeaderBanner {
   name?: string;
   averageRating?: number;
   reviewsCount?: number;
-  currentCity?: string;
 }
 
 export interface WorkerHomeTodayStats {
@@ -388,28 +387,18 @@ export interface WorkerHomeTodayStats {
 
 export interface WorkerHomeNearbyJob {
   id?: string;
-  name?: string;
   title?: string;
   distanceKm?: number;
-  location?: string;
   city?: string;
-  schedule?: string;
-  timeRange?: string;
-  price?: number;
   payout?: number;
-  priceLabel?: string;
   imageUrl?: string;
 }
 
-export interface WorkerHomeFooterActions {
-  currentCity?: string;
-  primaryAction?: string;
-  secondaryAction?: string;
+export interface WorkerHomeFooter {
   madeWith?: string;
   from?: string;
   region?: string;
   copyright?: string;
-  activeStatusValue?: string;
 }
 
 export interface WorkerHomeData {
@@ -417,5 +406,5 @@ export interface WorkerHomeData {
   headerBanner?: WorkerHomeHeaderBanner;
   todayStats?: WorkerHomeTodayStats;
   availableNearbyJobs?: WorkerHomeNearbyJob[];
-  footerActions?: WorkerHomeFooterActions;
+  footer?: WorkerHomeFooter;
 }
