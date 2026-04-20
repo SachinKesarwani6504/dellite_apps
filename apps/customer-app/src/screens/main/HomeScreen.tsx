@@ -19,8 +19,8 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
-import { useLocation } from '@/hooks/useLocation';
 import type { CustomerHomePayload, CustomerHomeService } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { DEFAULT_HOME_CITY, formatTitle, palette, safeImageUrl, theme, uiColors } from '@/utils';
@@ -41,8 +41,9 @@ function getPopularFallbackLabel(service: CustomerHomeService) {
 }
 
 export function HomeScreen({ navigation }: { navigation: { navigate: (screen: string, params?: unknown) => void } }) {
+  const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
-  const { city } = useLocation();
+  const { city } = locationState;
   const isDark = useColorScheme() === 'dark';
   const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
   const [homeData, setHomeData] = useState<CustomerHomePayload | null>(null);

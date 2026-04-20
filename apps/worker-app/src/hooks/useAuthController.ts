@@ -12,6 +12,7 @@ import { ApiError } from '@/types/api';
 import { AuthContextType } from '@/types/auth-context';
 import { AuthStatus } from '@/types/auth-status';
 import { APP_AUTH_ROLE, AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
+import { useLocationController } from '@/hooks/useLocationController';
 import { stripBearerPrefix } from '@/utils/token';
 import {
   clearAuthTokens,
@@ -88,6 +89,8 @@ async function clearAllStoredTokens() {
 }
 
 export function useAuthController(): AuthContextType {
+  const locationState = useLocationController();
+  const { initializeLocation } = locationState;
   const [status, setStatus] = useState<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
@@ -172,7 +175,10 @@ export function useAuthController(): AuthContextType {
 
       foregroundSyncInFlightRef.current = true;
       lastForegroundSyncAtRef.current = now;
-      void bootstrap().finally(() => {
+      void Promise.all([
+        bootstrap(),
+        initializeLocation({ forceRefresh: true }),
+      ]).finally(() => {
         foregroundSyncInFlightRef.current = false;
       });
     });
@@ -180,7 +186,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       subscription.remove();
     };
-  }, [bootstrap, status]);
+  }, [bootstrap, initializeLocation, status]);
 
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
     await clearAllStoredTokens();
@@ -352,6 +358,7 @@ export function useAuthController(): AuthContextType {
     loading,
     phone,
     isAuthenticated: status === AuthStatus.AUTHENTICATED,
+    locationState,
     sendOtpCode,
     verifyOtpCode,
     resendOtpCode,
@@ -364,6 +371,7 @@ export function useAuthController(): AuthContextType {
     status,
     loading,
     phone,
+    locationState,
     sendOtpCode,
     verifyOtpCode,
     resendOtpCode,

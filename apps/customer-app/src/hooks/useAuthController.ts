@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { authActions, customerActions } from '@/actions';
 import { ApiError } from '@/types/api';
 import { AUTH_STATUS, type AuthMeResponse, type AuthState, type AuthStatus, type AuthTokens } from '@/types/auth';
 import type { AuthContextType } from '@/types/auth-context';
 import type { UpdateCustomerIdentityPayload } from '@/types/customer';
+import { useLocationController } from '@/hooks/useLocationController';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -207,6 +209,8 @@ function resolveAuthStatus(user: AuthState['user']): AuthStatus {
 }
 
 export function useAuthController(): AuthContextType {
+  const locationState = useLocationController();
+  const { initializeLocation } = locationState;
   const [authState, setAuthState] = useState<AuthState>(defaultState);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthStatus> | null>(null);
@@ -523,10 +527,25 @@ export function useAuthController(): AuthContextType {
     };
   }, [logout]);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState !== 'active') {
+        return;
+      }
+
+      void initializeLocation({ forceRefresh: true });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [initializeLocation]);
+
   return useMemo<AuthContextType>(
     () => ({
       authState,
       loading,
+      locationState,
       sendOtpCode: sendOtpCodeWithState,
       refreshMe: refreshMeWithState,
       verifyOtpAndSignIn: verifyOtpAndSignInWithState,
@@ -539,6 +558,7 @@ export function useAuthController(): AuthContextType {
     [
       authState,
       loading,
+      locationState,
       sendOtpCodeWithState,
       refreshMeWithState,
       verifyOtpAndSignInWithState,

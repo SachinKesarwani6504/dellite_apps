@@ -12,7 +12,7 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { NearbyJobCard } from '@/components/common/NearbyJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
-import { useLocation } from '@/hooks/useLocation';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { WorkerHomeData } from '@/types/auth';
 import { APP_TEXT } from '@/utils/appText';
 import { DEFAULT_HOME_CITY } from '@/utils/options';
@@ -40,7 +40,8 @@ function getErrorMessage(error: unknown) {
 
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
-  const { city } = useLocation();
+  const { locationState } = useAuthContext();
+  const { city } = locationState;
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
   const [loading, setLoading] = useState(true);

@@ -6,6 +6,7 @@ import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl'
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import type { CustomerCatalogService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
@@ -74,6 +75,7 @@ function getSubcategoryServiceCount(subcategory: CustomerCatalogSubcategory) {
 
 export function CategoryServicesScreen({ navigation, route }: CategoryServicesScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { locationState } = useAuthContext();
   const {
     catalogLoading,
     catalogError,
@@ -88,7 +90,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   const [activeCategory, setActiveCategory] = useState<CustomerHomeCategory | null>(null);
   const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
   const initialServiceAppliedRef = useRef(false);
-  const selectedCity = route.params.city ?? DEFAULT_HOME_CITY;
+  const selectedCity = route.params.city ?? locationState.city?.trim() ?? DEFAULT_HOME_CITY;
 
   const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
 
@@ -219,6 +221,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
                     sourceType: 'category',
                     categoryId: activeCategory?.id,
                     subcategoryId: subcategory.id,
+                    city: selectedCity,
                   });
                 }}
                 title={titleCase(subcategory.name)}

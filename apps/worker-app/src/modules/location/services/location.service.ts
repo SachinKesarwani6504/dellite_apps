@@ -1,11 +1,11 @@
 import * as ExpoLocation from 'expo-location';
-import { apiPost } from '@/actions/http/httpClient';
 import {
   CURRENT_POSITION_OPTIONS,
+  GOOGLE_GEOCODE_ENDPOINT,
   LAST_KNOWN_POSITION_OPTIONS,
   LOCATION_ERRORS,
 } from '@/modules/location/constants/location.constants';
-import { mapToNormalizedLocation } from '@/modules/location/utils/location.mapper';
+import { mapGoogleGeocodeToNormalizedLocation } from '@/modules/location/utils/location.mapper';
 import type {
   LocationCoordinates,
   LocationPermissionStatus,
@@ -59,8 +59,30 @@ export async function getCurrentLocationDetails(
   coordinates?: LocationCoordinates,
 ): Promise<NormalizedLocation> {
   const nextCoordinates = coordinates ?? await getCurrentCoordinates();
-  const response = await apiPost<unknown, LocationCoordinates>('/location/reverse-geocode', nextCoordinates);
-  const normalized = mapToNormalizedLocation(response);
+  const runtimeGlobal = globalThis as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const apiKey = runtimeGlobal.process?.env?.GOOGLE_MAPS_API_KEY
+    ?? runtimeGlobal.process?.env?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(LOCATION_ERRORS.missingGoogleApiKey);
+  }
+
+  const params = new URLSearchParams({
+    latlng: `${nextCoordinates.latitude},${nextCoordinates.longitude}`,
+    key: apiKey,
+    language: 'en',
+    region: 'in',
+  });
+
+  const response = await fetch(`${GOOGLE_GEOCODE_ENDPOINT}?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
+  }
+
+  const payload = await response.json();
+  const normalized = mapGoogleGeocodeToNormalizedLocation(payload, nextCoordinates);
 
   if (!normalized) {
     throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);

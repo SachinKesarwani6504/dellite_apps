@@ -14,11 +14,6 @@ export type NormalizedLocation = LocationCoordinates & {
   formattedAddress: string | null;
 };
 
-export type LocationCachePayload = {
-  location: NormalizedLocation;
-  lastUpdatedAt: string;
-};
-
 export type ShouldRefreshLocationArgs = {
   forceRefresh?: boolean;
   hasCachedLocation: boolean;

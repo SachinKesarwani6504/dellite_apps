@@ -64,3 +64,10 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Customer app: wired `GET /customer/home?city=...` with cache-first load, retry, and payload-driven footer/sections.
 - [x] Worker app: wired `GET /worker/home?city=...` with auth, cache-first load, retry, and strict footer model (no action fields).
 - [x] Worker + Customer: aligned home banner treatment and image-first cards with graceful fallback behavior.
+
+## In Progress: Global Location Management
+
+- [x] Worker + Customer: introduced shared location foundation (`types`, `constants`, `services`, `utils`) under `src/modules/location`.
+- [x] Worker + Customer: added global location state inside `AuthContext` (`locationState`) powered by `useLocationController` and consumed via `useLocation`.
+- [x] Worker + Customer: wired app root providers and home city resolution from live location with safe fallback.
+- [x] Customer app: booking details screen now demonstrates location auto-fill + manual location refresh action.

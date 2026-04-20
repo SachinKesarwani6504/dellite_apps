@@ -5,8 +5,8 @@ import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
-import { useLocation } from '@/hooks/useLocation';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { bookingSlotOptions, type BookingSlotValue } from '@/utils/options';
@@ -21,13 +21,14 @@ type BookingDetailsScreenProps = {
 
 export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { locationState } = useAuthContext();
   const {
     city,
     formattedAddress,
     refreshLocation,
     refreshing: locationRefreshing,
     error: locationError,
-  } = useLocation();
+  } = locationState;
   const {
     categoryName,
     subcategoryName,

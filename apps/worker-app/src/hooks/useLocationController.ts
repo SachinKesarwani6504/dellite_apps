@@ -4,7 +4,6 @@ import {
   LOCATION_STALE_AFTER_MS,
   MEANINGFUL_LOCATION_CHANGE_METERS,
 } from '@/modules/location/constants/location.constants';
-import { readLocationCache, writeLocationCache } from '@/modules/location/services/location-cache.service';
 import {
   getCurrentCoordinates as getCurrentCoordinatesFromDevice,
   getCurrentLocationDetails,
@@ -23,7 +22,7 @@ import type {
 const initialSnapshot: LocationSnapshot = {
   location: null,
   permissionStatus: 'undetermined',
-  loading: true,
+  loading: false,
   refreshing: false,
   initialized: false,
   error: null,
@@ -40,7 +39,12 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 
 export function useLocationController(): LocationContextValue {
   const [snapshot, setSnapshot] = useState<LocationSnapshot>(initialSnapshot);
+  const snapshotRef = useRef<LocationSnapshot>(initialSnapshot);
   const initializeInFlightRef = useRef<Promise<NormalizedLocation | null> | null>(null);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const requestLocationPermission = useCallback(async (): Promise<LocationPermissionStatus> => {
     try {
@@ -75,36 +79,20 @@ export function useLocationController(): LocationContextValue {
     }
 
     const runInitialization = async () => {
-      const cached = await readLocationCache();
       const forceRefresh = options?.forceRefresh === true;
+      const currentSnapshot = snapshotRef.current;
+      const existingLocation = currentSnapshot.location;
 
-      if (cached?.location) {
-        setSnapshot(current => ({
-          ...current,
-          location: cached.location,
-          lastUpdatedAt: cached.lastUpdatedAt,
-          loading: false,
-          initialized: true,
-        }));
-      }
-
-      const isRefreshCycle = cached?.location !== undefined || snapshot.initialized || forceRefresh;
       setSnapshot(current => ({
         ...current,
-        loading: !isRefreshCycle,
-        refreshing: isRefreshCycle,
-        initialized: current.initialized || Boolean(cached?.location),
+        loading: !current.initialized && !forceRefresh,
+        refreshing: current.initialized || forceRefresh,
         error: forceRefresh ? null : current.error,
       }));
 
-      const cachedCoordinates = cached?.location
-        ? { latitude: cached.location.latitude, longitude: cached.location.longitude }
-        : null;
-
       try {
-        const permissionStatusBeforeRequest = await getForegroundPermissionStatus();
+        let permissionStatus = await getForegroundPermissionStatus();
 
-        let permissionStatus = permissionStatusBeforeRequest;
         if (permissionStatus !== 'granted') {
           permissionStatus = await requestLocationPermissionFromDevice();
         }
@@ -118,18 +106,18 @@ export function useLocationController(): LocationContextValue {
             initialized: true,
             error: LOCATION_ERRORS.permissionDenied,
           }));
-          return cached?.location ?? null;
+          return existingLocation;
         }
 
         const coordinates = await getCurrentCoordinatesFromDevice();
         const shouldFetch = shouldRefreshLocation({
           forceRefresh,
-          hasCachedLocation: Boolean(cached?.location),
-          lastUpdatedAt: cached?.lastUpdatedAt,
+          hasCachedLocation: Boolean(existingLocation),
+          lastUpdatedAt: currentSnapshot.lastUpdatedAt,
           staleAfterMs: LOCATION_STALE_AFTER_MS,
-        }) || isMeaningfulLocationChange(cachedCoordinates, coordinates, MEANINGFUL_LOCATION_CHANGE_METERS);
+        }) || isMeaningfulLocationChange(existingLocation, coordinates, MEANINGFUL_LOCATION_CHANGE_METERS);
 
-        if (!shouldFetch && cached?.location) {
+        if (!shouldFetch && existingLocation) {
           setSnapshot(current => ({
             ...current,
             permissionStatus,
@@ -138,12 +126,11 @@ export function useLocationController(): LocationContextValue {
             initialized: true,
             error: null,
           }));
-          return cached.location;
+          return existingLocation;
         }
 
         const locationDetails = await getCurrentLocationDetails(coordinates);
         const now = new Date().toISOString();
-        await writeLocationCache({ location: locationDetails, lastUpdatedAt: now });
 
         setSnapshot(current => ({
           ...current,
@@ -165,7 +152,7 @@ export function useLocationController(): LocationContextValue {
           initialized: true,
           error: resolveErrorMessage(error, LOCATION_ERRORS.fetchFailed),
         }));
-        return cached?.location ?? null;
+        return existingLocation;
       }
     };
 
@@ -174,7 +161,7 @@ export function useLocationController(): LocationContextValue {
     });
 
     return initializeInFlightRef.current;
-  }, [snapshot.initialized]);
+  }, []);
 
   const refreshLocation = useCallback(() => initializeLocation({ forceRefresh: true }), [initializeLocation]);
 

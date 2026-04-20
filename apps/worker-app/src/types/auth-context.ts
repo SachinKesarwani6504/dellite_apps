@@ -1,5 +1,6 @@
 import { AuthStatus } from '@/types/auth-status';
 import { AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
+import type { LocationContextValue } from '@/modules/location/types/location.types';
 
 export type AuthContextType = {
   user: AuthUser | null;
@@ -8,6 +9,7 @@ export type AuthContextType = {
   loading: boolean;
   phone: string;
   isAuthenticated: boolean;
+  locationState: LocationContextValue;
   sendOtpCode: (phone: string, role?: UserRole) => Promise<void>;
   verifyOtpCode: (phone: string, otp: string) => Promise<void>;
   resendOtpCode: (phone: string) => Promise<void>;
