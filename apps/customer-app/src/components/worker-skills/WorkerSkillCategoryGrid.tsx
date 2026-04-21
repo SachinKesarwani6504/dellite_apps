@@ -31,6 +31,10 @@ export function WorkerSkillCategoryGrid({
       {categories.map(category => {
         const isSelected = selectedCategoryId === category.id;
         const iconImageUrl = safeImageUrl(category.iconImage?.url) ?? safeImageUrl(category.mainImage?.url);
+        const cardBackground = !isSelected
+          ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }
+          : undefined;
+
         return (
           <Pressable
             key={category.id}
@@ -42,7 +46,7 @@ export function WorkerSkillCategoryGrid({
             className={`w-[48%] rounded-2xl border p-3 ${
               isSelected ? 'border-primary bg-primary/10' : 'border-accent/40 bg-white dark:border-white/10'
             }`}
-            style={!isSelected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
+            style={cardBackground}
           >
             <View className="h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
               {iconImageUrl ? (

@@ -40,7 +40,7 @@ export function ServiceSelectionCard({
           style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}
         >
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} resizeMode="cover" className="h-full w-full" />
+            <Image source={{ uri: imageUrl, cache: 'force-cache' }} resizeMode="cover" className="h-full w-full" />
           ) : (
             <View className="h-full w-full bg-primary/10" />
           )}

@@ -64,6 +64,9 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Customer app: wired `GET /customer/home?city=...` with cache-first load, retry, and payload-driven footer/sections.
 - [x] Worker app: wired `GET /worker/home?city=...` with auth, cache-first load, retry, and strict footer model (no action fields).
 - [x] Worker + Customer: aligned home banner treatment and image-first cards with graceful fallback behavior.
+- [x] Customer app: migrated home rendering to `data.content[]` contract (`service`, `category`, and title-based `Why Dellite` without `type`) and removed home search bar UI.
+- [x] Worker + Customer: enforced city-required home requests from live location state (no silent default city fallback).
+- [x] Worker + Customer: added reusable shimmer skeleton loaders under `src/components/common/loader/*` for home API loading.
 
 ## In Progress: Global Location Management
 
@@ -71,3 +74,7 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Worker + Customer: added global location state inside `AuthContext` (`locationState`) powered by `useLocationController` and consumed via `useLocation`.
 - [x] Worker + Customer: wired app root providers and home city resolution from live location with safe fallback.
 - [x] Customer app: booking details screen now demonstrates location auto-fill + manual location refresh action.
+- [x] Worker + Customer: added persisted location cache (SecureStore) for last successful coordinates/city and fallback reuse on reopen/fetch failure.
+- [x] Worker + Customer: switched home city resolution to geo-derived city only (no hardcoded city mapping) and added city-unavailable UI when city cannot be resolved.
+- [x] Worker + Customer: added scalable `location-intelligence` resolver module (city alias mapping + normalized product city resolution).
+- [x] Customer app: added booking-time locality launch gating via `resolveBookingServiceability` (city may be visible, booking blocked for non-launched localities).

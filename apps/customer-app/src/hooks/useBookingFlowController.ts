@@ -62,6 +62,16 @@ export function useBookingFlowController(): BookingFlowContextType {
     });
   }, []);
 
+  const resetSelectedServices = useCallback(() => {
+    setSelectedServicesById({});
+  }, []);
+
+  const clearSubcategorySelection = useCallback(() => {
+    setSubcategoryId(null);
+    setSubcategoryName(null);
+    setSelectedServicesById({});
+  }, []);
+
   const setBookingDetails = useCallback((payload: {
     slotValue: BookingSlotValue;
     slotLabel: string;
@@ -151,6 +161,8 @@ export function useBookingFlowController(): BookingFlowContextType {
     setCategory,
     setSubcategory,
     toggleService,
+    resetSelectedServices,
+    clearSubcategorySelection,
     setBookingDetails,
     ensureCatalog,
     refreshCatalog,
@@ -174,6 +186,8 @@ export function useBookingFlowController(): BookingFlowContextType {
     setCategory,
     setSubcategory,
     toggleService,
+    resetSelectedServices,
+    clearSubcategorySelection,
     setBookingDetails,
     ensureCatalog,
     refreshCatalog,

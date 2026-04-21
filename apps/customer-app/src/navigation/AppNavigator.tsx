@@ -1,7 +1,8 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View, useColorScheme } from 'react-native';
+import { useColorScheme } from 'react-native';
 
+import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
@@ -30,11 +31,7 @@ export function AppNavigator() {
       && authState.status !== AUTH_STATUS.OTP_SENT
     )
   ) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-baseDark">
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
+    return <AnimatedLogoSplash />;
   }
 
   const navigationTheme = {

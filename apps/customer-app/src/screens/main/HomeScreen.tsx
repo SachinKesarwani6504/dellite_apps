@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   ImageBackground,
   Pressable,
@@ -15,15 +14,26 @@ import {
 import { customerActions } from '@/actions';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
+import { LoadingState } from '@/components/common/LoadingState';
+import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
-import type { CustomerHomePayload, CustomerHomeService } from '@/types/customer';
+import { resolveProductLocation } from '@/modules/location-intelligence';
+import { ApiError } from '@/types/api';
+import type {
+  CustomerHomeCategory,
+  CustomerHomeContentSection,
+  CustomerHomePayload,
+  CustomerHomeService,
+} from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
-import { DEFAULT_HOME_CITY, formatTitle, palette, safeImageUrl, theme, uiColors } from '@/utils';
+import { APP_TEXT } from '@/utils/appText';
+import { palette, safeImageUrl, theme, titleCase, uiColors } from '@/utils';
 
 const LOGO = require('@/assets/images/png/dellite_logo.png');
 const HOME_DOODLES = require('@/assets/images/png/home_page_doddles.png');
@@ -33,6 +43,46 @@ function getErrorMessage(error: unknown) {
   return 'Unable to load home data right now.';
 }
 
+function normalizeForCompare(value?: string | null) {
+  if (!value || !value.trim()) return '';
+  return value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
+function extractFooterOnlyHomePayload(payload: unknown): Pick<CustomerHomePayload, 'footer' | 'header'> | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const source = payload as { data?: unknown; footer?: unknown; header?: unknown };
+  const data = (source.data && typeof source.data === 'object')
+    ? source.data as { footer?: unknown; header?: unknown }
+    : null;
+
+  const footer = (data?.footer && typeof data.footer === 'object')
+    ? data.footer as CustomerHomePayload['footer']
+    : (source.footer && typeof source.footer === 'object')
+      ? source.footer as CustomerHomePayload['footer']
+      : undefined;
+
+  const header = (data?.header && typeof data.header === 'object')
+    ? data.header as CustomerHomePayload['header']
+    : (source.header && typeof source.header === 'object')
+      ? source.header as CustomerHomePayload['header']
+      : undefined;
+
+  if (!footer && !header) return null;
+  return { header, footer };
+}
+
+function normalizeHomeQueryCity(value: string | null | undefined): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.toLowerCase() === 'your area') return '';
+  return trimmed.toUpperCase();
+}
+
 function getPopularFallbackLabel(service: CustomerHomeService) {
   if (service.iconText?.trim()) return service.iconText.trim();
   if (service.category?.iconText?.trim()) return service.category.iconText.trim();
@@ -40,46 +90,107 @@ function getPopularFallbackLabel(service: CustomerHomeService) {
   return '?';
 }
 
+function isCustomerHomeService(value: unknown): value is CustomerHomeService {
+  if (!value || typeof value !== 'object') return false;
+  const source = value as { id?: unknown; name?: unknown };
+  return typeof source.id === 'string' && typeof source.name === 'string';
+}
+
+function isCustomerHomeCategory(value: unknown): value is CustomerHomeCategory {
+  if (!value || typeof value !== 'object') return false;
+  const source = value as { id?: unknown; name?: unknown };
+  return typeof source.id === 'string' && typeof source.name === 'string';
+}
+
 export function HomeScreen({ navigation }: { navigation: { navigate: (screen: string, params?: unknown) => void } }) {
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
-  const { city } = locationState;
+  const {
+    city,
+    locality,
+    state,
+    formattedAddress,
+    latitude,
+    longitude,
+    initialized,
+    loading: locationLoading,
+    refreshing: locationRefreshing,
+  } = locationState;
   const isDark = useColorScheme() === 'dark';
-  const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
+  const resolvedLocation = useMemo(() => resolveProductLocation({
+    city,
+    locality,
+    state,
+    formattedAddress,
+    latitude,
+    longitude,
+  }), [city, formattedAddress, latitude, locality, longitude, state]);
+  const selectedCity = resolvedLocation.serviceableCity ?? '';
+  const homeQueryCity = useMemo(() => {
+    return normalizeHomeQueryCity(
+      resolvedLocation.resolvedCity
+      ?? city
+      ?? locality
+      ?? resolvedLocation.displayCity,
+    );
+  }, [city, locality, resolvedLocation.displayCity, resolvedLocation.resolvedCity]);
   const [homeData, setHomeData] = useState<CustomerHomePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cityUnavailable, setCityUnavailable] = useState(false);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
+  const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
 
-  const popularServices = useMemo(
-    () => (Array.isArray(homeData?.popularServices) ? homeData.popularServices : []),
-    [homeData?.popularServices],
-  );
-  const allServices = useMemo(
-    () => (Array.isArray(homeData?.allServices) ? homeData.allServices : []),
-    [homeData?.allServices],
-  );
-  const whyDellite = useMemo(
-    () => (Array.isArray(homeData?.whyDellite) ? homeData.whyDellite : []),
-    [homeData?.whyDellite],
+  const contentSections = useMemo(
+    () => (Array.isArray(homeData?.content) ? homeData.content : []),
+    [homeData?.content],
   );
 
   const fetchHome = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
     setError(null);
+    setCityUnavailable(false);
+    if (!homeQueryCity) {
+      setLoading(false);
+      setError(null);
+      setCityUnavailable(true);
+      return;
+    }
     try {
-      const data = await customerActions.getCustomerHome(selectedCity);
+      const data = await customerActions.getCustomerHome(homeQueryCity);
       setHomeData(data);
       setFailedPopularImages({});
     } catch (fetchError) {
-      setError(getErrorMessage(fetchError));
+      if (fetchError instanceof ApiError && fetchError.statusCode === 404) {
+        setCityUnavailable(true);
+        setError(null);
+        const footerOnlyPayload = extractFooterOnlyHomePayload(fetchError.payload);
+        if (footerOnlyPayload) {
+          setHomeData({
+            header: footerOnlyPayload.header,
+            footer: footerOnlyPayload.footer,
+            content: [],
+          });
+        } else {
+          setHomeData(null);
+        }
+      } else {
+        setError(getErrorMessage(fetchError));
+      }
     } finally {
       setLoading(false);
     }
-  }, [selectedCity]);
+  }, [homeQueryCity]);
 
   useEffect(() => {
-    const cached = customerActions.getCachedCustomerHome(selectedCity);
+    if (!homeQueryCity) {
+      setLoading(isLocationPending);
+      setHomeData(null);
+      setCityUnavailable(!isLocationPending);
+      return;
+    }
+
+    const cached = customerActions.getCachedCustomerHome(homeQueryCity);
     if (cached) {
       setHomeData(cached);
       setLoading(false);
@@ -87,7 +198,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       return;
     }
     void fetchHome(true);
-  }, [fetchHome, selectedCity]);
+  }, [fetchHome, homeQueryCity, isLocationPending]);
 
   const refreshControlProps = useBrandRefreshControl(async () => {
     await fetchHome(false);
@@ -119,6 +230,124 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     });
   }, [beginFlow, navigation, selectedCity]);
 
+  const renderContentSection = useCallback((section: CustomerHomeContentSection, index: number) => {
+    const topSpacingClass = index === 0 ? 'mt-5' : 'mt-6';
+    const sectionTitle = section.title?.trim();
+
+    if (section.type === 'service') {
+      const services = (Array.isArray(section.data) ? section.data : []).filter(isCustomerHomeService);
+      return (
+        <View key={`service-${sectionTitle ?? index.toString()}`} className={topSpacingClass}>
+          {sectionTitle ? (
+            <Text className="text-lg font-bold text-baseDark dark:text-white">{sectionTitle}</Text>
+          ) : null}
+          {services.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
+              <View className="flex-row gap-3">
+                {services.map(service => {
+                  const imageUrl = safeImageUrl(service.mainImage?.url);
+                  const hideImage = !imageUrl || Boolean(failedPopularImages[service.id]);
+                  return (
+                    <ServiceHeroCard
+                      key={service.id}
+                      title={service.name}
+                      imageUrl={hideImage ? null : imageUrl}
+                      onPress={() => onOpenService(service)}
+                      onImageError={() => setFailedPopularImages(prev => ({ ...prev, [service.id]: true }))}
+                    />
+          );
+        })}
+              </View>
+            </ScrollView>
+          ) : (
+            <View
+              className="mt-2 rounded-xl border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+              }}
+            >
+              <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                No popular services available right now.
+              </Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+            if (section.type === 'category') {
+      const categories = (Array.isArray(section.data) ? section.data : []).filter(isCustomerHomeCategory);
+      return (
+        <View key={`category-${sectionTitle ?? index.toString()}`} className={topSpacingClass}>
+          {sectionTitle ? (
+            <Text className="text-lg font-bold text-baseDark dark:text-white">{sectionTitle}</Text>
+          ) : null}
+          {categories.length > 0 ? (
+            <WorkerSkillCategoryGrid
+              categories={categories}
+              selectedCategoryId={null}
+              isDark={isDark}
+              onSelectCategory={(category) => {
+                onOpenCategory(category.id, category.name);
+              }}
+            />
+          ) : (
+            <View
+              className="mt-2 rounded-xl border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+              }}
+            >
+              <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                No categories available right now.
+              </Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    if (sectionTitle?.toLowerCase() === 'why dellite') {
+      const points = (Array.isArray(section.data) ? section.data : [])
+        .map(item => {
+          const source = item as { title?: unknown };
+          return typeof source.title === 'string' ? source.title : '';
+        })
+        .filter((item): item is string => item.trim().length > 0);
+
+      if (points.length === 0) {
+        return null;
+      }
+
+      return (
+        <View
+          key={`why-dellite-${index.toString()}`}
+          className={`${topSpacingClass} rounded-2xl border px-4 py-4`}
+          style={{
+            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+          }}
+        >
+          <Text className="mb-3 text-xl font-extrabold text-baseDark dark:text-white">{sectionTitle}</Text>
+          <View className="flex-row flex-wrap justify-between gap-y-3">
+            {points.map((point, pointIndex) => (
+              <View key={`${point}-${pointIndex}`} className="w-[48%] flex-row items-center">
+                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
+                <Text className="ml-2 text-sm font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
+                  {point}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    return null;
+  }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
+
   const headerTitle = homeData?.header?.title ?? 'Home';
   const headerSubtitle = homeData?.header?.subtitle ?? '';
   const currentCity = useMemo(() => {
@@ -129,12 +358,39 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     }
     return selectedCity;
   }, [headerSubtitle, selectedCity]);
+  const cityLabel = currentCity || resolvedLocation.displayCity || 'Locating...';
+  const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
+  const shouldShowBanner = Boolean(
+    (homeData?.header?.title && homeData.header.title.trim().length > 0)
+    || (homeData?.header?.subtitle && homeData.header.subtitle.trim().length > 0)
+    || (homeData?.header?.bannerImageUrl && homeData.header.bannerImageUrl.trim().length > 0),
+  );
+  const shouldShowContent = !cityUnavailable && contentSections.length > 0;
 
-  if (loading && !homeData) {
+  useEffect(() => {
+    if (!__DEV__) return;
+    // eslint-disable-next-line no-console
+    console.log('[home][customer] city state', {
+      city,
+      locality,
+      state,
+      formattedAddress,
+      resolvedLocation,
+      selectedCity,
+      cityLabel,
+      initialized,
+      locationLoading,
+      locationRefreshing,
+    });
+  }, [city, cityLabel, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
+
+  const isHomePayloadEmpty = !homeData || (!shouldShowBanner && !shouldShowContent && !homeData.footer);
+
+  if ((loading || isLocationPending) && isHomePayloadEmpty) {
     return (
       <GradientScreen>
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+        <View className="px-4 pt-6">
+          <LoadingState minHeight={520} message={APP_TEXT.main.loadingHome} />
         </View>
       </GradientScreen>
     );
@@ -154,6 +410,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       floatingBackgroundTopInset={0}
     >
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
         refreshControl={<RefreshControl {...refreshControlProps} />}
       >
@@ -167,9 +424,13 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
             }}
           >
             <Ionicons name="location-outline" size={13} color={theme.colors.primary} />
-            <Text className="ml-1 text-xs font-semibold text-primary">{currentCity}</Text>
+            <Text className="ml-1 text-xs font-semibold text-primary">{displayCityLabel}</Text>
           </View>
         </View>
+
+        {cityUnavailable ? (
+          <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+        ) : null}
 
         {error && !homeData ? (
           <View
@@ -204,134 +465,16 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
 
         {homeData ? (
           <>
-            <ImageOverlayBanner
-              imageUrl={homeData.header?.bannerImageUrl}
-              overline="Discover"
-              title={headerTitle}
-              subtitle={headerSubtitle}
-            />
-            {homeData.header?.searchPlaceholder ? (
-              <View
-                className="mt-3 flex-row items-center rounded-xl border px-3 py-2.5"
-                style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-                }}
-              >
-                <Ionicons name="search-outline" size={14} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-                <Text className="ml-2 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {homeData.header.searchPlaceholder}
-                </Text>
-              </View>
+            {shouldShowBanner ? (
+              <ImageOverlayBanner
+                imageUrl={homeData.header?.bannerImageUrl}
+                overline="Discover"
+                title={headerTitle}
+                subtitle={headerSubtitle}
+              />
             ) : null}
 
-            <View className="mt-5">
-              {popularServices.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
-                  <View className="flex-row gap-3">
-                    {popularServices.map(service => {
-                      const imageUrl = safeImageUrl(service.mainImage?.url);
-                      const hideImage = !imageUrl || Boolean(failedPopularImages[service.id]);
-                      return (
-                        <Pressable
-                          key={service.id}
-                          className="h-44 w-60 overflow-hidden rounded-2xl border"
-                          style={{
-                            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                            backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card,
-                          }}
-                          onPress={() => onOpenService(service)}
-                        >
-                          <ImageBackground
-                            source={hideImage ? undefined : { uri: imageUrl as string }}
-                            resizeMode="cover"
-                            style={{ flex: 1 }}
-                            onError={() => setFailedPopularImages(prev => ({ ...prev, [service.id]: true }))}
-                          >
-                            <LinearGradient
-                              colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.72)']}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 0, y: 1 }}
-                              style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12, paddingVertical: 12 }}
-                            >
-                              {hideImage ? (
-                                <View className="mb-2 self-start rounded-md bg-white/90 px-2 py-1">
-                                  <Text className="text-[10px] font-bold text-primary">{getPopularFallbackLabel(service)}</Text>
-                                </View>
-                              ) : null}
-                              <Text className="text-base font-extrabold text-white">
-                                {formatTitle(service.name)}
-                              </Text>
-                              <Text className="mt-1 text-xs text-white/90" numberOfLines={2}>
-                                {service.description?.trim() || 'Service details available soon.'}
-                              </Text>
-                            </LinearGradient>
-                          </ImageBackground>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              ) : (
-                <View
-                  className="mt-2 rounded-xl border px-3 py-3"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-                  }}
-                >
-                  <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                    No popular services available right now.
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View className="mt-5">
-              {allServices.length > 0 ? (
-                <WorkerSkillCategoryGrid
-                  categories={allServices}
-                  selectedCategoryId={null}
-                  isDark={isDark}
-                  onSelectCategory={(category) => {
-                    onOpenCategory(category.id, category.name);
-                  }}
-                />
-              ) : (
-                <View
-                  className="mt-2 rounded-xl border px-3 py-3"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-                  }}
-                >
-                  <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                    No categories available right now.
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {whyDellite.length > 0 ? (
-              <View
-                className="mt-6 rounded-2xl border px-4 py-4"
-                style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
-                }}
-              >
-                <View className="flex-row flex-wrap justify-between gap-y-3">
-                  {whyDellite.map((point, index) => (
-                    <View key={`${point}-${index}`} className="w-[48%] flex-row items-center">
-                      <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.primary} />
-                      <Text className="ml-2 text-sm font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                        {point}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
+            {shouldShowContent ? contentSections.map((section, index) => renderContentSection(section, index)) : null}
 
             {homeData.footer ? (
               <View className="mt-6">
@@ -365,7 +508,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
             ) : null}
           </>
         ) : (
-          !loading && (
+          !loading && !cityUnavailable && (
             <View
               className="rounded-2xl border p-4"
               style={{

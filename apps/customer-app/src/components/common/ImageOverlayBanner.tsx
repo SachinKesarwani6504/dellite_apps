@@ -29,7 +29,11 @@ export function ImageOverlayBanner({
         backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
       }}
     >
-      <ImageBackground source={resolvedImageUrl ? { uri: resolvedImageUrl } : undefined} resizeMode="cover" className="h-full w-full">
+      <ImageBackground
+        source={resolvedImageUrl ? { uri: resolvedImageUrl, cache: 'force-cache' } : undefined}
+        resizeMode="cover"
+        className="h-full w-full"
+      >
         <LinearGradient
           colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
           start={{ x: 0.2, y: 0 }}

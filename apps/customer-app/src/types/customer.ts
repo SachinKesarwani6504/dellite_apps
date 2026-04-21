@@ -98,6 +98,35 @@ export type CustomerHomeService = {
   };
 };
 
+export type CustomerServicesListQuery = {
+  city: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  includeCategory?: boolean;
+  includeSubcategory?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: Array<'MAIN' | 'ICON' | string>;
+};
+
+export type CustomerServiceListItem = {
+  id: string;
+  name: string;
+  description?: string;
+  iconText?: string;
+  isCertificateRequired?: boolean;
+  images?: CustomerHomeAsset[];
+  mainImage?: CustomerHomeAsset;
+  iconImage?: CustomerHomeAsset;
+  category?: CustomerHomeCategory;
+  subCategory?: CustomerCatalogSubcategory;
+  priceOptions?: unknown[];
+  includedTasks?: unknown[];
+  excludedTasks?: unknown[];
+};
+
 export type CustomerHomeHeader = {
   title?: string;
   subtitle?: string;
@@ -112,8 +141,38 @@ export type CustomerHomeFooter = {
   copyright?: string;
 };
 
+export type CustomerHomeSectionType = 'service' | 'category' | string;
+
+export type CustomerHomeWhyDelliteItem = {
+  title?: string;
+};
+
+export type CustomerHomeServiceSection = {
+  title?: string;
+  type: 'service';
+  data?: CustomerHomeService[];
+};
+
+export type CustomerHomeCategorySection = {
+  title?: string;
+  type: 'category';
+  data?: CustomerHomeCategory[];
+};
+
+export type CustomerHomeWhyDelliteSection = {
+  title?: string;
+  type?: Exclude<CustomerHomeSectionType, 'service' | 'category'>;
+  data?: CustomerHomeWhyDelliteItem[];
+};
+
+export type CustomerHomeContentSection =
+  | CustomerHomeServiceSection
+  | CustomerHomeCategorySection
+  | CustomerHomeWhyDelliteSection;
+
 export type CustomerHomePayload = {
   header?: CustomerHomeHeader;
+  content?: CustomerHomeContentSection[];
   popularServices?: CustomerHomeService[];
   allServices?: CustomerHomeCategory[];
   whyDellite?: string[];

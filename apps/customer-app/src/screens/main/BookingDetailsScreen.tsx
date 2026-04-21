@@ -3,10 +3,12 @@ import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { resolveBookingServiceability, resolveProductLocation } from '@/modules/location-intelligence';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { bookingSlotOptions, type BookingSlotValue } from '@/utils/options';
@@ -24,7 +26,11 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   const { locationState } = useAuthContext();
   const {
     city,
+    locality,
+    state,
     formattedAddress,
+    latitude,
+    longitude,
     refreshLocation,
     refreshing: locationRefreshing,
     error: locationError,
@@ -43,6 +49,21 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   const [address, setAddress] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
 
+  const resolvedLocation = useMemo(() => resolveProductLocation({
+    city,
+    locality,
+    state,
+    formattedAddress,
+    latitude,
+    longitude,
+  }), [city, formattedAddress, latitude, locality, longitude, state]);
+
+  const bookingServiceability = useMemo(() => resolveBookingServiceability({
+    cityCode: resolvedLocation.resolvedCity,
+    locality,
+    formattedAddress,
+  }), [formattedAddress, locality, resolvedLocation.resolvedCity]);
+
   useEffect(() => {
     if (contextAddress.trim().length > 0) {
       return;
@@ -57,7 +78,9 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     () => bookingSlotOptions.find(slot => slot.value === selectedSlot)?.label ?? bookingSlotOptions[0].label,
     [selectedSlot],
   );
-  const canReview = address.trim().length > 0 && selectedServices.length > 0;
+  const canReview = address.trim().length > 0
+    && selectedServices.length > 0
+    && bookingServiceability.isServiceable;
 
   return (
     <GradientScreen contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}>
@@ -124,7 +147,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       <View className="mt-4">
         <View className="mb-2 flex-row items-center justify-between">
           <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {city ? `Detected city: ${city}` : 'City not detected yet'}
+            {resolvedLocation.displayCity ? `Detected city: ${resolvedLocation.displayCity}` : 'City not detected yet'}
           </Text>
           <Pressable onPress={() => void refreshLocation()}>
             <Text className="text-xs font-semibold text-primary">
@@ -147,6 +170,17 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
           textAlignVertical="top"
         />
       </View>
+
+      {!bookingServiceability.isServiceable ? (
+        <View className="mt-3">
+          <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+          {bookingServiceability.comingSoonMessage ? (
+            <Text className="mt-2 text-xs text-center" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              {bookingServiceability.comingSoonMessage}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View className="mt-6">
         <Button

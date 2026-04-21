@@ -1,16 +1,22 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { FlatList, RefreshControl, Text, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
+import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { resolveProductLocation } from '@/modules/location-intelligence';
 import type { CustomerCatalogService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
-import { DEFAULT_HOME_CITY } from '@/utils/options';
 import { APP_TEXT } from '@/utils/appText';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { theme, uiColors } from '@/utils/theme';
@@ -75,7 +81,23 @@ function getSubcategoryServiceCount(subcategory: CustomerCatalogSubcategory) {
 
 export function CategoryServicesScreen({ navigation, route }: CategoryServicesScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { width: screenWidth } = useWindowDimensions();
   const { locationState } = useAuthContext();
+  const resolvedLocation = useMemo(() => resolveProductLocation({
+    city: locationState.city,
+    locality: locationState.locality,
+    state: locationState.state,
+    formattedAddress: locationState.formattedAddress,
+    latitude: locationState.latitude,
+    longitude: locationState.longitude,
+  }), [
+    locationState.city,
+    locationState.formattedAddress,
+    locationState.latitude,
+    locationState.locality,
+    locationState.longitude,
+    locationState.state,
+  ]);
   const {
     catalogLoading,
     catalogError,
@@ -85,14 +107,24 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     setSubcategory,
     selectedServiceIds,
     selectedServices,
+    clearSubcategorySelection,
     toggleService,
   } = useBookingFlowContext();
   const [activeCategory, setActiveCategory] = useState<CustomerHomeCategory | null>(null);
   const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
   const initialServiceAppliedRef = useRef(false);
-  const selectedCity = route.params.city ?? locationState.city?.trim() ?? DEFAULT_HOME_CITY;
+  const selectedCity = route.params.city ?? resolvedLocation.serviceableCity ?? '';
 
   const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
+
+  // When returning from service selection back to the subcategory list,
+  // clear selected services so the user can choose another subcategory fresh.
+  useFocusEffect(
+    useCallback(() => {
+      if (!showSubcategoryPicker) return;
+      clearSubcategorySelection();
+    }, [clearSubcategorySelection, showSubcategoryPicker]),
+  );
 
   const resolveActiveNodes = useCallback((sourceCategories: CustomerHomeCategory[]) => {
     const resolvedCategory = findCategoryById(sourceCategories, route.params.categoryId)
@@ -140,6 +172,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   ]);
 
   const onRefreshCatalog = useCallback(async () => {
+    if (!selectedCity) return;
     const nextCatalog = await refreshCatalog(selectedCity);
     resolveActiveNodes(nextCatalog);
   }, [refreshCatalog, resolveActiveNodes, selectedCity]);
@@ -147,6 +180,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
 
   useEffect(() => {
     void (async () => {
+      if (!selectedCity) return;
       const nextCatalog = await ensureCatalog(selectedCity);
       resolveActiveNodes(nextCatalog);
     })();
@@ -167,6 +201,12 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   const headerBannerTitle = showSubcategoryPicker
     ? (activeCategory ? titleCase(activeCategory.name) : 'Services')
     : (activeSubcategory ? titleCase(activeSubcategory.name) : 'Services');
+  const showInitialLoader = catalogLoading
+    && !catalogError
+    && (showSubcategoryPicker ? subcategories.length === 0 : services.length === 0);
+  const cardGap = 12;
+  const horizontalPadding = 16;
+  const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
 
   return (
     <GradientScreen
@@ -185,27 +225,34 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
         pillText={showSubcategoryPicker ? undefined : `${selectedServices.length.toString()} Selected`}
       />
 
-        {catalogLoading ? (
-        <View className="mt-10 items-center justify-center">
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+      {!selectedCity ? (
+        <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+      ) : null}
+
+      {showInitialLoader ? (
+        <View className="mt-5">
+          <LoadingState minHeight={360} message={APP_TEXT.main.bookingFlow.loadingError} />
         </View>
       ) : null}
 
       {!catalogLoading && catalogError ? (
-        <View className="mt-6 rounded-2xl border p-4" style={{ borderColor: theme.colors.negative, backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight90 }}>
-          <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>{catalogError}</Text>
-          <View className="mt-3">
-            <Button label={APP_TEXT.main.bookingFlow.retry} onPress={() => void onRefreshCatalog()} />
-          </View>
-        </View>
+        <ListErrorState
+          containerClassName="mt-6"
+          title={catalogError}
+          description={APP_TEXT.main.bookingFlow.loadingError}
+          actionLabel={APP_TEXT.main.bookingFlow.retry}
+          onAction={() => void onRefreshCatalog()}
+        />
       ) : null}
 
       {!catalogLoading && !catalogError && showSubcategoryPicker ? (
         <View className="mt-4 gap-3">
           {subcategories.length === 0 ? (
-            <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {APP_TEXT.main.bookingFlow.noSubcategory}
-            </Text>
+            <ListEmptyState
+              title={APP_TEXT.main.bookingFlow.noSubcategory}
+              description="Try another category or refresh."
+              icon="grid-outline"
+            />
           ) : null}
           {subcategories.map(subcategory => {
             const imageUrl = safeImageUrl(subcategory.mainImage?.url) ?? safeImageUrl(subcategory.iconImage?.url);
@@ -237,37 +284,49 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
 
       {!catalogLoading && !catalogError && !showSubcategoryPicker ? (
         <>
-          <ScrollView className="mt-4" contentContainerStyle={{ paddingBottom: 8 }}>
-            <View className="gap-3">
-              {services.length === 0 ? (
-                <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {APP_TEXT.main.bookingFlow.noService}
-                </Text>
-              ) : null}
-              {services.map(service => {
-                const selected = Boolean(selectedServiceIds[service.id]);
-                const imageUrl = safeImageUrl(service.mainImage?.url) ?? safeImageUrl(service.iconImage?.url);
-                return (
-                  <ServiceSelectionCard
-                    key={service.id}
-                    onPress={() => {
-                      toggleService({
-                        id: service.id,
-                        name: service.name,
-                        description: service.description,
-                        iconText: service.iconText,
-                      });
-                    }}
-                    title={titleCase(service.name)}
-                    description={service.description}
-                    imageUrl={imageUrl}
-                    isDark={isDark}
-                    selected={selected}
-                  />
-                );
-              })}
+          {services.length === 0 ? (
+            <View className="mt-4">
+              <ListEmptyState
+                title={APP_TEXT.main.bookingFlow.noService}
+                description="Pick a different subcategory to continue."
+                icon="construct-outline"
+              />
             </View>
-          </ScrollView>
+          ) : (
+            <View className="mt-4">
+              <FlatList
+                data={services}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={false}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                renderItem={({ item }) => {
+                  const selected = Boolean(selectedServiceIds[item.id]);
+                  const imageUrl = safeImageUrl(item.mainImage?.url) ?? safeImageUrl(item.iconImage?.url);
+                  return (
+                    <View style={{ marginBottom: 12 }}>
+                      <ServiceHeroCard
+                        title={item.name}
+                        imageUrl={imageUrl}
+                        width={serviceCardWidth}
+                        height={176}
+                        selected={selected}
+                        onPress={() => {
+                          toggleService({
+                            id: item.id,
+                            name: item.name,
+                            description: item.description,
+                            iconText: item.iconText,
+                          });
+                        }}
+                      />
+                    </View>
+                  );
+                }}
+              />
+            </View>
+          )}
 
           <View className="mt-4">
             <Button

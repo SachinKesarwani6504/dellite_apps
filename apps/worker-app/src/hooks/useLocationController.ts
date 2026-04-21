@@ -10,6 +10,10 @@ import {
   getForegroundPermissionStatus,
   requestLocationPermission as requestLocationPermissionFromDevice,
 } from '@/modules/location/services/location.service';
+import {
+  getCachedLocationSnapshot,
+  saveCachedLocationSnapshot,
+} from '@/modules/location/services/location-cache.service';
 import { isMeaningfulLocationChange } from '@/modules/location/utils/distance.util';
 import { shouldRefreshLocation } from '@/modules/location/utils/location.mapper';
 import type {
@@ -37,8 +41,20 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function logLocationController(message: string, payload?: unknown) {
+  if (!__DEV__) return;
+  if (payload === undefined) {
+    // eslint-disable-next-line no-console
+    console.log(`[location-controller][worker] ${message}`);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[location-controller][worker] ${message}`, payload);
+}
+
 export function useLocationController(): LocationContextValue {
   const [snapshot, setSnapshot] = useState<LocationSnapshot>(initialSnapshot);
+  const [hasHydratedCache, setHasHydratedCache] = useState(false);
   const snapshotRef = useRef<LocationSnapshot>(initialSnapshot);
   const initializeInFlightRef = useRef<Promise<NormalizedLocation | null> | null>(null);
 
@@ -98,6 +114,7 @@ export function useLocationController(): LocationContextValue {
         }
 
         if (permissionStatus !== 'granted') {
+          logLocationController('initialize:permissionDenied', { permissionStatus });
           setSnapshot(current => ({
             ...current,
             permissionStatus,
@@ -110,6 +127,7 @@ export function useLocationController(): LocationContextValue {
         }
 
         const coordinates = await getCurrentCoordinatesFromDevice();
+        logLocationController('initialize:coordinates', coordinates);
         const shouldFetch = shouldRefreshLocation({
           forceRefresh,
           hasCachedLocation: Boolean(existingLocation),
@@ -118,6 +136,7 @@ export function useLocationController(): LocationContextValue {
         }) || isMeaningfulLocationChange(existingLocation, coordinates, MEANINGFUL_LOCATION_CHANGE_METERS);
 
         if (!shouldFetch && existingLocation) {
+          logLocationController('initialize:usingExistingLocation', existingLocation);
           setSnapshot(current => ({
             ...current,
             permissionStatus,
@@ -130,7 +149,14 @@ export function useLocationController(): LocationContextValue {
         }
 
         const locationDetails = await getCurrentLocationDetails(coordinates);
+        logLocationController('initialize:resolvedLocation', locationDetails);
         const now = new Date().toISOString();
+
+        void saveCachedLocationSnapshot({
+          location: locationDetails,
+          lastUpdatedAt: now,
+          permissionStatus,
+        });
 
         setSnapshot(current => ({
           ...current,
@@ -145,6 +171,7 @@ export function useLocationController(): LocationContextValue {
 
         return locationDetails;
       } catch (error) {
+        logLocationController('initialize:error', error);
         setSnapshot(current => ({
           ...current,
           loading: false,
@@ -170,8 +197,41 @@ export function useLocationController(): LocationContextValue {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const hydrateCachedLocation = async () => {
+      const cached = await getCachedLocationSnapshot();
+      if (!isMounted) return;
+
+      if (cached) {
+        logLocationController('hydrateCache:found', cached);
+        setSnapshot(current => ({
+          ...current,
+          location: cached.location,
+          lastUpdatedAt: cached.lastUpdatedAt,
+          permissionStatus: current.permissionStatus === 'undetermined'
+            ? cached.permissionStatus
+            : current.permissionStatus,
+        }));
+      }
+      if (!cached) {
+        logLocationController('hydrateCache:notFound');
+      }
+
+      setHasHydratedCache(true);
+    };
+
+    void hydrateCachedLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedCache) return;
     void initializeLocation();
-  }, [initializeLocation]);
+  }, [hasHydratedCache, initializeLocation]);
 
   const location = snapshot.location;
 

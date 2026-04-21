@@ -7,8 +7,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./src/assets/images/png/dellite_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF7E8"
+      "backgroundColor": "#FFFFFF"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -19,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/icon.png",
-        "backgroundColor": "#FFF7E8"
+        "backgroundColor": "#FFFFFF"
       }
     },
     "web": {

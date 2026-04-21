@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { getCachedWorkerHome, getWorkerHome } from '@/actions';
-import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
+import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
@@ -12,10 +12,13 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { NearbyJobCard } from '@/components/common/NearbyJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { resolveProductLocation } from '@/modules/location-intelligence';
+import { ApiError } from '@/types/api';
 import type { WorkerHomeData } from '@/types/auth';
+import { titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
-import { DEFAULT_HOME_CITY } from '@/utils/options';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const logo = require('@/assets/images/png/dellite_logo.png');
@@ -41,23 +44,58 @@ function getErrorMessage(error: unknown) {
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
   const { locationState } = useAuthContext();
-  const { city } = locationState;
+  const {
+    city,
+    locality,
+    state,
+    formattedAddress,
+    latitude,
+    longitude,
+    initialized,
+    loading: locationLoading,
+    refreshing: locationRefreshing,
+  } = locationState;
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
-  const selectedCity = city?.trim() || DEFAULT_HOME_CITY;
+  const resolvedLocation = useMemo(() => resolveProductLocation({
+    city,
+    locality,
+    state,
+    formattedAddress,
+    latitude,
+    longitude,
+  }), [city, formattedAddress, latitude, locality, longitude, state]);
+  const selectedCity = resolvedLocation.serviceableCity ?? '';
+  const cityLabel = resolvedLocation.displayCity || 'Locating...';
+  const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
+  const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
 
   const loadHomeData = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
     else setRefreshing(true);
     setError(null);
+    setCityUnavailable(false);
+    if (!selectedCity) {
+      setLoading(false);
+      setRefreshing(false);
+      setError(null);
+      setCityUnavailable(true);
+      return;
+    }
     try {
       const data = await getWorkerHome(selectedCity);
       setHomeData(data);
     } catch (loadError) {
-      setError(getErrorMessage(loadError));
+      if (loadError instanceof ApiError && loadError.statusCode === 404) {
+        setCityUnavailable(true);
+        setError(null);
+      } else {
+        setError(getErrorMessage(loadError));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -66,6 +104,12 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!selectedCity) {
+        setLoading(isLocationPending);
+        setHomeData(null);
+        setCityUnavailable(!isLocationPending);
+        return;
+      }
       const cached = getCachedWorkerHome(selectedCity);
       if (cached) {
         setHomeData(cached);
@@ -74,7 +118,7 @@ export function HomeScreen() {
         return;
       }
       void loadHomeData(true);
-    }, [loadHomeData, selectedCity]),
+    }, [isLocationPending, loadHomeData, selectedCity]),
   );
 
   const onRefresh = useCallback(() => {
@@ -97,11 +141,28 @@ export function HomeScreen() {
     return `${averageRating} (${reviewsCount} ${APP_TEXT.home.reviewsSuffix})`;
   }, [homeData?.headerBanner?.averageRating, homeData?.headerBanner?.reviewsCount]);
 
-  if (loading && !homeData) {
+  useEffect(() => {
+    if (!__DEV__) return;
+    // eslint-disable-next-line no-console
+    console.log('[home][worker] city state', {
+      city,
+      locality,
+      state,
+      formattedAddress,
+      resolvedLocation,
+      selectedCity,
+      cityLabel,
+      initialized,
+      locationLoading,
+      locationRefreshing,
+    });
+  }, [city, cityLabel, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
+
+  if ((loading || isLocationPending) && !homeData) {
     return (
       <GradientScreen>
-        <View className="flex-1 items-center justify-center">
-          <AppSpinner size="large" color={theme.colors.primary} />
+        <View className="px-4 pt-6">
+          <LoadingState minHeight={520} message={APP_TEXT.home.nearbyJobsLoading} />
         </View>
       </GradientScreen>
     );
@@ -137,7 +198,7 @@ export function HomeScreen() {
           }}
         >
           <Ionicons name="location-outline" size={13} color={theme.colors.primary} />
-          <Text className="ml-1 text-xs font-semibold text-primary">{selectedCity}</Text>
+          <Text className="ml-1 text-xs font-semibold text-primary">{displayCityLabel}</Text>
         </View>
       </View>
 
@@ -149,6 +210,9 @@ export function HomeScreen() {
             void loadHomeData(true);
           }}
         />
+      ) : null}
+      {cityUnavailable && !homeData ? (
+        <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
       ) : null}
 
       {error && homeData ? (
@@ -177,7 +241,7 @@ export function HomeScreen() {
               overline={APP_TEXT.home.welcomeBack}
               title={headerBannerName}
               subtitle={ratingLabel}
-              pillText={selectedCity}
+              pillText={cityLabel}
             />
           </View>
 

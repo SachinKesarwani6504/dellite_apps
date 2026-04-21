@@ -88,6 +88,10 @@ Token rules for worker flow:
 - No hardcoded screen copy; use app text constants.
 - No hardcoded color values in screens/components; use theme tokens.
 - Keep static option lists in `utils/options`.
+- Scrollbars: default to hiding scroll indicators in scrollable lists/containers:
+  - `showsVerticalScrollIndicator={false}`
+  - `showsHorizontalScrollIndicator={false}`
+  Enable only when a specific UX requires it.
 
 ## 8) Change Management Rules
 

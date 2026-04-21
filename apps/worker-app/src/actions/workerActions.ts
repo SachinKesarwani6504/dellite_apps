@@ -1,5 +1,5 @@
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
-import { ApiEnvelope } from '@/types/api';
+import { ApiEnvelope, ApiError } from '@/types/api';
 import {
   CategoryService,
   CategoriesQuery,
@@ -528,6 +528,9 @@ export function getCachedWorkerHome(city: string): WorkerHomeData | null {
 
 export async function getWorkerHome(city: string): Promise<WorkerHomeData> {
   const normalizedCity = normalizeCity(city);
+  if (!normalizedCity) {
+    throw new Error('City query is required for worker home.');
+  }
   const response = await apiGet<ApiEnvelope<unknown>>(
     `/worker/home?city=${encodeURIComponent(normalizedCity)}`,
     {
@@ -536,6 +539,13 @@ export async function getWorkerHome(city: string): Promise<WorkerHomeData> {
       cache: 'no-store',
     },
   );
+  if (response && typeof response === 'object' && 'statusCode' in response) {
+    const envelope = response as ApiEnvelope<unknown>;
+    const statusCode = typeof envelope.statusCode === 'number' ? envelope.statusCode : 200;
+    if (statusCode >= 400) {
+      throw new ApiError(envelope.message ?? 'Unable to load worker home.', statusCode, envelope.data);
+    }
+  }
   const payload = normalizeWorkerHomeData(unwrapData(response));
   workerHomeCacheByCity.set(normalizedCity, payload);
   return payload;

@@ -61,9 +61,19 @@ export const APP_TEXT = {
   },
   main: {
     homeTitle: 'Home',
-    ongoingTitle: 'Ongoing',
+    ongoingTitle: 'All Services',
     bookingsTitle: 'Bookings',
     profileTitle: 'Profile',
+    loadingHome: 'Loading home...',
+    allServices: {
+      searchPlaceholder: 'Search for a service...',
+      loadingServices: 'Loading services...',
+      loadingMore: 'Loading more...',
+      loadMoreCta: 'Load more',
+      emptyTitle: 'No services found',
+      emptySubtitle: 'Try a different keyword.',
+      pullToRefreshHint: 'Pull to refresh and try again.',
+    },
     bookingFlow: {
       exploreEyebrow: 'BOOK A SERVICE',
       categoryTitle: 'Choose Subcategory',
@@ -172,7 +182,7 @@ export const APP_TEXT = {
   },
   tabs: {
     homeLabel: 'Home',
-    ongoingLabel: 'Ongoing',
+    ongoingLabel: 'All Services',
     bookingsLabel: 'Bookings',
     profileLabel: 'Profile',
   },

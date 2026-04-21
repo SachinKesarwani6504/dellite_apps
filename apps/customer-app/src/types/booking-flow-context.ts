@@ -35,6 +35,8 @@ export type BookingFlowContextType = {
   setCategory: (payload: { id: string; name?: string | null }) => void;
   setSubcategory: (payload: { id: string; name?: string | null }) => void;
   toggleService: (service: BookingFlowService) => void;
+  resetSelectedServices: () => void;
+  clearSubcategorySelection: () => void;
   setBookingDetails: (payload: {
     slotValue: BookingSlotValue;
     slotLabel: string;

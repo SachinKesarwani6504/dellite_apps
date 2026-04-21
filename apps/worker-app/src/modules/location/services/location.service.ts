@@ -12,6 +12,17 @@ import type {
   NormalizedLocation,
 } from '@/modules/location/types/location.types';
 
+function logLocationDebug(message: string, payload?: unknown) {
+  if (!__DEV__) return;
+  if (payload === undefined) {
+    // eslint-disable-next-line no-console
+    console.log(`[location][worker] ${message}`);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[location][worker] ${message}`, payload);
+}
+
 function toPermissionStatus(status: ExpoLocation.PermissionStatus): LocationPermissionStatus {
   if (status === ExpoLocation.PermissionStatus.GRANTED) {
     return 'granted';
@@ -42,17 +53,47 @@ export async function hasLocationPermission() {
 
 export async function requestLocationPermission(): Promise<LocationPermissionStatus> {
   const permission = await ExpoLocation.requestForegroundPermissionsAsync();
+  logLocationDebug('requestLocationPermission', { status: permission.status, granted: permission.granted });
   return toPermissionStatus(permission.status);
 }
 
 export async function getCurrentCoordinates(): Promise<LocationCoordinates> {
   const lastKnownPosition = await ExpoLocation.getLastKnownPositionAsync(LAST_KNOWN_POSITION_OPTIONS);
   if (lastKnownPosition?.coords) {
-    return ensureCoordinates(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude);
+    const coordinates = ensureCoordinates(lastKnownPosition.coords.latitude, lastKnownPosition.coords.longitude);
+    logLocationDebug('getCurrentCoordinates:lastKnown', coordinates);
+    return coordinates;
   }
 
   const currentPosition = await ExpoLocation.getCurrentPositionAsync(CURRENT_POSITION_OPTIONS);
-  return ensureCoordinates(currentPosition.coords.latitude, currentPosition.coords.longitude);
+  const coordinates = ensureCoordinates(currentPosition.coords.latitude, currentPosition.coords.longitude);
+  logLocationDebug('getCurrentCoordinates:fresh', coordinates);
+  return coordinates;
+}
+
+async function resolveWithExpoReverseGeocode(nextCoordinates: LocationCoordinates): Promise<NormalizedLocation> {
+  const reverse = await ExpoLocation.reverseGeocodeAsync(nextCoordinates);
+  const first = Array.isArray(reverse) ? reverse[0] : null;
+  const city = first?.city?.trim() || first?.subregion?.trim() || first?.district?.trim() || first?.region?.trim() || null;
+  const locality = first?.district?.trim() || first?.subregion?.trim() || first?.name?.trim() || null;
+  const state = first?.region?.trim() || null;
+  const country = first?.country?.trim() || null;
+  const postalCode = first?.postalCode?.trim() || null;
+  const street = [first?.street, first?.name].filter(Boolean).join(', ').trim();
+  const formattedAddress = street || city || state || null;
+
+  const normalized: NormalizedLocation = {
+    ...nextCoordinates,
+    city,
+    locality,
+    state,
+    country,
+    postalCode,
+    formattedAddress,
+  };
+
+  logLocationDebug('reverseGeocode:expo', normalized);
+  return normalized;
 }
 
 export async function getCurrentLocationDetails(
@@ -66,7 +107,8 @@ export async function getCurrentLocationDetails(
     ?? runtimeGlobal.process?.env?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    throw new Error(LOCATION_ERRORS.missingGoogleApiKey);
+    logLocationDebug('reverseGeocode:google:missingApiKey -> fallback expo');
+    return resolveWithExpoReverseGeocode(nextCoordinates);
   }
 
   const params = new URLSearchParams({
@@ -76,19 +118,25 @@ export async function getCurrentLocationDetails(
     region: 'in',
   });
 
-  const response = await fetch(`${GOOGLE_GEOCODE_ENDPOINT}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
+  try {
+    const response = await fetch(`${GOOGLE_GEOCODE_ENDPOINT}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
+    }
+
+    const payload = await response.json();
+    const normalized = mapGoogleGeocodeToNormalizedLocation(payload, nextCoordinates);
+
+    if (!normalized) {
+      throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
+    }
+
+    logLocationDebug('reverseGeocode:google', normalized);
+    return normalized;
+  } catch (error) {
+    logLocationDebug('reverseGeocode:google:failed -> fallback expo', error);
+    return resolveWithExpoReverseGeocode(nextCoordinates);
   }
-
-  const payload = await response.json();
-  const normalized = mapGoogleGeocodeToNormalizedLocation(payload, nextCoordinates);
-
-  if (!normalized) {
-    throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
-  }
-
-  return normalized;
 }
 
 export async function getForegroundPermissionStatus(): Promise<LocationPermissionStatus> {
