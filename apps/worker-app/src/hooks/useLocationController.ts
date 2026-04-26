@@ -42,19 +42,12 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 }
 
 function logLocationController(message: string, payload?: unknown) {
-  if (!__DEV__) return;
-  if (payload === undefined) {
-    // eslint-disable-next-line no-console
-    console.log(`[location-controller][worker] ${message}`);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[location-controller][worker] ${message}`, payload);
+  void message;
+  void payload;
 }
 
 export function useLocationController(): LocationContextValue {
   const [snapshot, setSnapshot] = useState<LocationSnapshot>(initialSnapshot);
-  const [hasHydratedCache, setHasHydratedCache] = useState(false);
   const snapshotRef = useRef<LocationSnapshot>(initialSnapshot);
   const initializeInFlightRef = useRef<Promise<NormalizedLocation | null> | null>(null);
 
@@ -218,7 +211,6 @@ export function useLocationController(): LocationContextValue {
         logLocationController('hydrateCache:notFound');
       }
 
-      setHasHydratedCache(true);
     };
 
     void hydrateCachedLocation();
@@ -227,11 +219,6 @@ export function useLocationController(): LocationContextValue {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!hasHydratedCache) return;
-    void initializeLocation();
-  }, [hasHydratedCache, initializeLocation]);
 
   const location = snapshot.location;
 

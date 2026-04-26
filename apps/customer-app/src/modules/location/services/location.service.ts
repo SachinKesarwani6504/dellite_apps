@@ -13,14 +13,8 @@ import type {
 } from '@/modules/location/types/location.types';
 
 function logLocationDebug(message: string, payload?: unknown) {
-  if (!__DEV__) return;
-  if (payload === undefined) {
-    // eslint-disable-next-line no-console
-    console.log(`[location][customer] ${message}`);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[location][customer] ${message}`, payload);
+  void message;
+  void payload;
 }
 
 function toPermissionStatus(status: ExpoLocation.PermissionStatus): LocationPermissionStatus {
@@ -74,8 +68,9 @@ export async function getCurrentCoordinates(): Promise<LocationCoordinates> {
 async function resolveWithExpoReverseGeocode(nextCoordinates: LocationCoordinates): Promise<NormalizedLocation> {
   const reverse = await ExpoLocation.reverseGeocodeAsync(nextCoordinates);
   const first = Array.isArray(reverse) ? reverse[0] : null;
-  const city = first?.city?.trim() || first?.subregion?.trim() || first?.district?.trim() || first?.region?.trim() || null;
-  const locality = first?.district?.trim() || first?.subregion?.trim() || first?.name?.trim() || null;
+  const district = first?.subregion?.trim() || first?.district?.trim() || null;
+  const city = district || first?.city?.trim() || first?.region?.trim() || null;
+  const locality = first?.city?.trim() || first?.name?.trim() || null;
   const state = first?.region?.trim() || null;
   const country = first?.country?.trim() || null;
   const postalCode = first?.postalCode?.trim() || null;
@@ -103,8 +98,8 @@ export async function getCurrentLocationDetails(
   const runtimeGlobal = globalThis as {
     process?: { env?: Record<string, string | undefined> };
   };
-  const apiKey = runtimeGlobal.process?.env?.GOOGLE_MAPS_API_KEY
-    ?? runtimeGlobal.process?.env?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = runtimeGlobal.process?.env?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
+    ?? runtimeGlobal.process?.env?.EXPO_PUBLIC_EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
     logLocationDebug('reverseGeocode:google:missingApiKey -> fallback expo');

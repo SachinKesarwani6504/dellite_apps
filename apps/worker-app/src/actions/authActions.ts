@@ -208,6 +208,8 @@ type VerifyResponseData = {
   accessToken?: string;
   refreshToken?: string;
   phoneToken?: string;
+  firebaseCustomToken?: string;
+  firebase_custom_token?: string;
   phoneVerificationToken?: string;
   phone_token?: string;
   verificationToken?: string;
@@ -222,6 +224,8 @@ type VerifyResponseData = {
     refreshToken?: string;
     access_token?: string;
     refresh_token?: string;
+    firebaseCustomToken?: string;
+    firebase_custom_token?: string;
     phoneToken?: string;
     phone_token?: string;
   };
@@ -256,6 +260,11 @@ export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpRes
   return {
     accessToken: data.accessToken ?? data.access_token ?? nestedTokens.accessToken ?? nestedTokens.access_token,
     refreshToken: data.refreshToken ?? data.refresh_token ?? nestedTokens.refreshToken ?? nestedTokens.refresh_token,
+    firebaseCustomToken:
+      data.firebaseCustomToken
+      ?? data.firebase_custom_token
+      ?? nestedTokens.firebaseCustomToken
+      ?? nestedTokens.firebase_custom_token,
     phoneToken:
       data.phoneToken
       ?? data.phoneVerificationToken
@@ -282,10 +291,10 @@ export async function resendOtp(phone: string): Promise<void> {
 
 export async function refreshAuth(refreshToken: string): Promise<AuthTokens> {
   const response = await apiPost<
-    ApiEnvelope<{ accessToken: string; refreshToken: string }>,
+    ApiEnvelope<{ accessToken: string; refreshToken: string; firebaseCustomToken?: string }> | { accessToken: string; refreshToken: string; firebaseCustomToken?: string },
     { refreshToken: string }
   >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken) }, { toast: { showSuccess: false } });
-  return unwrapData(response);
+  return unwrapData(response) as AuthTokens;
 }
 
 export async function logoutCurrentSession(refreshToken: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ImageBackground, Text, View, useColorScheme } from 'react-native';
+import { Text, View, useColorScheme } from 'react-native';
+import { AppImageBackground } from '@/components/common/AppImageBackground';
 import { palette, safeImageUrl, uiColors } from '@/utils';
 
 type ImageOverlayBannerProps = {
@@ -29,8 +30,8 @@ export function ImageOverlayBanner({
         backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
       }}
     >
-      <ImageBackground
-        source={resolvedImageUrl ? { uri: resolvedImageUrl, cache: 'force-cache' } : undefined}
+      <AppImageBackground
+        source={resolvedImageUrl ? { uri: resolvedImageUrl } : undefined}
         resizeMode="cover"
         className="h-full w-full"
       >
@@ -55,7 +56,7 @@ export function ImageOverlayBanner({
             </Text>
           ) : null}
         </LinearGradient>
-      </ImageBackground>
+      </AppImageBackground>
     </View>
   );
 }

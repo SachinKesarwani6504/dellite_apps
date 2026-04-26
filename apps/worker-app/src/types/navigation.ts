@@ -1,4 +1,4 @@
-import { AUTH_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } from '@/types/screen-names';
+import { AUTH_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } from '@/types/screen-names';
 
 export type AuthStackParamList = {
   [AUTH_SCREENS.phoneLogin]: undefined;
@@ -26,7 +26,12 @@ export type ProfileStackParamList = {
 
 export type MainTabParamList = {
   [MAIN_TAB_SCREENS.home]: undefined;
-  [MAIN_TAB_SCREENS.ongoing]: undefined;
+  [MAIN_TAB_SCREENS.jobs]: undefined;
   [MAIN_TAB_SCREENS.earnings]: undefined;
   [MAIN_TAB_SCREENS.profile]: undefined;
+};
+
+export type JobStackParamList = {
+  [JOB_STACK_SCREENS.home]: undefined;
+  [JOB_STACK_SCREENS.details]: { jobId: string };
 };

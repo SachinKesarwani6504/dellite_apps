@@ -2,7 +2,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { updateWorkerProfile } from '@/actions';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -379,7 +380,7 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
               transform: [{ scale: step >= 1 ? 1 : 0.78 }],
             }}
           >
-            <Image source={WELCOME_IMAGE} resizeMode="contain" style={{ width: 196, height: 196 }} />
+            <AppImage source={WELCOME_IMAGE} resizeMode="contain" style={{ width: 196, height: 196 }} />
           </Animated.View>
 
           <Animated.View

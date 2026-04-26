@@ -11,6 +11,11 @@ import {
   clearOnboardingPhoneToken,
   getOnboardingPhoneToken,
 } from '@/utils/key-chain-storage/onboarding-storage';
+import {
+  ensureFirebaseSessionWithCustomToken,
+  hasFirebaseAuthenticatedUser,
+  shouldForceFirebaseReauth,
+} from '@/utils/firebase-session';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 
@@ -85,22 +90,32 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = normalizeBearerToken(tokens?.refreshToken);
   if (!refreshToken) return null;
 
-  const refreshResponse = await client.post<{ data?: AuthTokens } | AuthTokens>('/auth/refresh', {
+  const refreshResponse = await client.post<{ data?: (AuthTokens & { firebaseCustomToken?: string }) } | (AuthTokens & { firebaseCustomToken?: string })>('/auth/refresh', {
     refreshToken,
   });
 
-  const payload = refreshResponse.data as { data?: AuthTokens } | AuthTokens;
+  const payload = refreshResponse.data as { data?: (AuthTokens & { firebaseCustomToken?: string }) } | (AuthTokens & { firebaseCustomToken?: string });
   const refreshed = (typeof payload === 'object' && payload !== null && 'data' in payload
     ? payload.data
-    : payload) as AuthTokens | undefined;
+    : payload) as (AuthTokens & { firebaseCustomToken?: string }) | undefined;
 
   if (!refreshed?.accessToken || !refreshed?.refreshToken) return null;
 
   await saveAuthTokens({
     accessToken: normalizeBearerToken(refreshed.accessToken) as string,
     refreshToken: normalizeBearerToken(refreshed.refreshToken) as string,
+    ...(refreshed.firebaseCustomToken
+      ? { firebaseCustomToken: normalizeBearerToken(refreshed.firebaseCustomToken) as string }
+      : {}),
   });
-  return normalizeBearerToken(refreshed.accessToken);
+
+  const nextAccessToken = normalizeBearerToken(refreshed.accessToken);
+  if (refreshed.firebaseCustomToken && (!hasFirebaseAuthenticatedUser() || shouldForceFirebaseReauth())) {
+    await ensureFirebaseSessionWithCustomToken(refreshed.firebaseCustomToken, {
+      forceReauth: shouldForceFirebaseReauth(),
+    });
+  }
+  return nextAccessToken;
 }
 
 async function clearAuthSessionTokens() {

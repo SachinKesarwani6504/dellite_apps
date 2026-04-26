@@ -86,20 +86,28 @@ export function mapGoogleGeocodeToNormalizedLocation(
   const firstResult = Array.isArray(source.results) ? source.results[0] : undefined;
   const components = Array.isArray(firstResult?.address_components) ? firstResult.address_components : [];
 
+  // Prefer district-level component for "city" to avoid village names becoming display city.
+  const district = getComponentValue(components, [
+    'administrative_area_level_2',
+    'administrative_area_level_3',
+  ]);
   const city = getComponentValue(components, [
     'locality',
     'administrative_area_level_3',
-    'administrative_area_level_2',
+  ]);
+  const locality = getComponentValue(components, [
+    'sublocality',
     'sublocality_level_1',
     'neighborhood',
+    'route',
   ]);
-  const locality = getComponentValue(components, ['sublocality', 'neighborhood', 'sublocality_level_1']);
   const state = getComponentValue(components, ['administrative_area_level_1']);
+  const bestCity = district ?? city ?? locality ?? state;
 
   return {
     ...coordinates,
-    city: city ?? locality ?? state,
-    locality,
+    city: bestCity,
+    locality: locality ?? city,
     state,
     country: getComponentValue(components, ['country']),
     postalCode: getComponentValue(components, ['postal_code']),

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Text, TextInput, View, useColorScheme } from 'react-native';
+import { Text, TextInput, View, useColorScheme } from 'react-native';
 
 import { Button } from '@/components/common/Button';
+import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { TrustPills, type TrustPillItem } from '@/components/common/TrustPills';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -60,12 +61,12 @@ export function PhoneLoginScreen({ navigation }: Props) {
     >
       <View className="flex-1">
         <View className="items-center pb-8 pt-10">
-          <Image
+          <AppImage
             source={require('@/assets/images/png/dellite_logo.png')}
             resizeMode="contain"
             style={{ width: BRAND.logo.width, height: BRAND.logo.height }}
           />
-          <Image
+          <AppImage
             source={require('@/assets/images/png/customer-login-illustration.png')}
             resizeMode="contain"
             style={{ width: 230, height: 180, marginTop: 18 }}

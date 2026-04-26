@@ -18,24 +18,12 @@ import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
 import { palette, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
+import { extractImageUrl } from '@/utils';
 import { isValidFirstName, isValidLastName, normalizePersonName } from '@/utils/validation';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.editProfile>;
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
-
-function extractImageUrl(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
-  const raw = value as Record<string, unknown>;
-  const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index];
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      return candidate.trim();
-    }
-  }
-  return null;
-}
 
 export function EditProfileScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';

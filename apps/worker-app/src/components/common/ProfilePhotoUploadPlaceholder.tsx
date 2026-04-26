@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type ProfilePhotoUploadPlaceholderProps = {
@@ -34,7 +35,7 @@ export function ProfilePhotoUploadPlaceholder({
         }}
       >
         {hasImage ? (
-          <Image source={{ uri: imageUri as string }} className="h-full w-full rounded-full" resizeMode="cover" />
+          <AppImage source={{ uri: imageUri as string }} className="h-full w-full rounded-full" resizeMode="cover" />
         ) : (
           <View className="h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}>
             <Ionicons name="person-outline" size={28} color={theme.colors.primary} />

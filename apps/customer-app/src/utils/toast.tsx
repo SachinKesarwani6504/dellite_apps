@@ -1,7 +1,8 @@
-import { Image, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Pressable, Text, useColorScheme, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import type { ToastPayload, ToastVariant } from '@/types/toast';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const appIcon = require('../assets/icon.png');
@@ -69,7 +70,7 @@ function BrandToast({ variant, ...payload }: IncomingToastPayload & { variant: T
             marginRight: 12,
           }}
         >
-          <Image source={appIcon} style={{ width: 28, height: 28, borderRadius: 7 }} resizeMode="contain" />
+          <AppImage source={appIcon} style={{ width: 28, height: 28, borderRadius: 7 }} resizeMode="contain" />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'transparent' }}>
           <Text

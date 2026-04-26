@@ -1,4 +1,5 @@
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import type { CustomerHomeCategory } from '@/types/customer';
 import { palette, safeImageUrl, titleCase, toIconBadgeText, uiColors } from '@/utils';
 
@@ -50,7 +51,7 @@ export function WorkerSkillCategoryGrid({
           >
             <View className="h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
               {iconImageUrl ? (
-                <Image source={{ uri: iconImageUrl }} resizeMode="cover" className="h-full w-full" />
+                <AppImage source={{ uri: iconImageUrl }} resizeMode="cover" className="h-full w-full" />
               ) : (
                 <Text className="text-sm font-bold text-primary">
                   {toIconBadgeText(category.name, category.iconText)}

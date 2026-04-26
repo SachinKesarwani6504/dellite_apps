@@ -61,10 +61,22 @@ export const APP_TEXT = {
   },
   main: {
     homeTitle: 'Home',
-    ongoingTitle: 'All Services',
+    allServicesTitle: 'All Services',
     bookingsTitle: 'Bookings',
+    bookings: {
+      titlePrefix: 'My',
+      titleHighlight: 'Bookings',
+      subtitle: 'Check ongoing and completed bookings in one place.',
+      tabs: {
+        ongoing: 'Ongoing',
+        completed: 'Completed',
+      },
+      detailsTitle: 'Booking Details',
+      detailsSubtitle: 'Fetch booking details from backend by id.',
+    },
     profileTitle: 'Profile',
     loadingHome: 'Loading home...',
+    homeLoadError: 'Unable to load home data right now.',
     allServices: {
       searchPlaceholder: 'Search for a service...',
       loadingServices: 'Loading services...',
@@ -182,7 +194,7 @@ export const APP_TEXT = {
   },
   tabs: {
     homeLabel: 'Home',
-    ongoingLabel: 'All Services',
+    allServicesLabel: 'Services',
     bookingsLabel: 'Bookings',
     profileLabel: 'Profile',
   },

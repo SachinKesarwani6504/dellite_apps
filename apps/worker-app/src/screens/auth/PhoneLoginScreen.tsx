@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Image, Text, TextInput, View, useColorScheme } from 'react-native';
+import { Text, TextInput, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -46,8 +47,8 @@ export function PhoneLoginScreen({ navigation }: Props) {
     >
       <View className="flex-1">
         <View className="items-center px-6 pb-8 pt-10">
-          <Image source={logo} resizeMode="contain" style={{ width: 140, height: 42 }} />
-          <Image
+          <AppImage source={logo} resizeMode="contain" style={{ width: 140, height: 42 }} />
+          <AppImage
             source={phoneIllustration}
             resizeMode="contain"
             style={{ width: 230, height: 180, marginTop: 18 }}

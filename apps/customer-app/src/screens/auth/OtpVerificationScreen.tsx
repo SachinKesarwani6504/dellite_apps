@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppState, Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppState, Pressable, Text, View, useColorScheme } from 'react-native';
 
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { APP_TEXT } from '@/utils/appText';
@@ -90,12 +91,12 @@ export function OtpVerificationScreen({ navigation }: Props) {
           />
 
           <View className="items-center">
-            <Image
+            <AppImage
               source={require('@/assets/images/png/dellite_logo.png')}
               resizeMode="contain"
               style={{ width: BRAND.logo.width, height: BRAND.logo.height, marginTop: 8 }}
             />
-            <Image
+            <AppImage
               source={require('@/assets/images/png/otp-verify-illustration.png')}
               resizeMode="contain"
               style={{ width: 148, height: 104, marginTop: 8 }}

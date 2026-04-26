@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, Text, View, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { APP_TEXT } from '@/utils/appText';
@@ -303,7 +304,7 @@ export function OnboardingCustomerWelcomeScreen() {
               transform: [{ scale: step >= 1 ? 1 : 0.78 }],
             }}
           >
-            <Image source={welcomeArt} resizeMode="contain" style={{ width: 196, height: 196 }} />
+            <AppImage source={welcomeArt} resizeMode="contain" style={{ width: 196, height: 196 }} />
           </Animated.View>
 
           <Animated.View

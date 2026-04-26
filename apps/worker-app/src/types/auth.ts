@@ -99,6 +99,7 @@ export interface UserAadharData {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  firebaseCustomToken?: string;
 }
 
 export interface AuthUser {
@@ -213,6 +214,7 @@ export interface VerifyOtpResult {
   accessToken?: string;
   refreshToken?: string;
   phoneToken?: string;
+  firebaseCustomToken?: string;
   user?: AuthUser;
 }
 

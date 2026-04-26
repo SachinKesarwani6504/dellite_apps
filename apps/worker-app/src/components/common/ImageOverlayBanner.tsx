@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ImageBackground, Text, View, useColorScheme } from 'react-native';
+import { Text, View, useColorScheme } from 'react-native';
+import { AppImageBackground } from '@/components/common/AppImageBackground';
 import { palette, uiColors } from '@/utils/theme';
 
 type ImageOverlayBannerProps = {
@@ -29,7 +30,7 @@ export function ImageOverlayBanner({
         backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
       }}
     >
-      <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} resizeMode="cover" className="h-full w-full">
+      <AppImageBackground source={imageUrl ? { uri: imageUrl } : undefined} resizeMode="cover" className="h-full w-full">
         <LinearGradient
           colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
           start={{ x: 0.2, y: 0 }}
@@ -52,7 +53,7 @@ export function ImageOverlayBanner({
             </View>
           ) : null}
         </LinearGradient>
-      </ImageBackground>
+      </AppImageBackground>
     </View>
   );
 }

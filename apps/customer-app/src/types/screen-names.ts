@@ -16,9 +16,14 @@ export const ONBOARDING_SCREEN = {
 
 export const MAIN_TAB_SCREEN = {
   HOME: 'Home',
-  ONGOING: 'Ongoing',
+  ALL_SERVICES: 'AllServices',
   BOOKINGS: 'Bookings',
   PROFILE: 'Profile',
+} as const;
+
+export const BOOKINGS_SCREEN = {
+  HOME: 'BookingsHome',
+  DETAILS: 'BookingsDetails',
 } as const;
 
 export const HOME_SCREEN = {

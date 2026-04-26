@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type AadhaarUploadInputProps = {
@@ -77,7 +78,7 @@ export function AadhaarUploadInput({
               Full Preview
             </Text>
           </View>
-          <Image
+          <AppImage
             source={{ uri: previewUri }}
             resizeMode="contain"
             style={{ width: '100%', height: 220, marginTop: 4, marginBottom: 6 }}

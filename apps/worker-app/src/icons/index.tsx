@@ -4,7 +4,7 @@ import { theme } from '@/utils/theme';
 
 export const iconMap = {
   home: 'home',
-  ongoing: 'time',
+  jobs: 'briefcase',
   earnings: 'wallet',
   profile: 'person',
   edit: 'create',

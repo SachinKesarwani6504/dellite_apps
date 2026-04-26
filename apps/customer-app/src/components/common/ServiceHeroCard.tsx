@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ImageBackground, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImageBackground } from '@/components/common/AppImageBackground';
 import { formatTitle, palette, theme, uiColors } from '@/utils';
 
 type ServiceHeroCardProps = {
@@ -37,8 +38,8 @@ export function ServiceHeroCard({
       }}
       onPress={onPress}
     >
-      <ImageBackground
-        source={imageUrl ? { uri: imageUrl, cache: 'force-cache' } : undefined}
+      <AppImageBackground
+        source={imageUrl ? { uri: imageUrl } : undefined}
         resizeMode="cover"
         style={{ flex: 1 }}
         onError={onImageError}
@@ -71,7 +72,7 @@ export function ServiceHeroCard({
             <Ionicons name="checkmark" size={18} color={theme.colors.primary} />
           </View>
         ) : null}
-      </ImageBackground>
+      </AppImageBackground>
     </Pressable>
   );
 }

@@ -78,3 +78,15 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Worker + Customer: switched home city resolution to geo-derived city only (no hardcoded city mapping) and added city-unavailable UI when city cannot be resolved.
 - [x] Worker + Customer: added scalable `location-intelligence` resolver module (city alias mapping + normalized product city resolution).
 - [x] Customer app: added booking-time locality launch gating via `resolveBookingServiceability` (city may be visible, booking blocked for non-launched localities).
+
+## In Progress: Worker Live Location (Firebase RTDB)
+
+- [x] Worker app: added scalable Firebase setup under `src/lib/firebase/*` with safe app initialization (`getApps()` guard).
+- [x] Worker app: added live location hook `useWorkerLiveLocation` for direct RTDB writes to `/workerLive/{workerId}` (no backend location API calls).
+- [x] Worker app: added distance/time throttling and computed speed (`distance / time`) before each location write.
+- [x] Worker app: added optional background tracking support behind `ENABLE_BACKGROUND_LOCATION_TRACKING` flag.
+
+## In Progress: Firebase Session Bridging
+
+- [x] Worker + Customer: auth flows now exchange backend `firebaseCustomToken` into Firebase Auth session after OTP/profile completion.
+- [x] Worker + Customer: token refresh flow now applies `firebaseCustomToken` from `/auth/refresh` and falls back to `/auth/firebase/custom-token` when Firebase session is missing.

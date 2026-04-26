@@ -16,7 +16,7 @@ export function LoadingState({ minHeight = 260, message, containerClassName }: L
       style={{ minHeight }}
     >
       <View
-        className="h-full w-full items-center justify-center rounded-2xl border px-4"
+        className="h-full w-full items-center justify-center px-4"
         style={{
           borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
           backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
@@ -35,4 +35,3 @@ export function LoadingState({ minHeight = 260, message, containerClassName }: L
     </View>
   );
 }
-

@@ -1,12 +1,13 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUserAadhar, updateUserAadhar } from '@/actions';
 import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { UserAadharData } from '@/types/auth';
@@ -223,7 +224,7 @@ export function IdentityVerificationScreen({ navigation }: Props) {
           ) : (
             <View className="mt-2 overflow-hidden rounded-xl">
               {frontUrl ? (
-                <Image source={{ uri: frontUrl }} resizeMode="contain" style={{ width: '100%', height: 220 }} />
+                <AppImage source={{ uri: frontUrl }} resizeMode="contain" style={{ width: '100%', height: 220 }} />
               ) : (
                 <View className="h-36 items-center justify-center px-4">
                   <Ionicons name="document-outline" size={22} color={theme.colors.primary} />
@@ -259,7 +260,7 @@ export function IdentityVerificationScreen({ navigation }: Props) {
           ) : (
             <View className="mt-2 overflow-hidden rounded-xl">
               {backUrl ? (
-                <Image source={{ uri: backUrl }} resizeMode="contain" style={{ width: '100%', height: 220 }} />
+                <AppImage source={{ uri: backUrl }} resizeMode="contain" style={{ width: '100%', height: 220 }} />
               ) : (
                 <View className="h-36 items-center justify-center px-4">
                   <Ionicons name="document-outline" size={22} color={theme.colors.primary} />

@@ -17,7 +17,7 @@ export function OngoingScreen() {
         }}
       >
         <Text className="text-3xl font-extrabold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-          {APP_TEXT.main.ongoingTitle}
+          {APP_TEXT.main.allServicesTitle}
         </Text>
       </View>
     </GradientScreen>

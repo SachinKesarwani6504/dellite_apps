@@ -1,4 +1,4 @@
-import { AUTH_SCREEN, HOME_SCREEN, MAIN_TAB_SCREEN, ONBOARDING_SCREEN, PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { AUTH_SCREEN, BOOKINGS_SCREEN, HOME_SCREEN, MAIN_TAB_SCREEN, ONBOARDING_SCREEN, PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 
 export type RootStackParamList = {
   [ROOT_SCREEN.AUTH_NAVIGATOR]: undefined;
@@ -18,7 +18,7 @@ export type OnboardingStackParamList = {
 
 export type MainTabsParamList = {
   [MAIN_TAB_SCREEN.HOME]: undefined;
-  [MAIN_TAB_SCREEN.ONGOING]: undefined;
+  [MAIN_TAB_SCREEN.ALL_SERVICES]: undefined;
   [MAIN_TAB_SCREEN.BOOKINGS]: undefined;
   [MAIN_TAB_SCREEN.PROFILE]: undefined;
 };
@@ -45,5 +45,10 @@ export type ProfileStackParamList = {
   [PROFILE_SCREEN.PROFILE_HOME]: undefined;
   [PROFILE_SCREEN.EDIT_PROFILE]: undefined;
   [PROFILE_SCREEN.REFERRAL]: undefined;
+};
+
+export type BookingsStackParamList = {
+  [BOOKINGS_SCREEN.HOME]: undefined;
+  [BOOKINGS_SCREEN.DETAILS]: { bookingId: string };
 };
 

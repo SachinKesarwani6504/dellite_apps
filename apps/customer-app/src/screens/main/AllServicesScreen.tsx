@@ -20,9 +20,9 @@ import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl'
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
-import { ApiError } from '@/types/api';
 import type { CustomerServiceListItem } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
+import { getErrorMessage } from '@/utils';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { APP_TEXT } from '@/utils/appText';
@@ -30,12 +30,6 @@ import { APP_TEXT } from '@/utils/appText';
 const PAGINATION_ENABLED = true;
 const DEFAULT_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof ApiError && error.message.trim()) return error.message;
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return APP_TEXT.main.bookingFlow.loadingError;
-}
 
 function pickServiceImage(service: CustomerServiceListItem) {
   return safeImageUrl(service.mainImage?.url)
@@ -114,7 +108,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
         setHasMore(data.length >= DEFAULT_LIMIT);
       }
     } catch (fetchError) {
-      setError(getErrorMessage(fetchError));
+      setError(getErrorMessage(fetchError, APP_TEXT.main.bookingFlow.loadingError));
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -158,7 +152,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       <View className="mb-4">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-extrabold text-baseDark dark:text-white">
-            {APP_TEXT.main.ongoingTitle}
+            {APP_TEXT.main.allServicesTitle}
           </Text>
           <View
             className="flex-row items-center rounded-full border px-3 py-1.5"

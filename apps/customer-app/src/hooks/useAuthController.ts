@@ -8,6 +8,9 @@ import type { AuthContextType } from '@/types/auth-context';
 import type { UpdateCustomerIdentityPayload } from '@/types/customer';
 import { useLocationController } from '@/hooks/useLocationController';
 import {
+  applyFirebaseCustomToken,
+} from '@/utils/firebase-session';
+import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
   getAuthTokens,
@@ -245,6 +248,13 @@ export function useAuthController(): AuthContextType {
     return inFlightRefreshMeRef.current;
   }, []);
 
+  const ensureFirebaseSession = useCallback(async (
+    _accessToken: string | null,
+    firebaseCustomToken?: string | null,
+  ) => {
+    await applyFirebaseCustomToken(firebaseCustomToken ?? null);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       const tokens = await getAuthTokens();
@@ -290,6 +300,7 @@ export function useAuthController(): AuthContextType {
 
       if (tokens?.accessToken) {
         await saveAuthTokens(tokens);
+        await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
         await clearOnboardingPhoneToken();
 
         setAuthState((prev) => ({
@@ -318,7 +329,7 @@ export function useAuthController(): AuthContextType {
         user: null,
       }));
     },
-    [refreshMe],
+    [ensureFirebaseSession, refreshMe],
   );
 
   const completeOnboarding = useCallback(
@@ -349,6 +360,7 @@ export function useAuthController(): AuthContextType {
       };
 
       await saveAuthTokens(tokens);
+      await ensureFirebaseSession(tokens.accessToken, profile.firebaseCustomToken);
       await clearOnboardingPhoneToken();
       setAuthState((prev) => ({
         ...prev,
@@ -374,7 +386,7 @@ export function useAuthController(): AuthContextType {
         // Keep optimistic onboarding-forward state. A later refresh can reconcile.
       }
     },
-    [authState.phoneToken],
+    [authState.phoneToken, ensureFirebaseSession],
   );
 
   const enterMainTabs = useCallback(async () => {
@@ -489,6 +501,8 @@ export function useAuthController(): AuthContextType {
           status: AUTH_STATUS.BOOTSTRAPPING,
         }));
 
+        await ensureFirebaseSession(tokens.accessToken);
+
         try {
           const me = await authActions.getMe();
           const nextUser = normalizeUserFromMeResponse(me);
@@ -525,7 +539,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [logout]);
+  }, [ensureFirebaseSession, logout]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {

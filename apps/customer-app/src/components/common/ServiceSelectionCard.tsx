@@ -1,4 +1,5 @@
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils';
 
 type ServiceSelectionCardProps = {
@@ -40,7 +41,7 @@ export function ServiceSelectionCard({
           style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}
         >
           {imageUrl ? (
-            <Image source={{ uri: imageUrl, cache: 'force-cache' }} resizeMode="cover" className="h-full w-full" />
+            <AppImage source={{ uri: imageUrl }} resizeMode="cover" className="h-full w-full" />
           ) : (
             <View className="h-full w-full bg-primary/10" />
           )}

@@ -129,6 +129,7 @@ export type RequestOtpResponse = {
 export type VerifyOtpResponse =
   | {
       tokens: AuthTokens;
+      firebaseCustomToken?: string;
       accessToken?: never;
       refreshToken?: never;
       phoneToken?: never;
@@ -137,11 +138,13 @@ export type VerifyOtpResponse =
       tokens?: never;
       accessToken: string;
       refreshToken?: string | null;
+      firebaseCustomToken?: string;
       phoneToken?: never;
     }
   | {
       tokens?: never;
       phoneToken: string;
+      firebaseCustomToken?: string;
     };
 
 export type ResendOtpResponse = {
@@ -156,6 +159,7 @@ export type RefreshTokensPayload = {
 export type RefreshTokensResponse = {
   accessToken: string;
   refreshToken: string;
+  firebaseCustomToken?: string;
 };
 
 export type LogoutPayload = {

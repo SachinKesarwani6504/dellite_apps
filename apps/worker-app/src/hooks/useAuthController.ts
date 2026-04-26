@@ -15,6 +15,9 @@ import { APP_AUTH_ROLE, AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload
 import { useLocationController } from '@/hooks/useLocationController';
 import { stripBearerPrefix } from '@/utils/token';
 import {
+  ensureFirebaseSessionWithCustomToken,
+} from '@/utils/firebase-session';
+import {
   clearAuthTokens,
   getAuthTokens,
   saveAuthTokens,
@@ -76,10 +79,51 @@ function findTokenInPayload(payload: unknown, tokenKind: 'access' | 'refresh'): 
   return undefined;
 }
 
-async function setSessionTokens(accessToken: string, refreshToken: string) {
+function findFirebaseCustomTokenInPayload(payload: unknown): string | undefined {
+  const queue: unknown[] = [payload];
+  const visited = new Set<unknown>();
+  const directKeys = ['firebaseCustomToken', 'firebase_custom_token'];
+
+  let hops = 0;
+  while (queue.length > 0 && hops < 250) {
+    const current = queue.shift();
+    hops += 1;
+    if (!isRecord(current) || visited.has(current)) continue;
+    visited.add(current);
+
+    for (let index = 0; index < directKeys.length; index += 1) {
+      const tokenValue = normalizeTokenValue(current[directKeys[index]]);
+      if (tokenValue) return tokenValue;
+    }
+
+    const nested = current.tokens;
+    if (isRecord(nested)) {
+      for (let index = 0; index < directKeys.length; index += 1) {
+        const nestedTokenValue = normalizeTokenValue(nested[directKeys[index]]);
+        if (nestedTokenValue) return nestedTokenValue;
+      }
+    }
+
+    const values = Object.values(current);
+    for (let index = 0; index < values.length; index += 1) {
+      if (isRecord(values[index])) {
+        queue.push(values[index]);
+      }
+    }
+  }
+
+  return undefined;
+}
+
+async function setSessionTokens(
+  accessToken: string,
+  refreshToken: string,
+  firebaseCustomToken?: string | null,
+) {
   await saveAuthTokens({
     accessToken: stripBearerPrefix(accessToken),
     refreshToken: stripBearerPrefix(refreshToken),
+    ...(firebaseCustomToken ? { firebaseCustomToken: stripBearerPrefix(firebaseCustomToken) } : {}),
   });
 }
 
@@ -127,6 +171,21 @@ export function useAuthController(): AuthContextType {
     return inFlightRefreshMeRef.current;
   }, []);
 
+  const ensureFirebaseSession = useCallback(async (
+    accessToken: string | null,
+    firebaseCustomToken?: string | null,
+  ) => {
+    if (!accessToken) return;
+    const normalizedToken = firebaseCustomToken ? stripBearerPrefix(firebaseCustomToken) : null;
+    if (normalizedToken) {
+      await ensureFirebaseSessionWithCustomToken(normalizedToken);
+      return;
+    }
+
+    const existingTokens = await getAuthTokens();
+    await ensureFirebaseSessionWithCustomToken(existingTokens?.firebaseCustomToken ?? null);
+  }, []);
+
   const bootstrap = useCallback(async () => {
     try {
       const [tokens, pendingPhoneTokenRaw] = await Promise.all([
@@ -138,6 +197,7 @@ export function useAuthController(): AuthContextType {
 
       if (accessToken) {
         setPhoneVerificationToken(pendingPhoneToken);
+        await ensureFirebaseSession(accessToken);
         await refreshMe();
         setStatus(AuthStatus.AUTHENTICATED);
         return;
@@ -156,7 +216,7 @@ export function useAuthController(): AuthContextType {
       setPhoneVerificationToken(null);
       setStatus(AuthStatus.LOGGED_OUT);
     }
-  }, [refreshMe]);
+  }, [ensureFirebaseSession, refreshMe]);
 
   useEffect(() => {
     void bootstrap();
@@ -165,7 +225,7 @@ export function useAuthController(): AuthContextType {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
       if (nextState !== 'active') return;
-      if (status !== AuthStatus.AUTHENTICATED && status !== AuthStatus.PHONE_VERIFIED) return;
+      if (status !== AuthStatus.AUTHENTICATED) return;
       if (foregroundSyncInFlightRef.current) return;
 
       const now = Date.now();
@@ -208,7 +268,8 @@ export function useAuthController(): AuthContextType {
       if (response.phoneToken) {
         const cleanPhoneToken = stripBearerPrefix(response.phoneToken);
         if (accessToken && refreshToken) {
-          await setSessionTokens(accessToken, refreshToken);
+          await setSessionTokens(accessToken, refreshToken, response.firebaseCustomToken);
+          await ensureFirebaseSession(accessToken, response.firebaseCustomToken);
         }
         setPhoneVerificationToken(cleanPhoneToken);
         await saveOnboardingPhoneToken(cleanPhoneToken);
@@ -217,7 +278,8 @@ export function useAuthController(): AuthContextType {
       }
 
       if (accessToken && refreshToken) {
-        await setSessionTokens(accessToken, refreshToken);
+        await setSessionTokens(accessToken, refreshToken, response.firebaseCustomToken);
+        await ensureFirebaseSession(accessToken, response.firebaseCustomToken);
         await clearOnboardingPhoneToken();
         setPhoneVerificationToken(null);
         setStatus(AuthStatus.AUTHENTICATED);
@@ -227,7 +289,7 @@ export function useAuthController(): AuthContextType {
 
       throw new Error('OTP verified, but no valid token set was returned.');
     },
-    [refreshMe],
+    [ensureFirebaseSession, refreshMe],
   );
 
   const handleResendOtpCode = useCallback(async (phoneNumber: string) => {
@@ -251,9 +313,11 @@ export function useAuthController(): AuthContextType {
       let response: {
         accessToken?: string;
         refreshToken?: string;
+        firebaseCustomToken?: string;
+        firebase_custom_token?: string;
         access_token?: string;
         refresh_token?: string;
-        tokens?: { accessToken?: string; refreshToken?: string };
+        tokens?: { accessToken?: string; refreshToken?: string; firebaseCustomToken?: string; firebase_custom_token?: string };
         data?: unknown;
         result?: unknown;
         payload?: unknown;
@@ -263,9 +327,11 @@ export function useAuthController(): AuthContextType {
         response = (await createProfileWithPhoneToken(payload)) as {
           accessToken?: string;
           refreshToken?: string;
+          firebaseCustomToken?: string;
+          firebase_custom_token?: string;
           access_token?: string;
           refresh_token?: string;
-          tokens?: { accessToken?: string; refreshToken?: string };
+          tokens?: { accessToken?: string; refreshToken?: string; firebaseCustomToken?: string; firebase_custom_token?: string };
         };
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
@@ -277,9 +343,11 @@ export function useAuthController(): AuthContextType {
 
       const accessToken = findTokenInPayload(response, 'access');
       const refreshToken = findTokenInPayload(response, 'refresh');
+      const firebaseCustomToken = findFirebaseCustomTokenInPayload(response);
 
       if (accessToken && refreshToken) {
-        await setSessionTokens(accessToken, refreshToken);
+        await setSessionTokens(accessToken, refreshToken, firebaseCustomToken);
+        await ensureFirebaseSession(accessToken, firebaseCustomToken);
       } else {
         const existingTokens = await getAuthTokens();
         const existingAccessToken = existingTokens?.accessToken ? stripBearerPrefix(existingTokens.accessToken) : null;
@@ -287,6 +355,7 @@ export function useAuthController(): AuthContextType {
         if (!existingAccessToken || !existingRefreshToken) {
           throw new Error('Profile created, but auth tokens are missing.');
         }
+        await ensureFirebaseSession(existingAccessToken, firebaseCustomToken);
       }
 
       setPhoneVerificationToken(null);
@@ -299,7 +368,7 @@ export function useAuthController(): AuthContextType {
         // Keep authenticated state and retry me fetch later.
       }
     },
-    [phoneVerificationToken, refreshMe],
+    [ensureFirebaseSession, phoneVerificationToken, refreshMe],
   );
 
   const handleLogout = useCallback(async () => {

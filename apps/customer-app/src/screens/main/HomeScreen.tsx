@@ -2,8 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Image,
-  ImageBackground,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { customerActions } from '@/actions';
+import { AppImage } from '@/components/common/AppImage';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
@@ -33,15 +32,10 @@ import type {
 } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { palette, safeImageUrl, theme, titleCase, uiColors } from '@/utils';
+import { getErrorMessage, palette, safeImageUrl, theme, titleCase, uiColors } from '@/utils';
 
 const LOGO = require('@/assets/images/png/dellite_logo.png');
 const HOME_DOODLES = require('@/assets/images/png/home_page_doddles.png');
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return 'Unable to load home data right now.';
-}
 
 function normalizeForCompare(value?: string | null) {
   if (!value || !value.trim()) return '';
@@ -175,7 +169,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
           setHomeData(null);
         }
       } else {
-        setError(getErrorMessage(fetchError));
+        setError(getErrorMessage(fetchError, APP_TEXT.main.homeLoadError));
       }
     } finally {
       setLoading(false);
@@ -400,7 +394,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
     <GradientScreen
       contentContainerStyle={{ padding: 0 }}
       floatingBackground={(
-        <Image
+        <AppImage
           source={HOME_DOODLES}
           resizeMode="cover"
           className="h-full w-full"
@@ -415,7 +409,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
         refreshControl={<RefreshControl {...refreshControlProps} />}
       >
         <View className="mb-4 flex-row items-center justify-between">
-          <Image source={LOGO} resizeMode="contain" style={{ width: 104, height: 30 }} />
+          <AppImage source={LOGO} resizeMode="contain" style={{ width: 104, height: 30 }} />
           <View
             className="flex-row items-center rounded-full border px-3 py-1.5"
             style={{

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type NearbyJobCardProps = {
@@ -40,7 +41,7 @@ export function NearbyJobCard({
           style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}
         >
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} resizeMode="cover" className="h-full w-full" />
+            <AppImage source={{ uri: imageUrl }} resizeMode="cover" className="h-full w-full" />
           ) : (
             <View className="h-full w-full items-center justify-center bg-primary/10">
               <Ionicons name="briefcase-outline" size={18} color={theme.colors.primary} />

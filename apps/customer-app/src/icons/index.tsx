@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { TextStyle } from 'react-native';
 
-type AppIconName = 'chevronRight' | 'chevronLeft' | 'refresh' | 'home' | 'ongoing' | 'bookings' | 'profile' | 'checkmarkCircle' | 'checkmarkCircleSolid' | 'checkmark' | 'card';
+type AppIconName = 'chevronRight' | 'chevronLeft' | 'refresh' | 'home' | 'allServices' | 'bookings' | 'profile' | 'checkmarkCircle' | 'checkmarkCircleSolid' | 'checkmark' | 'card';
 
 type AppIconProps = {
   name: AppIconName;
@@ -14,10 +14,10 @@ const iconMap: Record<AppIconName, keyof typeof Ionicons.glyphMap> = {
   chevronRight: 'chevron-forward',
   chevronLeft: 'chevron-back',
   refresh: 'refresh',
-  home: 'home-outline',
-  ongoing: 'time-outline',
-  bookings: 'calendar-outline',
-  profile: 'person-outline',
+  home: 'home',
+  allServices: 'grid',
+  bookings: 'calendar',
+  profile: 'person',
   checkmarkCircle: 'checkmark-circle-outline',
   checkmarkCircleSolid: 'checkmark-circle',
   checkmark: 'checkmark',

@@ -115,6 +115,7 @@ Before finishing:
 - Export reusable helpers via `src/utils/index.ts` so screens can import from one place.
 - Apply the same helper structure in both apps whenever files are equivalent.
 - For required form/card fields, always show a red asterisk (`*`) as the required indicator and keep this styling consistent across screens.
+ - No reusable helper functions inside screens/components (example: `formatCurrency`, `getErrorMessage`, `extractImageUrl`). Put them in `src/utils/index.ts` and import.
 
 ## 11) Repo-Local Skills
 

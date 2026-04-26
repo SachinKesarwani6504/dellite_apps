@@ -24,9 +24,14 @@ export const PROFILE_SCREENS = {
 
 export const MAIN_TAB_SCREENS = {
   home: 'Home',
-  ongoing: 'Ongoing',
+  jobs: 'Jobs',
   earnings: 'Earnings',
   profile: 'Profile',
+} as const;
+
+export const JOB_STACK_SCREENS = {
+  home: 'JobsHome',
+  details: 'JobDetails',
 } as const;
 
 export const SCREEN_TITLES = {

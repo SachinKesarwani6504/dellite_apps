@@ -28,9 +28,18 @@ function normalizeAuthTokens(raw: unknown): AuthTokens | null {
 
   const accessToken = directAccess ?? nestedAccess;
   const refreshToken = directRefresh ?? nestedRefresh;
+  const firebaseCustomToken = asToken(raw.firebaseCustomToken)
+    ?? asToken(raw.firebase_custom_token)
+    ?? (nestedTokens
+      ? (asToken(nestedTokens.firebaseCustomToken) ?? asToken(nestedTokens.firebase_custom_token))
+      : undefined);
 
   if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+    ...(firebaseCustomToken ? { firebaseCustomToken } : {}),
+  };
 }
 
 export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {

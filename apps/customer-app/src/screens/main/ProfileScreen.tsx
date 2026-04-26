@@ -2,29 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo } from 'react';
-import { Image, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 
+import { AppImage } from '@/components/common/AppImage';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
-import { formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
+import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PROFILE_SCREEN } from '@/types/screen-names';
-
-function extractImageUrl(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
-  const raw = value as Record<string, unknown>;
-  const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index];
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      return candidate.trim();
-    }
-  }
-  return null;
-}
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -114,7 +102,7 @@ export function ProfileScreen() {
               style={{ borderColor: isDark ? theme.colors.baseDark : theme.colors.onPrimary }}
             >
               {profileImageUrl ? (
-                <Image source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
+                <AppImage source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
               ) : (
                 <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
               )}

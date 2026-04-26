@@ -3,13 +3,13 @@ import { useColorScheme } from 'react-native';
 
 import { APP_TEXT } from '@/utils/appText';
 import { AppIcon } from '@/icons';
-import { BookingsScreen } from '@/screens/main/BookingsScreen';
+import { BookingsNavigator } from '@/navigation/BookingsNavigator';
 import { BookingFlowProvider } from '@/contexts/BookingFlowContext';
 import { HomeNavigator } from '@/navigation/HomeNavigator';
 import { AllServicesNavigator } from '@/navigation/AllServicesNavigator';
 import { ProfileNavigator } from '@/navigation/ProfileNavigator';
 import type { MainTabsParamList } from '@/types/navigation';
-import { MAIN_TAB_SCREEN, palette, theme, uiColors } from '@/utils';
+import { MAIN_TAB_SCREEN, palette, theme } from '@/utils';
 const Tab = createBottomTabNavigator();
 
 export function MainTabsNavigator() {
@@ -21,18 +21,12 @@ export function MainTabsNavigator() {
         screenOptions={({ route }: { route: { name: keyof MainTabsParamList } }) => ({
           headerShown: false,
           tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight,
-          tabBarStyle: {
-            backgroundColor: isDark ? palette.dark.card : palette.light.card,
-            borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-          },
-          tabBarLabelStyle: {
-            fontWeight: '600',
-          },
+          tabBarInactiveTintColor: isDark ? palette.dark.mutedText : palette.light.mutedText,
+          tabBarStyle: { backgroundColor: isDark ? palette.dark.card : palette.light.card },
           tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-            const tabIconMap: Record<keyof MainTabsParamList, 'home' | 'ongoing' | 'bookings' | 'profile'> = {
+            const tabIconMap: Record<keyof MainTabsParamList, 'home' | 'allServices' | 'bookings' | 'profile'> = {
               [MAIN_TAB_SCREEN.HOME]: 'home',
-              [MAIN_TAB_SCREEN.ONGOING]: 'ongoing',
+              [MAIN_TAB_SCREEN.ALL_SERVICES]: 'allServices',
               [MAIN_TAB_SCREEN.BOOKINGS]: 'bookings',
               [MAIN_TAB_SCREEN.PROFILE]: 'profile',
             };
@@ -47,13 +41,13 @@ export function MainTabsNavigator() {
           options={{ title: APP_TEXT.tabs.homeLabel }}
         />
         <Tab.Screen
-          name={MAIN_TAB_SCREEN.ONGOING}
+          name={MAIN_TAB_SCREEN.ALL_SERVICES}
           component={AllServicesNavigator}
-          options={{ title: APP_TEXT.tabs.ongoingLabel }}
+          options={{ title: APP_TEXT.tabs.allServicesLabel }}
         />
         <Tab.Screen
           name={MAIN_TAB_SCREEN.BOOKINGS}
-          component={BookingsScreen}
+          component={BookingsNavigator}
           options={{ title: APP_TEXT.tabs.bookingsLabel }}
         />
         <Tab.Screen

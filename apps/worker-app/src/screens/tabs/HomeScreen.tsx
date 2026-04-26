@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { getCachedWorkerHome, getWorkerHome } from '@/actions';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
@@ -13,37 +13,34 @@ import { ListErrorState } from '@/components/common/ListErrorState';
 import { NearbyJobCard } from '@/components/common/NearbyJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { LoadingState } from '@/components/common/LoadingState';
+import { AppImage } from '@/components/common/AppImage';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { WorkerHomeData } from '@/types/auth';
-import { titleCase } from '@/utils';
+import {
+  formatInrCurrency,
+  formatSignedPercent,
+  getErrorMessage,
+  resolveWorkerIdFromAuthUser,
+  titleCase,
+} from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const logo = require('@/assets/images/png/dellite_logo.png');
 const homePageDoodles = require('@/assets/images/png/home_page_doddles.png');
 
-function formatCurrency(value?: number) {
-  const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  return `\u20B9${amount.toLocaleString('en-IN')}`;
-}
-
-function formatGrowth(value?: number | string) {
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  const growth = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  const sign = growth > 0 ? '+' : '';
-  return `${sign}${growth}%`;
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return 'Unable to load home data right now.';
-}
-
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
-  const { locationState } = useAuthContext();
+  const { locationState, user, me, isAuthenticated } = useAuthContext();
+  const workerId = useMemo(
+    () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
+    [me, user],
+  );
+  const autoGoOnlineAttemptedRef = useRef(false);
+  const { isOnline: isWorkerLiveOnline, goOnline: goWorkerLiveOnline } = useWorkerLiveLocation({ workerId });
   const {
     city,
     locality,
@@ -52,6 +49,7 @@ export function HomeScreen() {
     latitude,
     longitude,
     initialized,
+    initializeLocation,
     loading: locationLoading,
     refreshing: locationRefreshing,
   } = locationState;
@@ -73,6 +71,7 @@ export function HomeScreen() {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
+  const locationInitTriggeredRef = useRef(false);
 
   const loadHomeData = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -94,7 +93,7 @@ export function HomeScreen() {
         setCityUnavailable(true);
         setError(null);
       } else {
-        setError(getErrorMessage(loadError));
+        setError(getErrorMessage(loadError, APP_TEXT.home.loadError));
       }
     } finally {
       setLoading(false);
@@ -142,21 +141,62 @@ export function HomeScreen() {
   }, [homeData?.headerBanner?.averageRating, homeData?.headerBanner?.reviewsCount]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      locationInitTriggeredRef.current = false;
+      return;
+    }
+
+    if (locationInitTriggeredRef.current || initialized) {
+      return;
+    }
+
+    locationInitTriggeredRef.current = true;
+    void initializeLocation();
+  }, [initializeLocation, initialized, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      autoGoOnlineAttemptedRef.current = false;
+      return;
+    }
+
+    if (!workerId || isWorkerLiveOnline || autoGoOnlineAttemptedRef.current) {
+      return;
+    }
+
+    autoGoOnlineAttemptedRef.current = true;
+    void goWorkerLiveOnline();
+  }, [goWorkerLiveOnline, isAuthenticated, isWorkerLiveOnline, workerId]);
+
+  useEffect(() => {
     if (!__DEV__) return;
     // eslint-disable-next-line no-console
-    console.log('[home][worker] city state', {
+    console.log('[worker-location-context] current', {
       city,
       locality,
       state,
       formattedAddress,
-      resolvedLocation,
+      latitude,
+      longitude,
       selectedCity,
-      cityLabel,
+      resolvedLocation,
       initialized,
       locationLoading,
       locationRefreshing,
     });
-  }, [city, cityLabel, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
+  }, [
+    city,
+    formattedAddress,
+    initialized,
+    latitude,
+    locality,
+    locationLoading,
+    locationRefreshing,
+    longitude,
+    resolvedLocation,
+    selectedCity,
+    state,
+  ]);
 
   if ((loading || isLocationPending) && !homeData) {
     return (
@@ -179,7 +219,7 @@ export function HomeScreen() {
         />
       )}
       floatingBackground={(
-        <Image
+        <AppImage
           source={homePageDoodles}
           resizeMode="cover"
           className="h-full w-full"
@@ -189,7 +229,7 @@ export function HomeScreen() {
       floatingBackgroundTopInset={0}
     >
       <View className="mb-4 flex-row items-center justify-between">
-        <Image source={logo} resizeMode="contain" style={{ width: 104, height: 30 }} />
+        <AppImage source={logo} resizeMode="contain" style={{ width: 104, height: 30 }} />
         <View
           className="flex-row items-center rounded-full border px-3 py-1.5"
           style={{
@@ -265,7 +305,7 @@ export function HomeScreen() {
               }}
             >
               <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
-              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatCurrency(homeData.todayStats?.totalEarning)}</Text>
+              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatInrCurrency(homeData.todayStats?.totalEarning)}</Text>
               <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
             </View>
             <View
@@ -276,7 +316,7 @@ export function HomeScreen() {
               }}
             >
               <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
-              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatGrowth(homeData.todayStats?.growth)}</Text>
+              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatSignedPercent(homeData.todayStats?.growth)}</Text>
               <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
             </View>
           </View>
@@ -301,7 +341,7 @@ export function HomeScreen() {
                       title={title}
                       city={job.city}
                       distanceKm={job.distanceKm}
-                      payoutLabel={formatCurrency(job.payout)}
+                      payoutLabel={formatInrCurrency(job.payout)}
                       imageUrl={job.imageUrl}
                       isDark={isDark}
                     />

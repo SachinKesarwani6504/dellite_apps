@@ -2,8 +2,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
+import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
@@ -12,7 +13,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { formatDateToDdMmmYyyy, getUserCreatedAt, toDisplayGender } from '@/utils';
+import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, toDisplayGender } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.home>;
@@ -22,24 +23,6 @@ type ProfileStats = {
   completedJobs: number;
   certificates: number;
 };
-
-function extractImageUrl(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
-  const raw = value as Record<string, unknown>;
-  const candidates = [
-    raw.url,
-    raw.fileUrl,
-    raw.file_url,
-    raw.uri,
-  ];
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index];
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      return candidate.trim();
-    }
-  }
-  return null;
-}
 
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -228,7 +211,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
               style={{ borderColor: isDark ? theme.colors.baseDark : theme.colors.onPrimary }}
             >
               {profileImageUrl ? (
-                <Image source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
+                <AppImage source={{ uri: profileImageUrl }} className="h-full w-full rounded-full" resizeMode="cover" />
               ) : (
                 <Text className="text-3xl font-extrabold" style={{ color: theme.colors.onPrimary }}>{initials}</Text>
               )}

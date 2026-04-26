@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 export type UploadPreviewFile = {
@@ -101,7 +102,7 @@ export function FileUploadCard({
                   style={{ backgroundColor: uiColors.surface.accentSoft20 }}
                 >
                   {canPreviewImage ? (
-                    <Image source={{ uri: file.url }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+                    <AppImage source={{ uri: file.url }} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
                   ) : (
                     <Ionicons
                       name={isPdf ? 'document-text-outline' : 'image-outline'}

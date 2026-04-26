@@ -1,25 +1,44 @@
-import { Text, View, useColorScheme } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useMemo, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 
+import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
+import { CustomerBookingCard } from '@/components/common/CustomerBookingCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { BOOKINGS_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { palette, uiColors } from '@/utils';
+import { customerBookingTabs, customerMockBookings, CustomerBookingStatus } from '@/utils/options';
 
 export function BookingsScreen() {
-  const isDark = useColorScheme() === 'dark';
+  const [activeStatus, setActiveStatus] = useState<CustomerBookingStatus>('ONGOING');
+  const navigation = useNavigation() as any;
+  const bookings = useMemo(() => customerMockBookings[activeStatus], [activeStatus]);
 
   return (
     <GradientScreen>
-      <View
-        className="mt-16 p-6"
-        style={{
-          backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight90,
-          borderRadius: 16,
-        }}
-      >
-        <Text className="text-3xl font-extrabold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-          {APP_TEXT.main.bookingsTitle}
-        </Text>
-      </View>
+      <ScrollView className="flex-1 pt-1" contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        <SplitGradientTitle
+          prefix={APP_TEXT.main.bookings.titlePrefix}
+          highlight={APP_TEXT.main.bookings.titleHighlight}
+          subtitle={APP_TEXT.main.bookings.subtitle}
+          inline
+          prefixClassName="text-[34px] font-extrabold leading-[38px] text-baseDark dark:text-white"
+          highlightClassName="text-[38px] font-extrabold leading-[41px]"
+        />
+
+        <AnimatedSegmentTabs items={customerBookingTabs} value={activeStatus} onChange={setActiveStatus} />
+
+        <View className="mt-4">
+          {bookings.map(item => (
+            <CustomerBookingCard
+              key={item.id}
+              item={item}
+              onPress={(bookingId) => navigation.navigate(BOOKINGS_SCREEN.DETAILS, { bookingId })}
+            />
+          ))}
+        </View>
+      </ScrollView>
     </GradientScreen>
   );
 }

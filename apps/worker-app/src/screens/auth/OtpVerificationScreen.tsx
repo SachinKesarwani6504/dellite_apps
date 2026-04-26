@@ -1,6 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { AppState, Image, Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppState, Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -88,12 +89,12 @@ export function OtpVerificationScreen({ navigation }: Props) {
           <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
 
           <View className="items-center">
-            <Image
+            <AppImage
               source={logo}
               resizeMode="contain"
               style={{ width: BRAND.logo.width, height: BRAND.logo.height, marginTop: 8 }}
             />
-            <Image
+            <AppImage
               source={otpIllustration}
               resizeMode="contain"
               style={{ width: 148, height: 104, marginTop: 8 }}

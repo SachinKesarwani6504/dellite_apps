@@ -38,6 +38,7 @@ export type CreateCustomerProfileResponse = {
   profile?: CustomerProfile;
   accessToken: string;
   refreshToken: string;
+  firebaseCustomToken?: string;
 };
 
 export type CustomerHomeAsset = {
