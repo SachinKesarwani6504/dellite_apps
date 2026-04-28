@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { createWorkerServices, getCategories, updateWorkerProfile } from '@/actions';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
@@ -30,6 +30,7 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingService
 type SkillStep = 'select' | 'preview';
 
 const ONBOARDING_CITY = 'PRAYAGRAJ';
+const SKILL_LOG_PREFIX = '[OnboardingServiceSelection]';
 
 export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
@@ -49,6 +50,11 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const [selectedSubcategory, setSelectedSubcategory] = useState<ServiceSubcategory | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<Record<string, CategoryService>>({});
   const formLocked = serviceSaving || skipLoading;
+  const lastToggleRef = useRef<{ serviceId: string; timestamp: number } | null>(null);
+  const logSelectionDebug = useCallback((event: string, payload?: Record<string, unknown>) => {
+    if (!__DEV__) return;
+    console.log(`${SKILL_LOG_PREFIX} ${event}`, payload ?? {});
+  }, []);
 
   useEffect(() => {
     const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.serviceSelection);
@@ -59,6 +65,7 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
 
   const fetchCategories = useCallback(async (showLoader = false) => {
     try {
+      logSelectionDebug('fetch_categories_start', { showLoader });
       if (showLoader) {
         setCategoriesLoading(true);
       } else {
@@ -73,10 +80,15 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
       });
       const nextCategories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
       setCategories(nextCategories);
+      logSelectionDebug('fetch_categories_success', { totalCategories: nextCategories.length });
 
       setSelectedCategory(prevSelectedCategory => {
         if (!prevSelectedCategory) return null;
         const nextSelectedCategory = nextCategories.find(category => category.id === prevSelectedCategory.id) ?? null;
+        logSelectionDebug('sync_selected_category_after_fetch', {
+          previousCategoryId: prevSelectedCategory.id,
+          nextCategoryId: nextSelectedCategory?.id ?? null,
+        });
 
         setSelectedSubcategory(prevSelectedSubcategory => {
           if (!nextSelectedCategory) return null;
@@ -84,18 +96,32 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
             ? nextSelectedCategory.subcategories
             : [];
           if (!prevSelectedSubcategory) {
-            return nextSubcategories[0] ?? null;
+            const firstSubcategory = nextSubcategories[0] ?? null;
+            logSelectionDebug('sync_selected_subcategory_after_fetch', {
+              previousSubcategoryId: null,
+              nextSubcategoryId: firstSubcategory?.id ?? null,
+            });
+            return firstSubcategory;
           }
-          return nextSubcategories.find(subcategory => subcategory.id === prevSelectedSubcategory.id) ?? nextSubcategories[0] ?? null;
+          const nextSubcategory =
+            nextSubcategories.find(subcategory => subcategory.id === prevSelectedSubcategory.id) ??
+            nextSubcategories[0] ??
+            null;
+          logSelectionDebug('sync_selected_subcategory_after_fetch', {
+            previousSubcategoryId: prevSelectedSubcategory.id,
+            nextSubcategoryId: nextSubcategory?.id ?? null,
+          });
+          return nextSubcategory;
         });
 
         return nextSelectedCategory;
       });
     } finally {
+      logSelectionDebug('fetch_categories_end', { showLoader });
       setCategoriesLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [logSelectionDebug]);
 
   useEffect(() => {
     void fetchCategories(true);
@@ -130,16 +156,67 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   );
 
   const toggleService = (service: CategoryService) => {
+    const normalizedServiceId = String(service.id ?? '').trim();
+    if (!normalizedServiceId) {
+      logSelectionDebug('toggle_service_blocked_missing_id', {
+        serviceName: service.name,
+        rawServiceId: service.id,
+      });
+      return;
+    }
+    const now = Date.now();
+    const lastToggle = lastToggleRef.current;
+    if (lastToggle?.serviceId === normalizedServiceId && now - lastToggle.timestamp < 300) {
+      logSelectionDebug('toggle_service_ignored_rapid_repeat', {
+        serviceId: normalizedServiceId,
+        serviceName: service.name,
+        deltaMs: now - lastToggle.timestamp,
+      });
+      return;
+    }
+    lastToggleRef.current = { serviceId: normalizedServiceId, timestamp: now };
+
     setSelectedServiceIds(prev => {
       const next = { ...prev };
-      if (next[service.id]) {
-        delete next[service.id];
+      const wasSelected = Boolean(next[normalizedServiceId]);
+      if (next[normalizedServiceId]) {
+        delete next[normalizedServiceId];
       } else {
-        next[service.id] = service;
+        next[normalizedServiceId] = { ...service, id: normalizedServiceId };
       }
+      logSelectionDebug('toggle_service', {
+        serviceId: normalizedServiceId,
+        serviceName: service.name,
+        subcategoryId: selectedSubcategory?.id ?? null,
+        categoryId: selectedCategory?.id ?? null,
+        wasSelected,
+        isSelectedAfterToggle: !wasSelected,
+        selectedCountAfterToggle: Object.keys(next).length,
+      });
       return next;
     });
   };
+
+  useEffect(() => {
+    logSelectionDebug('selected_category_changed', {
+      selectedCategoryId: selectedCategory?.id ?? null,
+      selectedCategoryName: selectedCategory?.name ?? null,
+    });
+  }, [logSelectionDebug, selectedCategory]);
+
+  useEffect(() => {
+    logSelectionDebug('selected_subcategory_changed', {
+      selectedSubcategoryId: selectedSubcategory?.id ?? null,
+      selectedSubcategoryName: selectedSubcategory?.name ?? null,
+    });
+  }, [logSelectionDebug, selectedSubcategory]);
+
+  useEffect(() => {
+    logSelectionDebug('selected_services_changed', {
+      selectedServiceIds: Object.keys(selectedServiceIds),
+      selectedServiceNames: Object.values(selectedServiceIds).map(service => service.name),
+    });
+  }, [logSelectionDebug, selectedServiceIds]);
 
   const onSaveServices = async () => {
     if (selectedServiceNames.length === 0 || formLocked) return;
@@ -296,6 +373,11 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
                       const firstSubcategory = Array.isArray(category.subcategories)
                         ? category.subcategories[0] ?? null
                         : null;
+                      logSelectionDebug('select_category', {
+                        categoryId: category.id,
+                        categoryName: category.name,
+                        firstSubcategoryId: firstSubcategory?.id ?? null,
+                      });
                       setSelectedCategory(category);
                       setSelectedSubcategory(firstSubcategory);
                     }}
@@ -311,6 +393,12 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
                       disabled={formLocked}
                       isDark={isDark}
                       onSelectSubcategory={subcategory => {
+                        logSelectionDebug('select_subcategory', {
+                          subcategoryId: subcategory.id,
+                          subcategoryName: subcategory.name,
+                          previousSubcategoryId: selectedSubcategory?.id ?? null,
+                          categoryId: selectedCategory.id,
+                        });
                         setSelectedSubcategory(subcategory);
                       }}
                     />

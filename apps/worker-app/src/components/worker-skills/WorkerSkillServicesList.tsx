@@ -20,11 +20,12 @@ export function WorkerSkillServicesList({
 }: WorkerSkillServicesListProps) {
   return (
     <View className="gap-2">
-      {services.map(service => {
+      {services.map((service, index) => {
         const selected = Boolean(selectedServiceIds[service.id]);
+        const itemKey = `${service.id}-${service.name}-${index}`;
         return (
           <Pressable
-            key={service.id}
+            key={itemKey}
             onPress={() => {
               if (disabled) return;
               onToggleService(service);

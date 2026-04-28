@@ -4,6 +4,10 @@ export type RootStackParamList = {
   [ROOT_SCREEN.AUTH_NAVIGATOR]: undefined;
   [ROOT_SCREEN.ONBOARDING_NAVIGATOR]: undefined;
   [ROOT_SCREEN.MAIN_TABS_NAVIGATOR]: undefined;
+  [ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR]: {
+    screen: string;
+    params?: unknown;
+  };
 };
 
 export type AuthStackParamList = {

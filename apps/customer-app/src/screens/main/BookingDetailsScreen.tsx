@@ -1,17 +1,31 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
-import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
-import { resolveBookingServiceability, resolveProductLocation } from '@/modules/location-intelligence';
+import { resolveProductLocation } from '@/modules/location-intelligence';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { bookingSlotOptions, type BookingSlotValue } from '@/utils/options';
+import {
+  buildAddressSummary,
+  buildDetectedAddressDraft,
+  buildLocationPrimaryLine,
+  buildScheduledStartAt,
+  formatCurrencyAmount,
+  formatPriceOptionAmount,
+  formatPriceOptionMeta,
+  formatTaskList,
+  getServiceLineTotalAmount,
+  getSelectedPriceOption,
+  hasValidCoordinates,
+  isBookingAddressComplete,
+  titleCase,
+} from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type BookingDetailsScreenProps = {
@@ -21,6 +35,77 @@ type BookingDetailsScreenProps = {
   };
 };
 
+type DateChoice = {
+  value: string;
+  topLabel: string;
+  dayOfMonth: string;
+  monthLabel: string;
+};
+
+function buildNextFiveDays(): DateChoice[] {
+  return Array.from({ length: 5 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const value = date.toISOString().slice(0, 10);
+    return {
+      value,
+      topLabel: index === 0
+        ? 'TODAY'
+        : new Intl.DateTimeFormat('en-IN', { weekday: 'short' }).format(date).toUpperCase(),
+      dayOfMonth: new Intl.DateTimeFormat('en-IN', { day: 'numeric' }).format(date),
+      monthLabel: new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(date),
+    };
+  });
+}
+
+function buildHalfHourTimeOptions() {
+  const options: string[] = [];
+  for (let hour = 6; hour <= 23; hour += 1) {
+    for (let minute = 0; minute <= 30; minute += 30) {
+      if (hour === 23 && minute > 30) continue;
+      const hourLabel = String(hour).padStart(2, '0');
+      const minuteLabel = String(minute).padStart(2, '0');
+      options.push(`${hourLabel}:${minuteLabel}`);
+    }
+  }
+  return options;
+}
+
+function formatTimeChipLabel(value: string) {
+  const [hours = '09', minutes = '00'] = value.split(':');
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+  return new Intl.DateTimeFormat('en-IN', { timeStyle: 'short' }).format(date);
+}
+
+function BookingTypeChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-1 flex-row items-center justify-center rounded-lg px-4 py-3"
+      style={{
+        backgroundColor: selected ? theme.colors.primary : 'transparent',
+      }}
+    >
+      <View
+        className="mr-2 h-4 w-4 items-center justify-center rounded-full border"
+        style={{ borderColor: selected ? '#FFFFFF' : '#9CA3AF' }}
+      >
+        {selected ? <View className="h-2 w-2 rounded-full bg-white" /> : null}
+      </View>
+      <Text className={`text-sm font-bold ${selected ? 'text-white' : 'text-baseDark dark:text-white'}`} style={selected ? undefined : { opacity: 0.75 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const { locationState } = useAuthContext();
@@ -28,6 +113,8 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     city,
     locality,
     state,
+    country,
+    postalCode,
     formattedAddress,
     latitude,
     longitude,
@@ -37,17 +124,25 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   } = locationState;
   const {
     categoryName,
-    subcategoryName,
     selectedServices,
-    slotValue: contextSlotValue,
+    bookingType: contextBookingType,
+    scheduledDate: contextScheduledDate,
+    scheduledTime: contextScheduledTime,
     address: contextAddress,
     notes: contextNotes,
+    setServicePriceOption,
+    setServiceQuantity,
     setBookingDetails,
   } = useBookingFlowContext();
 
-  const [selectedSlot, setSelectedSlot] = useState<BookingSlotValue>(contextSlotValue);
-  const [address, setAddress] = useState(contextAddress);
+  const [bookingType, setBookingType] = useState(contextBookingType);
+  const [scheduledDate, setScheduledDate] = useState(contextBookingType === 'SCHEDULED' ? contextScheduledDate : '');
+  const [scheduledTime, setScheduledTime] = useState(contextScheduledTime);
+  const [addressDraft, setAddressDraft] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
+
+  const dateChoices = useMemo(buildNextFiveDays, []);
+  const timeOptions = useMemo(buildHalfHourTimeOptions, []);
 
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
@@ -58,127 +153,452 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
 
-  const bookingServiceability = useMemo(() => resolveBookingServiceability({
-    cityCode: resolvedLocation.resolvedCity,
+  const detectedAddressDraft = useMemo(() => buildDetectedAddressDraft({
+    city,
     locality,
+    state,
+    country,
+    postalCode,
     formattedAddress,
-  }), [formattedAddress, locality, resolvedLocation.resolvedCity]);
+    latitude,
+    longitude,
+  }), [city, country, formattedAddress, latitude, locality, longitude, postalCode, state]);
 
   useEffect(() => {
-    if (contextAddress.trim().length > 0) {
+    if (detectedAddressDraft.addressLine1.trim().length === 0) {
       return;
     }
 
-    if (formattedAddress?.trim()) {
-      setAddress(current => (current.trim().length > 0 ? current : formattedAddress));
-    }
-  }, [contextAddress, formattedAddress]);
+    setAddressDraft((current) => {
+      if (current.mode === 'pin' && current.addressLine1.trim().length > 0) {
+        return current;
+      }
 
-  const slotLabel = useMemo(
-    () => bookingSlotOptions.find(slot => slot.value === selectedSlot)?.label ?? bookingSlotOptions[0].label,
-    [selectedSlot],
+      return {
+        ...detectedAddressDraft,
+        mode: current.mode || 'google',
+        addressLine2: current.addressLine2,
+      };
+    });
+  }, [detectedAddressDraft]);
+
+  useEffect(() => {
+    if (scheduledDate && !dateChoices.some(choice => choice.value === scheduledDate)) {
+      setScheduledDate('');
+      setScheduledTime('');
+    }
+  }, [dateChoices, scheduledDate]);
+
+  useEffect(() => {
+    selectedServices.forEach((line) => {
+      if (line.selectedPriceOptionId) return;
+      if (!Array.isArray(line.service.priceOptions) || line.service.priceOptions.length === 0) return;
+      const [defaultOption] = line.service.priceOptions;
+      if (defaultOption?.id) {
+        setServicePriceOption(line.service.id, defaultOption.id);
+      }
+    });
+  }, [selectedServices, setServicePriceOption]);
+
+  const hasMissingPriceSelection = selectedServices.some(line =>
+    Array.isArray(line.service.priceOptions)
+    && line.service.priceOptions.length > 0
+    && !line.selectedPriceOptionId,
   );
-  const canReview = address.trim().length > 0
-    && selectedServices.length > 0
-    && bookingServiceability.isServiceable;
+
+  const hasValidSchedule = bookingType === 'INSTANT' || Boolean(buildScheduledStartAt(scheduledDate, scheduledTime));
+  const canReview = selectedServices.length > 0
+    && !hasMissingPriceSelection
+    && isBookingAddressComplete(addressDraft)
+    && hasValidSchedule;
+
+  const currentLocationSummary = buildAddressSummary(detectedAddressDraft) || APP_TEXT.main.bookingFlow.currentLocationEmptyHint;
+  const currentLocationPrimaryLine = buildLocationPrimaryLine(detectedAddressDraft) || resolvedLocation.displayCity || 'Location not ready';
 
   return (
-    <GradientScreen contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}>
+    <GradientScreen contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28, paddingTop: 12 }}>
       <View className="mb-2 flex-row items-center">
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <SplitGradientTitle
         eyebrow={APP_TEXT.main.bookingFlow.detailsEyebrow}
-        prefix={APP_TEXT.main.bookingFlow.detailsTitle}
-        highlight={categoryName ?? ''}
-        subtitle={APP_TEXT.main.bookingFlow.detailsSubtitle}
-        prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-        highlightClassName="text-4xl font-extrabold leading-[40px]"
-        subtitleClassName="mt-2 text-sm"
-        showSparkle={false}
+        prefix="Book your"
+        highlight={categoryName ? titleCase(categoryName) : ''}
+        wrapHighlight
       />
 
-      <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight, backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}>
-        {subcategoryName ? (
-          <>
-            <Text className="text-xs font-semibold" style={{ color: theme.colors.primary }}>{APP_TEXT.main.bookingFlow.subcategoryLabel}</Text>
-            <Text className="mt-1 text-sm font-bold text-baseDark dark:text-white">{subcategoryName}</Text>
-          </>
-        ) : null}
-        <Text className="mt-3 text-xs font-semibold" style={{ color: theme.colors.primary }}>{APP_TEXT.main.bookingFlow.servicesLabel}</Text>
-        <Text className="mt-1 text-sm font-bold text-baseDark dark:text-white">
-          {selectedServices.map(service => service.name).join(', ')}
-        </Text>
+      <View
+        className="mt-5 flex-row rounded-xl p-1"
+        style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}
+      >
+        <BookingTypeChip
+          label={APP_TEXT.main.bookingFlow.instantBookingLabel}
+          selected={bookingType === 'INSTANT'}
+          onPress={() => {
+            setBookingType('INSTANT');
+            setScheduledDate('');
+            setScheduledTime('');
+          }}
+        />
+        <BookingTypeChip
+          label={APP_TEXT.main.bookingFlow.scheduledBookingLabel}
+          selected={bookingType === 'SCHEDULED'}
+          onPress={() => setBookingType('SCHEDULED')}
+        />
       </View>
 
-      <Text className="mt-5 text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.slotLabel}</Text>
-      <View className="mt-2 gap-2">
-        {bookingSlotOptions.map(slot => {
-          const selected = selectedSlot === slot.value;
+      {bookingType === 'SCHEDULED' ? (
+        <>
+          <View className="mt-4 flex-row items-center justify-between">
+            <Text className="text-sm font-bold text-baseDark dark:text-white">Select date</Text>
+            <Text className="text-[11px] font-semibold uppercase text-textPrimary/60 dark:text-white/60">Next 5 days</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 10 }}
+          >
+            {dateChoices.map((choice) => {
+              const selected = scheduledDate === choice.value;
+              return (
+                <Pressable
+                  key={choice.value}
+                  onPress={() => {
+                    setScheduledDate(choice.value);
+                    if (!scheduledTime) {
+                      setScheduledTime('06:00');
+                    }
+                  }}
+                  className="min-w-[88px] rounded-lg border px-3 py-3"
+                  style={{
+                    borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
+                    backgroundColor: selected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
+                  }}
+                >
+                  <Text className={`text-[10px] font-bold uppercase ${selected ? 'text-primary' : 'text-textPrimary/70 dark:text-white/70'}`}>{choice.topLabel}</Text>
+                  <Text className="mt-1 text-2xl font-extrabold text-baseDark dark:text-white">{choice.dayOfMonth}</Text>
+                  <Text className="text-xs text-textPrimary/70 dark:text-white/70">{choice.monthLabel}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {scheduledDate ? (
+            <>
+              <View className="mt-4 flex-row items-center justify-between">
+                <Text className="text-sm font-bold text-baseDark dark:text-white">Select time slot</Text>
+                <Text className="text-[11px] font-semibold uppercase text-textPrimary/60 dark:text-white/60">Available slots</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 10 }}
+              >
+                {timeOptions.map((timeOption) => {
+                  const selected = scheduledTime === timeOption;
+                  return (
+                    <Pressable
+                      key={timeOption}
+                      onPress={() => setScheduledTime(timeOption)}
+                      className="rounded-full border px-4 py-2.5"
+                      style={{
+                        borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
+                        backgroundColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
+                      }}
+                    >
+                      <Text className={`text-xs font-bold ${selected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
+                        {formatTimeChipLabel(timeOption)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </>
+          ) : null}
+        </>
+      ) : null}
+
+      <View className="mt-6 flex-row items-center justify-between">
+        <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.selectedServicesTitle}</Text>
+        <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">{selectedServices.length} item</Text>
+      </View>
+      <View className="mt-3 gap-3">
+        {selectedServices.map((line) => {
+          const includedTaskLabels = formatTaskList(line.service.includedTasks);
+          const excludedTaskLabels = formatTaskList(line.service.excludedTasks);
+          const selectedPriceOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
+          const lineTotalAmount = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity);
+          const unitPriceAmount = typeof selectedPriceOption?.amount === 'number' ? selectedPriceOption.amount : null;
+
           return (
-            <Pressable
-              key={slot.value}
-              onPress={() => setSelectedSlot(slot.value)}
-              className="rounded-2xl border px-3 py-3"
+            <View
+              key={line.service.id}
+              className="rounded-lg border p-4"
               style={{
-                borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                backgroundColor: selected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
+                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
               }}
             >
-              <Text className={`text-sm font-semibold ${selected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
-                {slot.label}
-              </Text>
-            </Pressable>
+              <View className="flex-row items-start justify-between">
+                <View className="mr-3 flex-row flex-1">
+                  <View
+                    className="mr-3 h-11 w-11 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF1E6' }}
+                  >
+                    <Ionicons name="construct-outline" size={18} color={theme.colors.primary} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-extrabold text-baseDark dark:text-white">{titleCase(line.service.name)}</Text>
+                    {selectedPriceOption ? (
+                      <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                        {formatPriceOptionAmount(selectedPriceOption)} per service
+                        {formatPriceOptionMeta(selectedPriceOption) ? ` · ${formatPriceOptionMeta(selectedPriceOption)}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+                <View
+                  className="h-8 min-w-[36px] items-center justify-center rounded-full px-2"
+                  style={{ backgroundColor: theme.colors.primary }}
+                >
+                  <Text className="text-xs font-extrabold text-white">x{line.quantity}</Text>
+                </View>
+              </View>
+
+              <View className="mt-4 flex-row items-center justify-between">
+                <View className="mr-3 flex-1">
+                  <Text className="text-base font-bold text-baseDark dark:text-white">Quantity</Text>
+                  <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                    How many do you need?
+                  </Text>
+                </View>
+                <View
+                  className="flex-row items-center rounded-full border px-3 py-2"
+                  style={{
+                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                  }}
+                >
+                  <Pressable
+                    onPress={() => setServiceQuantity(line.service.id, line.quantity - 1)}
+                    className="h-9 w-9 items-center justify-center rounded-full"
+                  >
+                    <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+                  </Pressable>
+                  <Text className="mx-5 text-lg font-extrabold text-baseDark dark:text-white">{line.quantity}</Text>
+                  <Pressable
+                    onPress={() => setServiceQuantity(line.service.id, line.quantity + 1)}
+                    className="h-9 w-9 items-center justify-center rounded-full"
+                    style={{ backgroundColor: theme.colors.primary }}
+                  >
+                    <Ionicons name="add" size={20} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View
+                className="mt-4 flex-row items-center justify-between border-t pt-4"
+                style={{ borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }}
+              >
+                <View className="mr-3 flex-1">
+                  <Text className="text-base font-bold text-baseDark dark:text-white">
+                    {APP_TEXT.main.bookingFlow.subtotalLabel}
+                    {unitPriceAmount != null ? (
+                      <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">
+                        {` (${line.quantity} x ${formatCurrencyAmount(unitPriceAmount)})`}
+                      </Text>
+                    ) : null}
+                  </Text>
+                </View>
+                <Text className="text-xl font-extrabold text-baseDark dark:text-white">
+                  {lineTotalAmount != null ? formatCurrencyAmount(lineTotalAmount) : '--'}
+                </Text>
+              </View>
+
+              {includedTaskLabels.length > 0 ? (
+                <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#EFFBF4' }}>
+                  <Text className="text-xs font-bold text-primary">{APP_TEXT.main.bookingFlow.includedTitle}</Text>
+                  {includedTaskLabels.map(task => (
+                    <View key={task} className="mt-2 flex-row items-start">
+                      <Ionicons name="checkmark-circle" size={14} color="#38B66B" />
+                      <Text className="ml-2 flex-1 text-xs font-semibold text-baseDark dark:text-white">{titleCase(task)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {excludedTaskLabels.length > 0 ? (
+                <View className="mt-3 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
+                  <Text className="text-xs font-bold" style={{ color: '#C46A2B' }}>{APP_TEXT.main.bookingFlow.excludedTitle}</Text>
+                  {excludedTaskLabels.map(task => (
+                    <View key={task} className="mt-2 flex-row items-start">
+                      <Ionicons name="close-circle" size={14} color="#DB8A43" />
+                      <Text className="ml-2 flex-1 text-xs font-semibold text-baseDark dark:text-white">{titleCase(task)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           );
         })}
       </View>
 
-      <View className="mt-5">
-        <AppInput
-          label={APP_TEXT.main.bookingFlow.addressLabel}
-          isRequired
-          value={address}
-          onChangeText={setAddress}
-          placeholder={APP_TEXT.main.bookingFlow.addressPlaceholder}
-        />
+      <Text className="mt-6 text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationTitle}</Text>
+      <View
+        className="mt-3 rounded-lg border p-4"
+        style={{
+          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+          backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+        }}
+      >
+        <Pressable
+          onPress={() => {
+            void refreshLocation();
+            setAddressDraft({
+              ...detectedAddressDraft,
+              mode: 'google',
+              addressLine2: addressDraft.addressLine2,
+            });
+          }}
+        >
+          <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationCurrentTitle}</Text>
+          <View
+            className="mt-3 rounded-md border px-3 py-3"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="mr-3 flex-1">
+                <Text className="text-[11px] font-semibold uppercase text-primary">{APP_TEXT.main.bookingFlow.currentLocationSummaryTitle}</Text>
+                <Text className="mt-1 text-sm font-bold text-baseDark dark:text-white">{titleCase(currentLocationPrimaryLine)}</Text>
+              </View>
+              <Text className="text-xs font-bold text-primary">
+                {locationRefreshing ? APP_TEXT.main.bookingFlow.refreshingLocationLabel : APP_TEXT.main.bookingFlow.useCurrentLocationCta}
+              </Text>
+            </View>
+            <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              {currentLocationSummary}
+            </Text>
+            {locationError ? (
+              <Text className="mt-2 text-xs" style={{ color: theme.colors.negative }}>
+                {locationError}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+
+        <View className="my-4 flex-row items-center">
+          <View className="h-px flex-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+          <Text className="mx-3 text-[10px] font-semibold uppercase text-textPrimary/60 dark:text-white/60">OR</Text>
+          <View className="h-px flex-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
+        </View>
+
+        <Pressable onPress={() => setAddressDraft(current => ({ ...current, mode: 'pin' }))}>
+          <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationManualTitle}</Text>
+          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            {APP_TEXT.main.bookingFlow.locationManualSubtitle}
+          </Text>
+        </Pressable>
+
+        {addressDraft.mode === 'pin' ? (
+          <View className="mt-4 gap-3">
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.addressLine1Label}
+              isRequired
+              value={addressDraft.addressLine1}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, addressLine1: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.addressPlaceholder}
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.addressLine2Label}
+              value={addressDraft.addressLine2}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, addressLine2: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.addressLine2Placeholder}
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.areaLabel}
+              isRequired
+              value={addressDraft.area}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, area: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.areaPlaceholder}
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.districtLabel}
+              isRequired
+              value={addressDraft.district}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, district: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.districtPlaceholder}
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.stateFieldLabel}
+              isRequired
+              value={addressDraft.state}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, state: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.statePlaceholder}
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.pincodeLabel}
+              isRequired
+              value={addressDraft.pincode}
+              onChangeText={(value) => setAddressDraft(current => ({ ...current, pincode: value }))}
+              placeholder={APP_TEXT.main.bookingFlow.pincodePlaceholder}
+              keyboardType="number-pad"
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.latitudeLabel}
+              isRequired
+              value={addressDraft.latitude == null ? '' : String(addressDraft.latitude)}
+              onChangeText={(value) => setAddressDraft(current => ({
+                ...current,
+                latitude: value.trim().length === 0 ? null : Number(value),
+              }))}
+              placeholder={APP_TEXT.main.bookingFlow.latitudePlaceholder}
+              keyboardType="decimal-pad"
+            />
+            <AppInput
+              label={APP_TEXT.main.bookingFlow.longitudeLabel}
+              isRequired
+              value={addressDraft.longitude == null ? '' : String(addressDraft.longitude)}
+              onChangeText={(value) => setAddressDraft(current => ({
+                ...current,
+                longitude: value.trim().length === 0 ? null : Number(value),
+              }))}
+              placeholder={APP_TEXT.main.bookingFlow.longitudePlaceholder}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        ) : null}
       </View>
 
-      <View className="mt-4">
-        <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {resolvedLocation.displayCity ? `Detected city: ${resolvedLocation.displayCity}` : 'City not detected yet'}
-          </Text>
-          <Pressable onPress={() => void refreshLocation()}>
-            <Text className="text-xs font-semibold text-primary">
-              {locationRefreshing ? 'Refreshing...' : 'Use current location'}
-            </Text>
-          </Pressable>
-        </View>
-        {locationError ? (
-          <Text className="mb-2 text-xs" style={{ color: theme.colors.negative }}>
-            {locationError}
-          </Text>
-        ) : null}
+      <View className="mt-5">
         <AppInput
-          label={APP_TEXT.main.bookingFlow.notesLabel}
+          label={APP_TEXT.main.bookingFlow.notesSimpleLabel}
           value={notes}
           onChangeText={setNotes}
           placeholder={APP_TEXT.main.bookingFlow.notesPlaceholder}
           multiline
-          numberOfLines={3}
+          numberOfLines={5}
           textAlignVertical="top"
+          style={{ minHeight: 120 }}
         />
       </View>
 
-      {!bookingServiceability.isServiceable ? (
-        <View className="mt-3">
-          <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
-          {bookingServiceability.comingSoonMessage ? (
-            <Text className="mt-2 text-xs text-center" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {bookingServiceability.comingSoonMessage}
-            </Text>
-          ) : null}
+      {hasMissingPriceSelection ? (
+        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
+          <Text className="text-sm font-bold" style={{ color: '#C46A2B' }}>
+            {APP_TEXT.main.bookingFlow.missingPriceSelectionError}
+          </Text>
+        </View>
+      ) : null}
+
+      {!hasValidSchedule ? (
+        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
+          <Text className="text-sm font-bold" style={{ color: '#C46A2B' }}>
+            {APP_TEXT.main.bookingFlow.invalidScheduleError}
+          </Text>
         </View>
       ) : null}
 
@@ -189,9 +609,10 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
           onPress={() => {
             if (!canReview) return;
             setBookingDetails({
-              slotValue: selectedSlot,
-              slotLabel,
-              address: address.trim(),
+              bookingType,
+              scheduledDate,
+              scheduledTime,
+              address: addressDraft,
               notes: notes.trim(),
             });
             navigation.navigate(HOME_SCREEN.BOOKING_CONFIRMATION);

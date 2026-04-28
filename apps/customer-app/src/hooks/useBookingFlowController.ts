@@ -1,11 +1,46 @@
 import { useCallback, useMemo, useState } from 'react';
 import { customerActions } from '@/actions';
-import type { CustomerHomeCategory } from '@/types/customer';
-import type { BookingFlowContextType, BookingFlowService, BookingFlowSourceType } from '@/types/booking-flow-context';
-import type { BookingSlotValue } from '@/utils/options';
+import type { BookingFlowContextType, BookingFlowDetailsDraft, BookingFlowSelectedServiceLine, BookingFlowSourceType } from '@/types/booking-flow-context';
+import type { CustomerBookableService, CustomerHomeCategory } from '@/types/customer';
+import {
+  buildCreateBookingPayload,
+  createEmptyAddressDraft,
+  createSelectedServiceLine,
+} from '@/utils/booking-flow';
 
-const DEFAULT_SLOT_VALUE: BookingSlotValue = 'morning';
-const DEFAULT_SLOT_LABEL = 'Today Morning (9:00 AM - 12:00 PM)';
+function getTodayDateValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getNextHourTimeValue() {
+  const now = new Date();
+  const hour = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
+  return `${hour}:00`;
+}
+
+function createDefaultDetailsDraft(): BookingFlowDetailsDraft {
+  return {
+    bookingType: 'INSTANT',
+    scheduledDate: getTodayDateValue(),
+    scheduledTime: getNextHourTimeValue(),
+    address: createEmptyAddressDraft(),
+    notes: '',
+  };
+}
+
+function upsertSelectedServiceLine(
+  current: Record<string, BookingFlowSelectedServiceLine>,
+  service: CustomerBookableService,
+) {
+  const next = { ...current };
+  if (next[service.id]) {
+    delete next[service.id];
+    return next;
+  }
+
+  next[service.id] = createSelectedServiceLine(service);
+  return next;
+}
 
 export function useBookingFlowController(): BookingFlowContextType {
   const [sourceType, setSourceType] = useState<BookingFlowSourceType | null>(null);
@@ -13,26 +48,20 @@ export function useBookingFlowController(): BookingFlowContextType {
   const [categoryName, setCategoryName] = useState<string | null>(null);
   const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
   const [subcategoryName, setSubcategoryName] = useState<string | null>(null);
-  const [selectedServicesById, setSelectedServicesById] = useState<Record<string, BookingFlowService>>({});
+  const [selectedServicesById, setSelectedServicesById] = useState<Record<string, BookingFlowSelectedServiceLine>>({});
   const [catalog, setCatalog] = useState<CustomerHomeCategory[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [slotValue, setSlotValue] = useState<BookingSlotValue>(DEFAULT_SLOT_VALUE);
-  const [slotLabel, setSlotLabel] = useState(DEFAULT_SLOT_LABEL);
-  const [address, setAddress] = useState('');
-  const [notes, setNotes] = useState('');
+  const [detailsDraft, setDetailsDraft] = useState<BookingFlowDetailsDraft>(createDefaultDetailsDraft);
 
-  const beginFlow = useCallback((payload: { sourceType: BookingFlowSourceType; categoryId?: string; service?: BookingFlowService }) => {
+  const beginFlow = useCallback((payload: { sourceType: BookingFlowSourceType; categoryId?: string; service?: CustomerBookableService }) => {
     setSourceType(payload.sourceType);
     setCategoryId(payload.categoryId ?? null);
     setCategoryName(null);
     setSubcategoryId(null);
     setSubcategoryName(null);
-    setSelectedServicesById(payload.service ? { [payload.service.id]: payload.service } : {});
-    setSlotValue(DEFAULT_SLOT_VALUE);
-    setSlotLabel(DEFAULT_SLOT_LABEL);
-    setAddress('');
-    setNotes('');
+    setSelectedServicesById(payload.service ? { [payload.service.id]: createSelectedServiceLine(payload.service) } : {});
+    setDetailsDraft(createDefaultDetailsDraft());
   }, []);
 
   const setCategory = useCallback((payload: { id: string; name?: string | null }) => {
@@ -41,7 +70,7 @@ export function useBookingFlowController(): BookingFlowContextType {
   }, []);
 
   const setSubcategory = useCallback((payload: { id: string; name?: string | null }) => {
-    setSubcategoryId(currentId => {
+    setSubcategoryId((currentId) => {
       if (currentId && currentId !== payload.id) {
         setSelectedServicesById({});
       }
@@ -50,16 +79,8 @@ export function useBookingFlowController(): BookingFlowContextType {
     setSubcategoryName(payload.name ?? null);
   }, []);
 
-  const toggleService = useCallback((service: BookingFlowService) => {
-    setSelectedServicesById(prev => {
-      const next = { ...prev };
-      if (next[service.id]) {
-        delete next[service.id];
-      } else {
-        next[service.id] = service;
-      }
-      return next;
-    });
+  const toggleService = useCallback((service: CustomerBookableService) => {
+    setSelectedServicesById(prev => upsertSelectedServiceLine(prev, service));
   }, []);
 
   const resetSelectedServices = useCallback(() => {
@@ -72,16 +93,45 @@ export function useBookingFlowController(): BookingFlowContextType {
     setSelectedServicesById({});
   }, []);
 
-  const setBookingDetails = useCallback((payload: {
-    slotValue: BookingSlotValue;
-    slotLabel: string;
-    address: string;
-    notes: string;
-  }) => {
-    setSlotValue(payload.slotValue);
-    setSlotLabel(payload.slotLabel);
-    setAddress(payload.address);
-    setNotes(payload.notes);
+  const setServiceQuantity = useCallback((serviceId: string, quantity: number) => {
+    setSelectedServicesById((prev) => {
+      const current = prev[serviceId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [serviceId]: {
+          ...current,
+          quantity: Math.max(1, Math.min(quantity, 20)),
+        },
+      };
+    });
+  }, []);
+
+  const setServicePriceOption = useCallback((serviceId: string, priceOptionId: string) => {
+    setSelectedServicesById((prev) => {
+      const current = prev[serviceId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [serviceId]: {
+          ...current,
+          selectedPriceOptionId: priceOptionId,
+        },
+      };
+    });
+  }, []);
+
+  const removeService = useCallback((serviceId: string) => {
+    setSelectedServicesById((prev) => {
+      if (!prev[serviceId]) return prev;
+      const next = { ...prev };
+      delete next[serviceId];
+      return next;
+    });
+  }, []);
+
+  const setBookingDetails = useCallback((payload: BookingFlowDetailsDraft) => {
+    setDetailsDraft(payload);
   }, []);
 
   const loadCatalog = useCallback(async (city: string, forceRefresh: boolean) => {
@@ -97,6 +147,7 @@ export function useBookingFlowController(): BookingFlowContextType {
         includeSubcategory: true,
         includeServices: true,
         includePriceOptions: true,
+        includeTask: true,
         includeImage: true,
         usageType: ['MAIN', 'ICON'],
       });
@@ -117,6 +168,20 @@ export function useBookingFlowController(): BookingFlowContextType {
   const ensureCatalog = useCallback((city: string) => loadCatalog(city, false), [loadCatalog]);
   const refreshCatalog = useCallback((city: string) => loadCatalog(city, true), [loadCatalog]);
 
+  const createBooking = useCallback(async (city: string) => {
+    const payload = buildCreateBookingPayload({
+      city,
+      bookingType: detailsDraft.bookingType,
+      scheduledDate: detailsDraft.scheduledDate,
+      scheduledTime: detailsDraft.scheduledTime,
+      notes: detailsDraft.notes,
+      address: detailsDraft.address,
+      selectedServices: Object.values(selectedServicesById),
+    });
+
+    return customerActions.createCustomerBooking(payload);
+  }, [detailsDraft, selectedServicesById]);
+
   const resetFlow = useCallback(() => {
     setSourceType(null);
     setCategoryId(null);
@@ -126,10 +191,7 @@ export function useBookingFlowController(): BookingFlowContextType {
     setSelectedServicesById({});
     setCatalog([]);
     setCatalogError(null);
-    setSlotValue(DEFAULT_SLOT_VALUE);
-    setSlotLabel(DEFAULT_SLOT_LABEL);
-    setAddress('');
-    setNotes('');
+    setDetailsDraft(createDefaultDetailsDraft());
   }, []);
 
   const selectedServices = useMemo(() => Object.values(selectedServicesById), [selectedServicesById]);
@@ -153,19 +215,24 @@ export function useBookingFlowController(): BookingFlowContextType {
     catalog,
     catalogLoading,
     catalogError,
-    slotValue,
-    slotLabel,
-    address,
-    notes,
+    bookingType: detailsDraft.bookingType,
+    scheduledDate: detailsDraft.scheduledDate,
+    scheduledTime: detailsDraft.scheduledTime,
+    address: detailsDraft.address,
+    notes: detailsDraft.notes,
     beginFlow,
     setCategory,
     setSubcategory,
     toggleService,
     resetSelectedServices,
     clearSubcategorySelection,
+    setServiceQuantity,
+    setServicePriceOption,
+    removeService,
     setBookingDetails,
     ensureCatalog,
     refreshCatalog,
+    createBooking,
     resetFlow,
   }), [
     sourceType,
@@ -178,19 +245,24 @@ export function useBookingFlowController(): BookingFlowContextType {
     catalog,
     catalogLoading,
     catalogError,
-    slotValue,
-    slotLabel,
-    address,
-    notes,
+    detailsDraft.bookingType,
+    detailsDraft.scheduledDate,
+    detailsDraft.scheduledTime,
+    detailsDraft.address,
+    detailsDraft.notes,
     beginFlow,
     setCategory,
     setSubcategory,
     toggleService,
     resetSelectedServices,
     clearSubcategorySelection,
+    setServiceQuantity,
+    setServicePriceOption,
+    removeService,
     setBookingDetails,
     ensureCatalog,
     refreshCatalog,
+    createBooking,
     resetFlow,
   ]);
 }

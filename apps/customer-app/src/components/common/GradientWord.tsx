@@ -6,14 +6,16 @@ type GradientWordProps = {
   word?: string;
   className?: string;
   palette?: readonly string[];
+  wrap?: boolean;
 };
 
 const DEFAULT_PALETTE = theme.gradients.cta;
 
 export function GradientWord({
   word = '',
-  className = 'text-[44px] font-extrabold leading-[45px]',
+  className = 'text-[34px] font-extrabold leading-[36px]',
   palette = DEFAULT_PALETTE,
+  wrap = false,
 }: GradientWordProps) {
   const letters = String(word).split('');
   const colors = letters.map((_, index) => {
@@ -22,7 +24,7 @@ export function GradientWord({
   });
 
   return (
-    <View className="flex-row">
+    <View className={wrap ? 'flex-row flex-wrap' : 'flex-row'}>
       {letters.map((char, index) => (
         <Text key={`${char}-${index}`} className={className} style={{ color: colors[index] }}>
           {char}

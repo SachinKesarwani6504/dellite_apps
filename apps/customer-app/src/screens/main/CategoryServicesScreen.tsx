@@ -15,10 +15,10 @@ import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
-import type { CustomerCatalogService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
+import type { CustomerBookableService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { safeImageUrl, titleCase } from '@/utils/home';
+import { createBookingFlowService, safeImageUrl, titleCase } from '@/utils';
 import { theme, uiColors } from '@/utils/theme';
 
 type CategoryServicesRouteParams = {
@@ -152,12 +152,11 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     if (route.params.serviceId && resolvedSubcategory?.services) {
       const initialService = resolvedSubcategory.services.find(service => service.id === route.params.serviceId);
       if (initialService && !initialServiceAppliedRef.current && !selectedServiceIds[initialService.id]) {
-        toggleService({
-          id: initialService.id,
-          name: initialService.name,
-          description: initialService.description,
-          iconText: initialService.iconText,
-        });
+        toggleService(createBookingFlowService({
+          ...initialService,
+          category: resolvedCategory,
+          subCategory: resolvedSubcategory,
+        }));
         initialServiceAppliedRef.current = true;
       }
     }
@@ -192,7 +191,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   );
 
   const services = useMemo(
-    () => (Array.isArray(activeSubcategory?.services) ? activeSubcategory.services : []),
+    () => (Array.isArray(activeSubcategory?.services) ? activeSubcategory.services as CustomerBookableService[] : []),
     [activeSubcategory],
   );
   const headerBannerImage = showSubcategoryPicker
@@ -313,12 +312,11 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
                         height={176}
                         selected={selected}
                         onPress={() => {
-                          toggleService({
-                            id: item.id,
-                            name: item.name,
-                            description: item.description,
-                            iconText: item.iconText,
-                          });
+                          toggleService(createBookingFlowService({
+                            ...item,
+                            category: activeCategory ?? undefined,
+                            subCategory: activeSubcategory ?? undefined,
+                          }));
                         }}
                       />
                     </View>

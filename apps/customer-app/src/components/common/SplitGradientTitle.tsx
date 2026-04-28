@@ -15,6 +15,7 @@ type SplitGradientTitleProps = {
   subtitleStyle?: TextStyle;
   inline?: boolean;
   showSparkle?: boolean;
+  wrapHighlight?: boolean;
 };
 
 export function SplitGradientTitle({
@@ -28,6 +29,7 @@ export function SplitGradientTitle({
   subtitleStyle,
   inline = false,
   showSparkle = true,
+  wrapHighlight = false,
 }: SplitGradientTitleProps) {
   const isDark = useColorScheme() === 'dark';
   const resolvedSubtitleStyle = subtitleStyle ?? {
@@ -46,13 +48,13 @@ export function SplitGradientTitle({
       {inline ? (
         <View className="flex-row flex-wrap items-end">
           <Text className={prefixClassName}>{`${prefix} `}</Text>
-          <GradientWord word={highlight} className={highlightClassName} />
+          <GradientWord word={highlight} className={highlightClassName} wrap={wrapHighlight} />
         </View>
       ) : (
         <>
           <Text className={prefixClassName}>{prefix}</Text>
           <View className="mt-0.5">
-            <GradientWord word={highlight} className={highlightClassName} />
+            <GradientWord word={highlight} className={highlightClassName} wrap={wrapHighlight} />
           </View>
         </>
       )}

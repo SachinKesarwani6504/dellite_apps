@@ -30,9 +30,9 @@ export function WorkerSkillReviewList({
 
   return (
     <View className="gap-2">
-      {selectedServices.map(service => (
+      {selectedServices.map((service, index) => (
         <View
-          key={service.id}
+          key={`${service.id}-${service.name}-${index}`}
           className="rounded-2xl border border-accent/40 bg-white p-3 dark:border-white/10"
           style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}
         >

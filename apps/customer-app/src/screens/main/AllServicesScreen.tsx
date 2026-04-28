@@ -21,8 +21,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import type { CustomerServiceListItem } from '@/types/customer';
-import { HOME_SCREEN } from '@/types/screen-names';
-import { getErrorMessage } from '@/utils';
+import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { createBookingFlowService, getErrorMessage } from '@/utils';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { APP_TEXT } from '@/utils/appText';
@@ -88,6 +88,8 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       limit: isPaginated ? DEFAULT_LIMIT : undefined,
       includeCategory: true,
       includeSubcategory: true,
+      includePriceOptions: true,
+      includeTask: true,
       includeImage: true,
       usageType: ['MAIN', 'ICON'],
     };
@@ -212,12 +214,16 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
                     beginFlow({
                       sourceType: 'popular_service',
                       categoryId: item.category?.id,
+                      service: createBookingFlowService(item),
                     });
-                    navigation.navigate(HOME_SCREEN.SUBCATEGORY_SERVICES, {
-                      sourceType: 'popular_service',
-                      categoryId: item.category?.id,
-                      serviceId: item.id,
-                      city: selectedCity,
+                    navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, {
+                      screen: HOME_SCREEN.SUBCATEGORY_SERVICES,
+                      params: {
+                        sourceType: 'popular_service',
+                        categoryId: item.category?.id,
+                        serviceId: item.id,
+                        city: selectedCity,
+                      },
                     });
                   }}
                 />

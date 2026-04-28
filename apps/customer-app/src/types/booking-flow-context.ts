@@ -1,19 +1,45 @@
-import type { BookingSlotValue } from '@/utils/options';
-import type { CustomerHomeCategory } from '@/types/customer';
+import type {
+  CustomerBookableService,
+  CustomerBookingCreateResult,
+  CustomerBookingType,
+  CustomerHomeCategory,
+} from '@/types/customer';
 
 export type BookingFlowSourceType = 'popular_service' | 'category';
 
-export type BookingFlowService = {
-  id: string;
-  name: string;
-  description?: string;
-  iconText?: string;
+export type BookingFlowAddressMode = 'google' | 'pin';
+
+export type BookingFlowAddressDraft = {
+  mode: BookingFlowAddressMode;
+  country: string;
+  state: string;
+  district: string;
+  area: string;
+  addressLine1: string;
+  addressLine2: string;
+  pincode: string;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type BookingFlowSelectedServiceLine = {
+  service: CustomerBookableService;
+  quantity: number;
+  selectedPriceOptionId: string | null;
 };
 
 export type BookingFlowStartPayload = {
   sourceType: BookingFlowSourceType;
   categoryId?: string;
-  service?: BookingFlowService;
+  service?: CustomerBookableService;
+};
+
+export type BookingFlowDetailsDraft = {
+  bookingType: CustomerBookingType;
+  scheduledDate: string;
+  scheduledTime: string;
+  address: BookingFlowAddressDraft;
+  notes: string;
 };
 
 export type BookingFlowContextType = {
@@ -22,28 +48,28 @@ export type BookingFlowContextType = {
   categoryName: string | null;
   subcategoryId: string | null;
   subcategoryName: string | null;
-  selectedServices: BookingFlowService[];
+  selectedServices: BookingFlowSelectedServiceLine[];
   selectedServiceIds: Record<string, true>;
   catalog: CustomerHomeCategory[];
   catalogLoading: boolean;
   catalogError: string | null;
-  slotValue: BookingSlotValue;
-  slotLabel: string;
-  address: string;
+  bookingType: CustomerBookingType;
+  scheduledDate: string;
+  scheduledTime: string;
+  address: BookingFlowAddressDraft;
   notes: string;
   beginFlow: (payload: BookingFlowStartPayload) => void;
   setCategory: (payload: { id: string; name?: string | null }) => void;
   setSubcategory: (payload: { id: string; name?: string | null }) => void;
-  toggleService: (service: BookingFlowService) => void;
+  toggleService: (service: CustomerBookableService) => void;
   resetSelectedServices: () => void;
   clearSubcategorySelection: () => void;
-  setBookingDetails: (payload: {
-    slotValue: BookingSlotValue;
-    slotLabel: string;
-    address: string;
-    notes: string;
-  }) => void;
+  setServiceQuantity: (serviceId: string, quantity: number) => void;
+  setServicePriceOption: (serviceId: string, priceOptionId: string) => void;
+  removeService: (serviceId: string) => void;
+  setBookingDetails: (payload: BookingFlowDetailsDraft) => void;
   ensureCatalog: (city: string) => Promise<CustomerHomeCategory[]>;
   refreshCatalog: (city: string) => Promise<CustomerHomeCategory[]>;
+  createBooking: (city: string) => Promise<CustomerBookingCreateResult>;
   resetFlow: () => void;
 };

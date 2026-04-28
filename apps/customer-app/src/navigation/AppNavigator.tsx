@@ -3,9 +3,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
+import { BookingFlowProvider } from '@/contexts/BookingFlowContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
+import { BookingFlowNavigator } from '@/navigation/BookingFlowNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
 import { AUTH_STATUS } from '@/types/auth';
@@ -50,25 +52,30 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer theme={navigationTheme}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {authState.status === AUTH_STATUS.LOGGED_OUT || authState.status === AUTH_STATUS.OTP_SENT ? (
-          <RootStack.Screen
-            key={authState.status}
-            name={ROOT_SCREEN.AUTH_NAVIGATOR}
-            component={AuthNavigator}
-          />
-        ) : authState.status === AUTH_STATUS.ONBOARDING
-          || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME
-          || (authState.status === AUTH_STATUS.AUTHENTICATED && isOnboardingActive) ? (
-          <RootStack.Screen
-            key="onboarding"
-            name={ROOT_SCREEN.ONBOARDING_NAVIGATOR}
-            component={OnboardingNavigator}
-          />
-        ) : (
-          <RootStack.Screen name={ROOT_SCREEN.MAIN_TABS_NAVIGATOR} component={MainTabsNavigator} />
-        )}
-      </RootStack.Navigator>
+      <BookingFlowProvider>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          {authState.status === AUTH_STATUS.LOGGED_OUT || authState.status === AUTH_STATUS.OTP_SENT ? (
+            <RootStack.Screen
+              key={authState.status}
+              name={ROOT_SCREEN.AUTH_NAVIGATOR}
+              component={AuthNavigator}
+            />
+          ) : authState.status === AUTH_STATUS.ONBOARDING
+            || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME
+            || (authState.status === AUTH_STATUS.AUTHENTICATED && isOnboardingActive) ? (
+            <RootStack.Screen
+              key="onboarding"
+              name={ROOT_SCREEN.ONBOARDING_NAVIGATOR}
+              component={OnboardingNavigator}
+            />
+          ) : (
+            <>
+              <RootStack.Screen name={ROOT_SCREEN.MAIN_TABS_NAVIGATOR} component={MainTabsNavigator} />
+              <RootStack.Screen name={ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR} component={BookingFlowNavigator} />
+            </>
+          )}
+        </RootStack.Navigator>
+      </BookingFlowProvider>
     </NavigationContainer>
   );
 }

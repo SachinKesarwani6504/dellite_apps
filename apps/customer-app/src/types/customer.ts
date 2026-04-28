@@ -64,6 +64,23 @@ export type CustomerCatalogService = {
   isCertificateRequired?: boolean;
 } & CustomerImageCarrier;
 
+export type CustomerServicePriceOption = {
+  id: string;
+  title: string;
+  description?: string;
+  amount?: number;
+  originalAmount?: number;
+  currency?: string;
+  unitLabel?: string;
+  durationMinutes?: number;
+};
+
+export type CustomerServiceTask = {
+  id?: string;
+  title: string;
+  description?: string;
+};
+
 export type CustomerCatalogSubcategory = {
   id: string;
   name: string;
@@ -99,6 +116,14 @@ export type CustomerHomeService = {
   };
 };
 
+export type CustomerBookableService = CustomerCatalogService & {
+  category?: CustomerHomeCategory;
+  subCategory?: CustomerCatalogSubcategory;
+  priceOptions?: CustomerServicePriceOption[];
+  includedTasks?: CustomerServiceTask[];
+  excludedTasks?: CustomerServiceTask[];
+};
+
 export type CustomerServicesListQuery = {
   city: string;
   search?: string;
@@ -123,9 +148,52 @@ export type CustomerServiceListItem = {
   iconImage?: CustomerHomeAsset;
   category?: CustomerHomeCategory;
   subCategory?: CustomerCatalogSubcategory;
-  priceOptions?: unknown[];
-  includedTasks?: unknown[];
-  excludedTasks?: unknown[];
+  priceOptions?: CustomerServicePriceOption[];
+  includedTasks?: CustomerServiceTask[];
+  excludedTasks?: CustomerServiceTask[];
+};
+
+export type CustomerBookingType = 'INSTANT' | 'SCHEDULED';
+
+export type CustomerBookingAddressInput = {
+  country: string;
+  state: string;
+  district: string;
+  area: string;
+  addressLine1: string;
+  addressLine2?: string;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type CreateCustomerBookingServiceLineInput = {
+  serviceId?: string;
+  serviceName?: string;
+  selectedPriceOptionId?: string;
+  quantity: number;
+};
+
+export type CreateCustomerBookingPayload = {
+  city: string;
+  bookingType: CustomerBookingType;
+  scheduledStartAt?: string;
+  notes?: string;
+  address: CustomerBookingAddressInput;
+  serviceLines: CreateCustomerBookingServiceLineInput[];
+};
+
+export type CustomerBookingCreateResult = {
+  booking?: {
+    id?: string;
+    bookingCode?: string;
+    bookingStatus?: string;
+  };
+  addressSnapshot?: Record<string, unknown>;
+  serviceLines?: Array<Record<string, unknown>>;
+  workerInvites?: Array<Record<string, unknown>>;
+  assignments?: Array<Record<string, unknown>>;
+  history?: Array<Record<string, unknown>>;
 };
 
 export type CustomerHomeHeader = {

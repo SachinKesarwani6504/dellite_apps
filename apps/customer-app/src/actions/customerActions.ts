@@ -4,7 +4,10 @@ import type {
   CustomerCatalogQuery,
   CustomerCatalogService,
   CustomerCatalogSubcategory,
+  CustomerBookingCreateResult,
   CreateCustomerProfileResponse,
+  CreateCustomerBookingPayload,
+  CustomerBookableService,
   CustomerHomeCategory,
   CustomerHomeContentSection,
   CustomerHomePayload,
@@ -12,6 +15,8 @@ import type {
   CustomerProfile,
   CustomerProfileResponse,
   CustomerServiceListItem,
+  CustomerServicePriceOption,
+  CustomerServiceTask,
   CustomerServicesListQuery,
   UpdateCustomerIdentityPayload,
   UpdateCustomerProfilePayload,
@@ -227,6 +232,55 @@ function pickImageByUsage(images: NonNullable<CustomerCatalogService['images']>,
   return images.find(image => image.usageType?.toUpperCase() === usageType);
 }
 
+function normalizePriceOption(value: unknown): CustomerServicePriceOption | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.id !== 'string') return null;
+
+  const titleCandidates = [raw.title, raw.name, raw.label];
+  const title = titleCandidates.find((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  if (!title) return null;
+
+  const amount = typeof raw.amount === 'number'
+    ? raw.amount
+    : (typeof raw.price === 'number' ? raw.price : undefined);
+
+  const originalAmount = typeof raw.originalAmount === 'number'
+    ? raw.originalAmount
+    : (typeof raw.originalPrice === 'number' ? raw.originalPrice : undefined);
+
+  const durationMinutes = typeof raw.durationMinutes === 'number'
+    ? raw.durationMinutes
+    : (typeof raw.duration === 'number' ? raw.duration : undefined);
+
+  return {
+    id: raw.id,
+    title: title.trim(),
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+    amount,
+    originalAmount,
+    currency: typeof raw.currency === 'string' ? raw.currency : undefined,
+    unitLabel: typeof raw.unitLabel === 'string'
+      ? raw.unitLabel
+      : (typeof raw.unit === 'string' ? raw.unit : undefined),
+    durationMinutes,
+  };
+}
+
+function normalizeTaskItem(value: unknown): CustomerServiceTask | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const titleCandidates = [raw.title, raw.name, raw.label];
+  const title = titleCandidates.find((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  if (!title) return null;
+
+  return {
+    id: typeof raw.id === 'string' ? raw.id : undefined,
+    title: title.trim(),
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+  };
+}
+
 function normalizeCatalogSubcategory(subcategory: CustomerCatalogSubcategory) {
   const images = normalizeImageList((subcategory as CustomerCatalogSubcategory & Record<string, unknown>).images);
   return {
@@ -234,7 +288,7 @@ function normalizeCatalogSubcategory(subcategory: CustomerCatalogSubcategory) {
     images,
     mainImage: pickImageByUsage(images, 'MAIN') ?? subcategory.mainImage,
     iconImage: pickImageByUsage(images, 'ICON') ?? subcategory.iconImage,
-    services: Array.isArray(subcategory.services) ? subcategory.services.map(normalizeCatalogService) : [],
+    services: Array.isArray(subcategory.services) ? subcategory.services.map(normalizeBookableService) : [],
   };
 }
 
@@ -253,8 +307,26 @@ function normalizeCatalogCategory(category: RawCustomerCategory) {
     images,
     mainImage: pickImageByUsage(images, 'MAIN') ?? category.mainImage,
     iconImage: pickImageByUsage(images, 'ICON') ?? category.iconImage,
-    services: normalizedServices,
+    services: normalizedServices.map(normalizeBookableService),
     subcategories: normalizedSubcategories.map(normalizeCatalogSubcategory),
+  };
+}
+
+function normalizeBookableService(service: CustomerCatalogService): CustomerBookableService {
+  const normalized = normalizeCatalogService(service);
+  const raw = service as CustomerCatalogService & Record<string, unknown>;
+
+  return {
+    ...normalized,
+    priceOptions: Array.isArray(raw.priceOptions)
+      ? raw.priceOptions.map(normalizePriceOption).filter((item): item is CustomerServicePriceOption => Boolean(item))
+      : [],
+    includedTasks: Array.isArray(raw.includedTasks)
+      ? raw.includedTasks.map(normalizeTaskItem).filter((item): item is CustomerServiceTask => Boolean(item))
+      : [],
+    excludedTasks: Array.isArray(raw.excludedTasks)
+      ? raw.excludedTasks.map(normalizeTaskItem).filter((item): item is CustomerServiceTask => Boolean(item))
+      : [],
   };
 }
 
@@ -364,9 +436,15 @@ function normalizeServiceListItem(item: RawCustomerServiceListItem): CustomerSer
     iconImage: pickImageByUsage(images, 'ICON') ?? item.iconImage,
     category: item.category && typeof item.category === 'object' ? normalizeServiceListCategory(item.category) : undefined,
     subCategory: item.subCategory && typeof item.subCategory === 'object' ? normalizeServiceListSubcategory(item.subCategory) : undefined,
-    priceOptions: Array.isArray(item.priceOptions) ? item.priceOptions : undefined,
-    includedTasks: Array.isArray(item.includedTasks) ? item.includedTasks : undefined,
-    excludedTasks: Array.isArray(item.excludedTasks) ? item.excludedTasks : undefined,
+    priceOptions: Array.isArray(item.priceOptions)
+      ? item.priceOptions.map(normalizePriceOption).filter((entry): entry is CustomerServicePriceOption => Boolean(entry))
+      : [],
+    includedTasks: Array.isArray(item.includedTasks)
+      ? item.includedTasks.map(normalizeTaskItem).filter((entry): entry is CustomerServiceTask => Boolean(entry))
+      : [],
+    excludedTasks: Array.isArray(item.excludedTasks)
+      ? item.excludedTasks.map(normalizeTaskItem).filter((entry): entry is CustomerServiceTask => Boolean(entry))
+      : [],
   };
 }
 
@@ -468,4 +546,16 @@ export async function markOnboardingWelcomeSeen(): Promise<void> {
       },
     },
   );
+}
+
+export async function createCustomerBooking(payload: CreateCustomerBookingPayload): Promise<CustomerBookingCreateResult> {
+  const response = await apiPost<ApiEnvelope<CustomerBookingCreateResult> | CustomerBookingCreateResult, CreateCustomerBookingPayload>(
+    '/booking',
+    payload,
+    {
+      auth: true,
+    },
+  );
+
+  return unwrapData(response);
 }

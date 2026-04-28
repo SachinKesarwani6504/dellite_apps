@@ -16,7 +16,7 @@
         "@react-navigation/native-stack": "^7.14.10",
         "axios": "^1.14.0",
         "dellite-monorepo": "file:../..",
-        "expo": "~54.0.33",
+        "expo": "~54.0.34",
         "expo-camera": "~17.0.10",
         "expo-clipboard": "~8.0.8",
         "expo-document-picker": "~14.0.8",

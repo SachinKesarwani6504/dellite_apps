@@ -30,7 +30,7 @@ import type {
   CustomerHomePayload,
   CustomerHomeService,
 } from '@/types/customer';
-import { HOME_SCREEN } from '@/types/screen-names';
+import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { getErrorMessage, palette, safeImageUrl, theme, titleCase, uiColors } from '@/utils';
 
@@ -203,11 +203,14 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       sourceType: 'popular_service',
       categoryId: service.category?.id,
     });
-    navigation.navigate(HOME_SCREEN.SUBCATEGORY_SERVICES, {
-      sourceType: 'popular_service',
-      categoryId: service.category?.id,
-      serviceId: service.id,
-      city: selectedCity,
+    navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, {
+      screen: HOME_SCREEN.SUBCATEGORY_SERVICES,
+      params: {
+        sourceType: 'popular_service',
+        categoryId: service.category?.id,
+        serviceId: service.id,
+        city: selectedCity,
+      },
     });
   }, [beginFlow, navigation, selectedCity]);
 
@@ -217,10 +220,13 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       sourceType: 'category',
       categoryId,
     });
-    navigation.navigate(HOME_SCREEN.CATEGORY_SUBCATEGORIES, {
-      sourceType: 'category',
-      categoryId,
-      city: selectedCity,
+    navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, {
+      screen: HOME_SCREEN.CATEGORY_SUBCATEGORIES,
+      params: {
+        sourceType: 'category',
+        categoryId,
+        city: selectedCity,
+      },
     });
   }, [beginFlow, navigation, selectedCity]);
 

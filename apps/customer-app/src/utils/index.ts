@@ -8,6 +8,7 @@ export * from '@/utils/toast';
 export * from '@/utils/profile';
 export * from '@/utils/referral';
 export * from '@/utils/home';
+export * from '@/utils/booking-flow';
 export * from '@/utils/validation';
 export * from '@/utils/firebase-session';
 export * from '@/modules/location/utils/distance.util';
