@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { customerActions } from '@/actions';
 import type { BookingFlowContextType, BookingFlowDetailsDraft, BookingFlowSelectedServiceLine, BookingFlowSourceType } from '@/types/booking-flow-context';
 import type { CustomerBookableService, CustomerHomeCategory } from '@/types/customer';
@@ -53,6 +53,7 @@ export function useBookingFlowController(): BookingFlowContextType {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [detailsDraft, setDetailsDraft] = useState<BookingFlowDetailsDraft>(createDefaultDetailsDraft);
+  const lastToggleRef = useRef<{ serviceId: string; timestamp: number } | null>(null);
 
   const beginFlow = useCallback((payload: { sourceType: BookingFlowSourceType; categoryId?: string; service?: CustomerBookableService }) => {
     setSourceType(payload.sourceType);
@@ -80,7 +81,25 @@ export function useBookingFlowController(): BookingFlowContextType {
   }, []);
 
   const toggleService = useCallback((service: CustomerBookableService) => {
-    setSelectedServicesById(prev => upsertSelectedServiceLine(prev, service));
+    const normalizedServiceId = String(service.id ?? '').trim();
+    if (!normalizedServiceId) return;
+
+    const now = Date.now();
+    const previousToggle = lastToggleRef.current;
+    if (
+      previousToggle?.serviceId === normalizedServiceId
+      && now - previousToggle.timestamp < 300
+    ) {
+      return;
+    }
+    lastToggleRef.current = { serviceId: normalizedServiceId, timestamp: now };
+
+    setSelectedServicesById(prev =>
+      upsertSelectedServiceLine(prev, {
+        ...service,
+        id: normalizedServiceId,
+      }),
+    );
   }, []);
 
   const resetSelectedServices = useCallback(() => {

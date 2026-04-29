@@ -51,12 +51,16 @@ export function createSelectedServiceLine(service: CustomerBookableService): Boo
 }
 
 export function formatPriceOptionAmount(option: CustomerServicePriceOption) {
-  if (typeof option.amount !== 'number' || !Number.isFinite(option.amount)) {
+  const amountValue = typeof option.price === 'number' && Number.isFinite(option.price)
+    ? option.price
+    : (typeof option.amount === 'number' && Number.isFinite(option.amount) ? option.amount : null);
+  if (amountValue == null) {
     return option.unitLabel ? option.unitLabel : 'Custom price';
   }
 
-  const unitSuffix = option.unitLabel ? ` / ${option.unitLabel}` : '';
-  return `\u20B9${option.amount.toLocaleString('en-IN')}${unitSuffix}`;
+  const optionUnit = option.unitLabel || option.unit;
+  const unitSuffix = optionUnit ? ` / ${optionUnit}` : '';
+  return `\u20B9${amountValue.toLocaleString('en-IN')}${unitSuffix}`;
 }
 
 export function getSelectedPriceOption(
@@ -72,11 +76,16 @@ export function getSelectedPriceOption(
 
 export function getServiceLineTotalAmount(service: CustomerBookableService, selectedPriceOptionId: string | null, quantity: number) {
   const option = getSelectedPriceOption(service, selectedPriceOptionId);
-  if (!option || typeof option.amount !== 'number' || !Number.isFinite(option.amount)) {
+  const amountValue = option
+    ? (typeof option.price === 'number' && Number.isFinite(option.price)
+      ? option.price
+      : (typeof option.amount === 'number' && Number.isFinite(option.amount) ? option.amount : null))
+    : null;
+  if (!option || amountValue == null) {
     return null;
   }
 
-  return option.amount * quantity;
+  return amountValue * quantity;
 }
 
 export function formatCurrencyAmount(amount?: number | null) {
@@ -92,10 +101,23 @@ export function formatPriceOptionMeta(option: CustomerServicePriceOption) {
   if (option.description?.trim()) {
     parts.push(option.description.trim());
   }
+  if (option.priceType?.trim()) {
+    parts.push(option.priceType.trim().replace(/_/g, ' '));
+  }
+  if (option.duration?.trim()) {
+    parts.push(option.duration.trim().replace(/_/g, ' '));
+  }
   if (typeof option.durationMinutes === 'number' && Number.isFinite(option.durationMinutes)) {
     parts.push(`${option.durationMinutes} min`);
   }
-  return parts.join('  •  ');
+  if (
+    option.priceComputationMode === 'PER_BLOCK'
+    && typeof option.billingUnitMinutes === 'number'
+    && Number.isFinite(option.billingUnitMinutes)
+  ) {
+    parts.push(`${option.billingUnitMinutes} min block`);
+  }
+  return parts.join('  -  ');
 }
 
 export function formatTaskList(tasks?: CustomerServiceTask[]) {
@@ -115,7 +137,7 @@ export function formatSelectedServiceLabel(line: BookingFlowSelectedServiceLine)
     return quantityLabel;
   }
 
-  return `${option.title} • ${quantityLabel}`;
+  return `${option.title} - ${quantityLabel}`;
 }
 
 export function formatAddressModeLabel(mode: BookingFlowAddressMode) {
@@ -228,7 +250,7 @@ export function isBookingAddressComplete(address: BookingFlowAddressDraft) {
 export function formatServiceBadge(service: CustomerBookableService) {
   const category = toTrimmedString(service.category?.name);
   const subCategory = toTrimmedString(service.subCategory?.name);
-  return [category, subCategory].filter(Boolean).map(toTitleCase).join(' • ');
+  return [category, subCategory].filter(Boolean).map(toTitleCase).join(' - ');
 }
 
 export function buildScheduledStartAt(date: string, time: string) {
@@ -251,7 +273,7 @@ export function getInstantScheduleLabel() {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
-  return `As soon as possible • ${formatter.format(new Date())}`;
+  return `As soon as possible - ${formatter.format(new Date())}`;
 }
 
 export function buildCreateBookingPayload(input: {
@@ -281,3 +303,4 @@ export function buildCreateBookingPayload(input: {
     })),
   };
 }
+

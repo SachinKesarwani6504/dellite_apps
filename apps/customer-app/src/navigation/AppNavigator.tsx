@@ -17,7 +17,7 @@ const RootStack = createNativeStackNavigator();
 
 export function AppNavigator() {
   const { authState } = useAuthContext();
-  const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
+  const { isOnboardingActive } = useOnboardingContext();
   const isDark = useColorScheme() === 'dark';
   const needsOnboardingSnapshot =
     (authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME)
@@ -27,11 +27,6 @@ export function AppNavigator() {
   if (
     authState.status === AUTH_STATUS.BOOTSTRAPPING
     || needsOnboardingSnapshot
-    || (
-      onboardingLoading
-      && authState.status !== AUTH_STATUS.LOGGED_OUT
-      && authState.status !== AUTH_STATUS.OTP_SENT
-    )
   ) {
     return <AnimatedLogoSplash />;
   }

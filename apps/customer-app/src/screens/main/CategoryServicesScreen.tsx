@@ -105,7 +105,6 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     refreshCatalog,
     setCategory,
     setSubcategory,
-    selectedServiceIds,
     selectedServices,
     clearSubcategorySelection,
     toggleService,
@@ -151,7 +150,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
 
     if (route.params.serviceId && resolvedSubcategory?.services) {
       const initialService = resolvedSubcategory.services.find(service => service.id === route.params.serviceId);
-      if (initialService && !initialServiceAppliedRef.current && !selectedServiceIds[initialService.id]) {
+      if (initialService && !initialServiceAppliedRef.current) {
         toggleService(createBookingFlowService({
           ...initialService,
           category: resolvedCategory,
@@ -164,7 +163,6 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     route.params.categoryId,
     route.params.serviceId,
     route.params.subcategoryId,
-    selectedServiceIds,
     setCategory,
     setSubcategory,
     toggleService,
@@ -193,6 +191,10 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   const services = useMemo(
     () => (Array.isArray(activeSubcategory?.services) ? activeSubcategory.services as CustomerBookableService[] : []),
     [activeSubcategory],
+  );
+  const selectedServiceIdSet = useMemo(
+    () => new Set(selectedServices.map(line => line.service.id)),
+    [selectedServices],
   );
   const headerBannerImage = showSubcategoryPicker
     ? (safeImageUrl(activeCategory?.mainImage?.url) ?? safeImageUrl(activeCategory?.iconImage?.url))
@@ -295,13 +297,13 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
             <View className="mt-4">
               <FlatList
                 data={services}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => `${item.id}-${index}`}
                 numColumns={2}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
                 columnWrapperStyle={{ justifyContent: 'space-between' }}
                 renderItem={({ item }) => {
-                  const selected = Boolean(selectedServiceIds[item.id]);
+                  const selected = selectedServiceIdSet.has(item.id);
                   const imageUrl = safeImageUrl(item.mainImage?.url) ?? safeImageUrl(item.iconImage?.url);
                   return (
                     <View style={{ marginBottom: 12 }}>

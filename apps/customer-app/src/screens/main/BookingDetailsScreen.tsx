@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
+import { BookingServiceDetailCard } from '@/components/common/BookingServiceDetailCard';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -16,13 +16,8 @@ import {
   buildDetectedAddressDraft,
   buildLocationPrimaryLine,
   buildScheduledStartAt,
-  formatCurrencyAmount,
-  formatPriceOptionAmount,
-  formatPriceOptionMeta,
-  formatTaskList,
   getServiceLineTotalAmount,
   getSelectedPriceOption,
-  hasValidCoordinates,
   isBookingAddressComplete,
   titleCase,
 } from '@/utils';
@@ -132,6 +127,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     notes: contextNotes,
     setServicePriceOption,
     setServiceQuantity,
+    removeService,
     setBookingDetails,
   } = useBookingFlowContext();
 
@@ -140,6 +136,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   const [scheduledTime, setScheduledTime] = useState(contextScheduledTime);
   const [addressDraft, setAddressDraft] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
+  const [selectedDurationByService, setSelectedDurationByService] = useState<Record<string, number>>({});
 
   const dateChoices = useMemo(buildNextFiveDays, []);
   const timeOptions = useMemo(buildHalfHourTimeOptions, []);
@@ -199,6 +196,33 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       }
     });
   }, [selectedServices, setServicePriceOption]);
+
+  useEffect(() => {
+    selectedServices.forEach((line) => {
+      const selectedPriceOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
+      const allowedDurations = selectedPriceOption?.allowedDurations;
+      if (
+        !selectedPriceOption?.isDurationSelectable
+        || !Array.isArray(allowedDurations)
+        || allowedDurations.length === 0
+      ) {
+        return;
+      }
+      const existingSelection = selectedDurationByService[line.service.id];
+      const defaultDuration = typeof existingSelection === 'number' ? existingSelection : allowedDurations[0];
+      if (existingSelection !== defaultDuration) {
+        setSelectedDurationByService(prev => ({ ...prev, [line.service.id]: defaultDuration }));
+      }
+      const billingUnit = selectedPriceOption.billingUnitMinutes && selectedPriceOption.billingUnitMinutes > 0
+        ? selectedPriceOption.billingUnitMinutes
+        : null;
+      if (!billingUnit) return;
+      const nextQuantity = Math.max(1, Math.ceil(defaultDuration / billingUnit));
+      if (nextQuantity !== line.quantity) {
+        setServiceQuantity(line.service.id, nextQuantity);
+      }
+    });
+  }, [selectedDurationByService, selectedServices, setServiceQuantity]);
 
   const hasMissingPriceSelection = selectedServices.some(line =>
     Array.isArray(line.service.priceOptions)
@@ -325,121 +349,40 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       </View>
       <View className="mt-3 gap-3">
         {selectedServices.map((line) => {
-          const includedTaskLabels = formatTaskList(line.service.includedTasks);
-          const excludedTaskLabels = formatTaskList(line.service.excludedTasks);
           const selectedPriceOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
           const lineTotalAmount = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity);
-          const unitPriceAmount = typeof selectedPriceOption?.amount === 'number' ? selectedPriceOption.amount : null;
+          const unitPriceAmount = typeof selectedPriceOption?.price === 'number'
+            ? selectedPriceOption.price
+            : (typeof selectedPriceOption?.amount === 'number' ? selectedPriceOption.amount : null);
 
           return (
-            <View
+            <BookingServiceDetailCard
               key={line.service.id}
-              className="rounded-lg border p-4"
-              style={{
-                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+              service={line.service}
+              selectedPriceOption={selectedPriceOption}
+              selectedPriceOptionId={line.selectedPriceOptionId}
+              quantity={line.quantity}
+              unitPriceAmount={unitPriceAmount}
+              lineTotalAmount={lineTotalAmount}
+              isDark={isDark}
+              selectedDurationMinutes={selectedDurationByService[line.service.id] ?? null}
+              onSelectPriceOption={(priceOptionId) => {
+                setServicePriceOption(line.service.id, priceOptionId);
               }}
-            >
-              <View className="flex-row items-start justify-between">
-                <View className="mr-3 flex-row flex-1">
-                  <View
-                    className="mr-3 h-11 w-11 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF1E6' }}
-                  >
-                    <Ionicons name="construct-outline" size={18} color={theme.colors.primary} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-extrabold text-baseDark dark:text-white">{titleCase(line.service.name)}</Text>
-                    {selectedPriceOption ? (
-                      <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                        {formatPriceOptionAmount(selectedPriceOption)} per service
-                        {formatPriceOptionMeta(selectedPriceOption) ? ` · ${formatPriceOptionMeta(selectedPriceOption)}` : ''}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-                <View
-                  className="h-8 min-w-[36px] items-center justify-center rounded-full px-2"
-                  style={{ backgroundColor: theme.colors.primary }}
-                >
-                  <Text className="text-xs font-extrabold text-white">x{line.quantity}</Text>
-                </View>
-              </View>
-
-              <View className="mt-4 flex-row items-center justify-between">
-                <View className="mr-3 flex-1">
-                  <Text className="text-base font-bold text-baseDark dark:text-white">Quantity</Text>
-                  <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                    How many do you need?
-                  </Text>
-                </View>
-                <View
-                  className="flex-row items-center rounded-full border px-3 py-2"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-                  }}
-                >
-                  <Pressable
-                    onPress={() => setServiceQuantity(line.service.id, line.quantity - 1)}
-                    className="h-9 w-9 items-center justify-center rounded-full"
-                  >
-                    <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-                  </Pressable>
-                  <Text className="mx-5 text-lg font-extrabold text-baseDark dark:text-white">{line.quantity}</Text>
-                  <Pressable
-                    onPress={() => setServiceQuantity(line.service.id, line.quantity + 1)}
-                    className="h-9 w-9 items-center justify-center rounded-full"
-                    style={{ backgroundColor: theme.colors.primary }}
-                  >
-                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              </View>
-
-              <View
-                className="mt-4 flex-row items-center justify-between border-t pt-4"
-                style={{ borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }}
-              >
-                <View className="mr-3 flex-1">
-                  <Text className="text-base font-bold text-baseDark dark:text-white">
-                    {APP_TEXT.main.bookingFlow.subtotalLabel}
-                    {unitPriceAmount != null ? (
-                      <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">
-                        {` (${line.quantity} x ${formatCurrencyAmount(unitPriceAmount)})`}
-                      </Text>
-                    ) : null}
-                  </Text>
-                </View>
-                <Text className="text-xl font-extrabold text-baseDark dark:text-white">
-                  {lineTotalAmount != null ? formatCurrencyAmount(lineTotalAmount) : '--'}
-                </Text>
-              </View>
-
-              {includedTaskLabels.length > 0 ? (
-                <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#EFFBF4' }}>
-                  <Text className="text-xs font-bold text-primary">{APP_TEXT.main.bookingFlow.includedTitle}</Text>
-                  {includedTaskLabels.map(task => (
-                    <View key={task} className="mt-2 flex-row items-start">
-                      <Ionicons name="checkmark-circle" size={14} color="#38B66B" />
-                      <Text className="ml-2 flex-1 text-xs font-semibold text-baseDark dark:text-white">{titleCase(task)}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              {excludedTaskLabels.length > 0 ? (
-                <View className="mt-3 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
-                  <Text className="text-xs font-bold" style={{ color: '#C46A2B' }}>{APP_TEXT.main.bookingFlow.excludedTitle}</Text>
-                  {excludedTaskLabels.map(task => (
-                    <View key={task} className="mt-2 flex-row items-start">
-                      <Ionicons name="close-circle" size={14} color="#DB8A43" />
-                      <Text className="ml-2 flex-1 text-xs font-semibold text-baseDark dark:text-white">{titleCase(task)}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </View>
+              onSelectDurationMinutes={(minutes) => {
+                setSelectedDurationByService(prev => ({ ...prev, [line.service.id]: minutes }));
+                const priceOption = line.service.priceOptions?.find(option => option.id === line.selectedPriceOptionId);
+                const billingUnit = priceOption?.billingUnitMinutes && priceOption.billingUnitMinutes > 0
+                  ? priceOption.billingUnitMinutes
+                  : null;
+                if (!billingUnit) return;
+                const nextQuantity = Math.max(1, Math.ceil(minutes / billingUnit));
+                setServiceQuantity(line.service.id, nextQuantity);
+              }}
+              onDecreaseQuantity={() => setServiceQuantity(line.service.id, line.quantity - 1)}
+              onIncreaseQuantity={() => setServiceQuantity(line.service.id, line.quantity + 1)}
+              onRemoveService={() => removeService(line.service.id)}
+            />
           );
         })}
       </View>

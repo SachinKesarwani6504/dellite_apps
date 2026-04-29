@@ -69,10 +69,28 @@ export type CustomerServicePriceOption = {
   title: string;
   description?: string;
   amount?: number;
+  price?: number;
   originalAmount?: number;
   currency?: string;
   unitLabel?: string;
   durationMinutes?: number;
+  priceType?: 'FIXED' | 'HOURLY' | 'DAILY' | 'FULLDAY' | 'PER_UNIT' | 'PER_GUEST' | 'VISIT' | string;
+  duration?: 'PER_JOB' | 'PER_HOUR' | 'HALF_DAY' | 'FULL_DAY' | 'PER_VISIT' | 'MONTHLY' | string;
+  unit?: string;
+  minMinutes?: number | null;
+  maxMinutes?: number | null;
+  billingUnitMinutes?: number | null;
+  includedMinutes?: number | null;
+  graceMinutes?: number | null;
+  roundingMode?: 'CEIL' | 'FLOOR' | 'NEAREST' | string | null;
+  overtimePrice?: number | null;
+  isDurationSelectable?: boolean;
+  allowedDurations?: number[];
+  maxSelectableMinutes?: number | null;
+  priceComputationMode?: 'FLAT' | 'PER_BLOCK' | 'PER_MINUTE' | string;
+  isOptional?: boolean;
+  isActive?: boolean;
+  isDeleted?: boolean;
 };
 
 export type CustomerServiceTask = {
