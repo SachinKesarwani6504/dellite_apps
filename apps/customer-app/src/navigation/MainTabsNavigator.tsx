@@ -1,7 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useState } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { APP_TEXT } from '@/utils/appText';
+import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
 import { AppIcon } from '@/icons';
 import { BookingsNavigator } from '@/navigation/BookingsNavigator';
 import { HomeNavigator } from '@/navigation/HomeNavigator';
@@ -13,6 +15,11 @@ const Tab = createBottomTabNavigator();
 
 export function MainTabsNavigator() {
   const isDark = useColorScheme() === 'dark';
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <AnimatedLogoSplash onAnimationEnd={() => setShowSplash(false)} />;
+  }
 
   return (
     <Tab.Navigator

@@ -6,6 +6,8 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
+import type { BookingConfirmationScreenProps } from '@/types/main-screens';
 import { MAIN_TAB_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import {
@@ -14,15 +16,6 @@ import {
   formatPriceOptionAmount,
 } from '@/utils/booking-flow';
 import { palette, theme, uiColors } from '@/utils/theme';
-
-type BookingConfirmationScreenProps = {
-  navigation: {
-    goBack: () => void;
-    popToTop: () => void;
-    navigate: (screen: string, params?: unknown) => void;
-    getParent: () => { navigate: (screen: string, params?: unknown) => void } | undefined;
-  };
-};
 
 export function BookingConfirmationScreen({ navigation }: BookingConfirmationScreenProps) {
   const isDark = useColorScheme() === 'dark';
@@ -48,7 +41,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     return locationState.city?.trim() || address.district.trim();
   }, [address.district, locationState.city]);
 
-  const scheduleLabel = bookingType === 'INSTANT'
+  const scheduleLabel = bookingType === CUSTOMER_BOOKING_TYPE.INSTANT
     ? APP_TEXT.main.bookingFlow.instantScheduleLabel
     : `${scheduledDate} at ${scheduledTime}`;
 

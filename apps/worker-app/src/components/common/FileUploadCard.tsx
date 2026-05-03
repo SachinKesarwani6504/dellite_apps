@@ -1,41 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
+import type { FileUploadCardProps } from '@/types/component-types';
+import type { UploadPreviewFile } from '@/types/file-upload';
+import { isImageFile, isPdfFile } from '@/utils/file-upload';
 import { palette, theme, uiColors } from '@/utils/theme';
-
-export type UploadPreviewFile = {
-  name: string;
-  type?: string;
-  url: string;
-};
-
-type FileUploadCardProps = {
-  files: UploadPreviewFile[];
-  onPress: () => void;
-  disabled?: boolean;
-  isPicking?: boolean;
-  isDark: boolean;
-  isRequired?: boolean;
-  multiple?: boolean;
-  iconName?: keyof typeof Ionicons.glyphMap;
-  idleTitle?: string;
-  pickingTitle?: string;
-  description?: string;
-  helperText?: string;
-  maxPreviewItems?: number;
-};
-
-function isPdfFile(file: UploadPreviewFile) {
-  return Boolean(
-    file.type?.toLowerCase().includes('pdf')
-    || file.name.toLowerCase().endsWith('.pdf'),
-  );
-}
-
-function isImageFile(file: UploadPreviewFile) {
-  if (file.type?.toLowerCase().startsWith('image/')) return true;
-  return /\.(png|jpe?g|webp|heic)$/i.test(file.name);
-}
 
 export function FileUploadCard({
   files,
@@ -66,7 +35,7 @@ export function FileUploadCard({
       }}
     >
       <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-        <Ionicons name={iconName} size={18} color={theme.colors.primary} />
+        <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={18} color={theme.colors.primary} />
       </View>
       <View className="mt-2 flex-row items-center">
         <Text className="text-base font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>

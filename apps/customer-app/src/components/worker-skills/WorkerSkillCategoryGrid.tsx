@@ -31,7 +31,10 @@ export function WorkerSkillCategoryGrid({
     <View className="mt-3 flex-row flex-wrap justify-between gap-y-3">
       {categories.map(category => {
         const isSelected = selectedCategoryId === category.id;
-        const iconImageUrl = safeImageUrl(category.iconImage?.url) ?? safeImageUrl(category.mainImage?.url);
+        const iconImageUrl = safeImageUrl(category.iconImage?.url)
+          ?? safeImageUrl(category.cardImage?.url)
+          ?? safeImageUrl(category.bannerImage?.url)
+          ?? safeImageUrl(category.mainImage?.url);
         const cardBackground = !isSelected
           ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }
           : undefined;

@@ -1,22 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput, View, useColorScheme } from 'react-native';
-
+import type { OtpCodeInputProps, OtpInputRef } from '@/types/component-types';
+import { sanitizeDigits } from '@/utils/otp';
 import { palette, uiColors } from '@/utils/theme';
-
-type OtpCodeInputProps = {
-  value: string;
-  onChange: (value: string) => void;
-  length?: number;
-  disabled?: boolean;
-};
-
-function sanitizeDigits(input: string) {
-  return input.replace(/\D/g, '');
-}
 
 export function OtpCodeInput({ value, onChange, length = 4, disabled = false }: OtpCodeInputProps) {
   const isDark = useColorScheme() === 'dark';
-  const refs = useRef<Array<TextInput | null>>([]);
+  const refs = useRef<OtpInputRef[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const digits = useMemo(() => {

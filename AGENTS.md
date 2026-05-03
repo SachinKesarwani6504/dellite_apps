@@ -147,3 +147,51 @@ Before finishing:
   - Screens/components must not import controller hooks directly (`useAuthController`, `useOnboardingController`).
   - If a temporary wrapper hook (example: `src/hooks/useOnboarding.ts`) becomes unused after migration, delete it immediately.
 - Apply the same architecture pattern in both `apps/worker-app` and `apps/customer-app` for equivalent contexts.
+
+## 14) Screen Purity + Booking Flow Rules
+
+- Do not keep reusable pure functions inside screens/components (date slot builders, enum label formatters, option mappers, math/calculation helpers, etc.).
+- Put reusable screen helpers in `src/utils/*` and re-export via `src/utils/index.ts`.
+- For booking flow specifically:
+  - Booking calculations, derived booking validity, and payload-shaping logic must live in `src/hooks/useBookingFlowController.ts` and `src/utils/booking-flow.ts`, not in booking screens.
+  - `BookingDetailsScreen.tsx` and `BookingConfirmationScreen.tsx` must stay presentational/orchestration-focused.
+- Never hardcode booking type literals (`'INSTANT'`, `'SCHEDULED'`) in screens/components/hooks.
+  - Define and use typed constants from `src/types/*` (example: `CUSTOMER_BOOKING_TYPE.INSTANT`).
+- Apply the same purity and constant usage pattern in both apps whenever equivalent flows exist.
+
+## 15) API Type Hygiene Rules (Strict)
+
+- `src/types/*` must represent the current backend contract only.
+- Do not keep speculative, legacy, or unused API fields in request/response types.
+- When backend contract changes:
+  - Update types first.
+  - Then update normalizers/mappers/actions.
+  - Then update UI/hooks usage.
+- For API enums (example: `usageType`, booking/status enums), use explicit union types, not broad `string` fallbacks unless backend explicitly allows arbitrary strings.
+- For backend enum-backed fields (example: `PriceType`, `PriceComputationMode`, `RoundingMode`, `ServiceTaskType`, `CommissionType`):
+  - Keep frontend enum/union values exactly aligned to backend values.
+  - Do not keep legacy enum members once backend contract has changed.
+- For detail/list API migration:
+  - Keep ID-based path params in route and action types.
+  - Keep name/search filters only in query types.
+- Every PR touching API types must also:
+  - remove dead fields from affected types,
+  - remove dead mapper code for those fields,
+  - remove dead UI logic depending on removed fields,
+  - pass app typecheck after cleanup.
+
+## 16) Strict Type Placement + Screen Logic Rules
+
+- Do not declare `type`, `interface`, or `enum` inside:
+  - `src/screens/*`
+  - `src/components/*`
+  - `src/hooks/*`
+  - `src/contexts/*`
+  - `src/navigation/*` or navigator files
+- Keep all app-local type declarations in `src/types/*` with relevant file names.
+- Import types/enums/constants from `src/types/*`; do not redefine equivalent shapes in feature files.
+- Keep screens/components presentational-first:
+  - No business/data orchestration in screen files.
+  - Move state/effects/API orchestration into dedicated hook controllers in `src/hooks/*`.
+  - Move reusable calculations/mappers/formatters into `src/utils/*`.
+- Apply the same strict type placement and screen-logic separation in both apps.

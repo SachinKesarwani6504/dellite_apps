@@ -1,4 +1,3 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, Text, View, useColorScheme } from 'react-native';
@@ -11,41 +10,16 @@ import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { UserAadharData } from '@/types/auth';
-import { ProfileStackParamList } from '@/types/navigation';
-import { PROFILE_SCREENS } from '@/types/screen-names';
+import type { IdentityVerificationScreenProps, SelectedAadhaarFile } from '@/types/screen-props';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
+import { extractImageUrl, normalizeStatusLabel, statusColor } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.identityVerification>;
-type SelectedAadhaarFile = { uri: string; name: string; type: string };
-
 const AADHAAR_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
-function normalizeStatusLabel(value: unknown) {
-  if (typeof value !== 'string' || value.trim().length === 0) return 'PENDING';
-  return value.trim().replace(/_/g, ' ');
-}
-
-function statusColor(status: string) {
-  const normalized = status.trim().toUpperCase();
-  if (normalized === 'APPROVED') return theme.colors.positive;
-  if (normalized === 'REJECTED') return theme.colors.negative;
-  return theme.colors.caution;
-}
-
-function extractFileUrl(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
-  const raw = value as Record<string, unknown>;
-  const candidate = raw.url;
-  if (typeof candidate === 'string' && candidate.trim().length > 0) {
-    return candidate.trim();
-  }
-  return null;
-}
-
-export function IdentityVerificationScreen({ navigation }: Props) {
+export function IdentityVerificationScreen({ navigation }: IdentityVerificationScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const [aadhar, setAadhar] = useState<UserAadharData | null>(null);
   const [frontFile, setFrontFile] = useState<SelectedAadhaarFile | null>(null);
@@ -89,8 +63,8 @@ export function IdentityVerificationScreen({ navigation }: Props) {
   const status = normalizeStatusLabel(aadhar?.status);
   const statusTone = statusColor(status);
   const isRejected = status.trim().toUpperCase() === 'REJECTED';
-  const frontUrl = extractFileUrl(aadhar?.aadharFrontFile);
-  const backUrl = extractFileUrl(aadhar?.aadharBackFile);
+  const frontUrl = extractImageUrl(aadhar?.aadharFrontFile);
+  const backUrl = extractImageUrl(aadhar?.aadharBackFile);
   const cardStyle = useMemo(
     () => ({
       backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,

@@ -1,6 +1,4 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, Text, View, useColorScheme, useWindowDimensions } from 'react-native';
+import { FlatList, RefreshControl, Text, View, useWindowDimensions } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
@@ -12,199 +10,43 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useCategoryServicesScreenController } from '@/hooks/useCategoryServicesScreenController';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
-import { resolveProductLocation } from '@/modules/location-intelligence';
-import type { CustomerBookableService, CustomerCatalogSubcategory, CustomerHomeCategory } from '@/types/customer';
+import type {
+  CategoryServicesScreenProps,
+} from '@/types/main-screens';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { createBookingFlowService, safeImageUrl, titleCase } from '@/utils';
-import { theme, uiColors } from '@/utils/theme';
-
-type CategoryServicesRouteParams = {
-  sourceType: 'popular_service' | 'category';
-  categoryId?: string;
-  subcategoryId?: string;
-  serviceId?: string;
-  city?: string;
-};
-
-type CategoryServicesScreenProps = {
-  navigation: {
-    goBack: () => void;
-    navigate: (screen: string, params?: unknown) => void;
-  };
-  route: {
-    name: string;
-    params: CategoryServicesRouteParams;
-  };
-};
-
-function findCategoryById(categories: CustomerHomeCategory[], categoryId?: string) {
-  if (!categoryId) return null;
-  return categories.find(category => category.id === categoryId) ?? null;
-}
-
-function findCategoryByService(categories: CustomerHomeCategory[], serviceId?: string) {
-  if (!serviceId) return null;
-  return categories.find(category =>
-    Array.isArray(category.subcategories)
-      && category.subcategories.some(subcategory =>
-        Array.isArray(subcategory.services) && subcategory.services.some(service => service.id === serviceId),
-      ),
-  ) ?? null;
-}
-
-function resolveSubcategoryById(category: CustomerHomeCategory | null, subcategoryId?: string) {
-  if (!category || !subcategoryId || !Array.isArray(category.subcategories)) return null;
-  return category.subcategories.find(subcategory => subcategory.id === subcategoryId) ?? null;
-}
-
-function findSubcategoryByService(category: CustomerHomeCategory | null, serviceId?: string) {
-  if (!category || !serviceId || !Array.isArray(category.subcategories)) return null;
-  return category.subcategories.find(subcategory =>
-    Array.isArray(subcategory.services) && subcategory.services.some(service => service.id === serviceId),
-  ) ?? null;
-}
-
-function getSubcategoryServiceCount(subcategory: CustomerCatalogSubcategory) {
-  if (Array.isArray(subcategory.services)) return subcategory.services.length;
-  if (typeof subcategory.serviceCount === 'string') {
-    const parsed = Number(subcategory.serviceCount);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  if (typeof subcategory.serviceCount === 'number' && Number.isFinite(subcategory.serviceCount)) {
-    return subcategory.serviceCount;
-  }
-  return 0;
-}
+import { getSubcategoryServiceCount } from '@/utils/booking-catalog';
+import { safeImageUrl, titleCase } from '@/utils';
 
 export function CategoryServicesScreen({ navigation, route }: CategoryServicesScreenProps) {
-  const isDark = useColorScheme() === 'dark';
   const { width: screenWidth } = useWindowDimensions();
-  const { locationState } = useAuthContext();
-  const resolvedLocation = useMemo(() => resolveProductLocation({
-    city: locationState.city,
-    locality: locationState.locality,
-    state: locationState.state,
-    formattedAddress: locationState.formattedAddress,
-    latitude: locationState.latitude,
-    longitude: locationState.longitude,
-  }), [
-    locationState.city,
-    locationState.formattedAddress,
-    locationState.latitude,
-    locationState.locality,
-    locationState.longitude,
-    locationState.state,
-  ]);
   const {
-    catalogLoading,
-    catalogError,
-    ensureCatalog,
-    refreshCatalog,
-    setCategory,
-    setSubcategory,
     selectedServices,
-    clearSubcategorySelection,
-    toggleService,
   } = useBookingFlowContext();
-  const [activeCategory, setActiveCategory] = useState<CustomerHomeCategory | null>(null);
-  const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
-  const initialServiceAppliedRef = useRef(false);
-  const selectedCity = route.params.city ?? resolvedLocation.serviceableCity ?? '';
-
-  const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
-
-  // When returning from service selection back to the subcategory list,
-  // clear selected services so the user can choose another subcategory fresh.
-  useFocusEffect(
-    useCallback(() => {
-      if (!showSubcategoryPicker) return;
-      clearSubcategorySelection();
-    }, [clearSubcategorySelection, showSubcategoryPicker]),
-  );
-
-  const resolveActiveNodes = useCallback((sourceCategories: CustomerHomeCategory[]) => {
-    const resolvedCategory = findCategoryById(sourceCategories, route.params.categoryId)
-      ?? findCategoryByService(sourceCategories, route.params.serviceId)
-      ?? sourceCategories[0]
-      ?? null;
-    setActiveCategory(resolvedCategory);
-
-    if (!resolvedCategory) {
-      setActiveSubcategory(null);
-      return;
-    }
-
-    setCategory({ id: resolvedCategory.id, name: resolvedCategory.name });
-
-    const resolvedSubcategory = resolveSubcategoryById(resolvedCategory, route.params.subcategoryId)
-      ?? findSubcategoryByService(resolvedCategory, route.params.serviceId)
-      ?? (Array.isArray(resolvedCategory.subcategories) ? resolvedCategory.subcategories[0] ?? null : null);
-    setActiveSubcategory(resolvedSubcategory);
-
-    if (resolvedSubcategory) {
-      setSubcategory({ id: resolvedSubcategory.id, name: resolvedSubcategory.name });
-    }
-
-    if (route.params.serviceId && resolvedSubcategory?.services) {
-      const initialService = resolvedSubcategory.services.find(service => service.id === route.params.serviceId);
-      if (initialService && !initialServiceAppliedRef.current) {
-        toggleService(createBookingFlowService({
-          ...initialService,
-          category: resolvedCategory,
-          subCategory: resolvedSubcategory,
-        }));
-        initialServiceAppliedRef.current = true;
-      }
-    }
-  }, [
-    route.params.categoryId,
-    route.params.serviceId,
-    route.params.subcategoryId,
-    setCategory,
-    setSubcategory,
-    toggleService,
-  ]);
-
-  const onRefreshCatalog = useCallback(async () => {
-    if (!selectedCity) return;
-    const nextCatalog = await refreshCatalog(selectedCity);
-    resolveActiveNodes(nextCatalog);
-  }, [refreshCatalog, resolveActiveNodes, selectedCity]);
+  const {
+    isDark,
+    selectedCity,
+    displayCityLabel,
+    showSubcategoryPicker,
+    loading,
+    error,
+    subcategories,
+    services,
+    selectedServiceIdSet,
+    headerBannerImage,
+    headerBannerTitle,
+    showInitialLoader,
+    activeCategoryId,
+    refresh,
+    pickSubcategory,
+    toggleServiceSelection,
+  } = useCategoryServicesScreenController({ route });
+  const onRefreshCatalog = async () => {
+    await refresh();
+  };
   const refreshControlProps = useBrandRefreshControl(onRefreshCatalog);
-
-  useEffect(() => {
-    void (async () => {
-      if (!selectedCity) return;
-      const nextCatalog = await ensureCatalog(selectedCity);
-      resolveActiveNodes(nextCatalog);
-    })();
-  }, [ensureCatalog, resolveActiveNodes, selectedCity]);
-
-  const subcategories = useMemo(
-    () => (Array.isArray(activeCategory?.subcategories) ? activeCategory.subcategories : []),
-    [activeCategory],
-  );
-
-  const services = useMemo(
-    () => (Array.isArray(activeSubcategory?.services) ? activeSubcategory.services as CustomerBookableService[] : []),
-    [activeSubcategory],
-  );
-  const selectedServiceIdSet = useMemo(
-    () => new Set(selectedServices.map(line => line.service.id)),
-    [selectedServices],
-  );
-  const headerBannerImage = showSubcategoryPicker
-    ? (safeImageUrl(activeCategory?.mainImage?.url) ?? safeImageUrl(activeCategory?.iconImage?.url))
-    : (safeImageUrl(activeSubcategory?.mainImage?.url) ?? safeImageUrl(activeSubcategory?.iconImage?.url));
-  const headerBannerTitle = showSubcategoryPicker
-    ? (activeCategory ? titleCase(activeCategory.name) : 'Services')
-    : (activeSubcategory ? titleCase(activeSubcategory.name) : 'Services');
-  const showInitialLoader = catalogLoading
-    && !catalogError
-    && (showSubcategoryPicker ? subcategories.length === 0 : services.length === 0);
   const cardGap = 12;
   const horizontalPadding = 16;
   const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
@@ -227,26 +69,26 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
       />
 
       {!selectedCity ? (
-        <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+        <CityAvailabilityNotice cityLabel={displayCityLabel} />
       ) : null}
 
       {showInitialLoader ? (
         <View className="mt-5">
-          <LoadingState minHeight={360} message={APP_TEXT.main.bookingFlow.loadingError} />
+          <LoadingState minHeight={360} />
         </View>
       ) : null}
 
-      {!catalogLoading && catalogError ? (
+      {!loading && error ? (
         <ListErrorState
           containerClassName="mt-6"
-          title={catalogError}
+          title={error}
           description={APP_TEXT.main.bookingFlow.loadingError}
           actionLabel={APP_TEXT.main.bookingFlow.retry}
-          onAction={() => void onRefreshCatalog()}
+          onAction={() => void refresh()}
         />
       ) : null}
 
-      {!catalogLoading && !catalogError && showSubcategoryPicker ? (
+      {!loading && !error && showSubcategoryPicker ? (
         <View className="mt-4 gap-3">
           {subcategories.length === 0 ? (
             <ListEmptyState
@@ -256,7 +98,10 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
             />
           ) : null}
           {subcategories.map(subcategory => {
-            const imageUrl = safeImageUrl(subcategory.mainImage?.url) ?? safeImageUrl(subcategory.iconImage?.url);
+            const imageUrl = safeImageUrl(subcategory.cardImage?.url)
+              ?? safeImageUrl(subcategory.bannerImage?.url)
+              ?? safeImageUrl(subcategory.iconImage?.url)
+              ?? safeImageUrl(subcategory.mainImage?.url);
             const serviceCount = getSubcategoryServiceCount(subcategory);
             const label = serviceCount === 1 ? 'service' : 'services';
 
@@ -264,10 +109,10 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
               <ServiceSelectionCard
                 key={subcategory.id}
                 onPress={() => {
-                  setSubcategory({ id: subcategory.id, name: subcategory.name });
+                  pickSubcategory(subcategory);
                   navigation.navigate(HOME_SCREEN.SUBCATEGORY_SERVICES, {
                     sourceType: 'category',
-                    categoryId: activeCategory?.id,
+                    categoryId: activeCategoryId ?? undefined,
                     subcategoryId: subcategory.id,
                     city: selectedCity,
                   });
@@ -283,7 +128,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
         </View>
       ) : null}
 
-      {!catalogLoading && !catalogError && !showSubcategoryPicker ? (
+      {!loading && !error && !showSubcategoryPicker ? (
         <>
           {services.length === 0 ? (
             <View className="mt-4">
@@ -304,7 +149,10 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
                 columnWrapperStyle={{ justifyContent: 'space-between' }}
                 renderItem={({ item }) => {
                   const selected = selectedServiceIdSet.has(item.id);
-                  const imageUrl = safeImageUrl(item.mainImage?.url) ?? safeImageUrl(item.iconImage?.url);
+                  const imageUrl = safeImageUrl(item.cardImage?.url)
+                    ?? safeImageUrl(item.bannerImage?.url)
+                    ?? safeImageUrl(item.iconImage?.url)
+                    ?? safeImageUrl(item.mainImage?.url);
                   return (
                     <View style={{ marginBottom: 12 }}>
                       <ServiceHeroCard
@@ -314,11 +162,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
                         height={176}
                         selected={selected}
                         onPress={() => {
-                          toggleService(createBookingFlowService({
-                            ...item,
-                            category: activeCategory ?? undefined,
-                            subCategory: activeSubcategory ?? undefined,
-                          }));
+                          toggleServiceSelection(item);
                         }}
                       />
                     </View>

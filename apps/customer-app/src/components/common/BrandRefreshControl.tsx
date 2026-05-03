@@ -9,8 +9,11 @@ export function useBrandRefreshControl(onRefresh: () => Promise<void>) {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    await onRefresh();
-    setRefreshing(false);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
   }, [onRefresh]);
 
   return {

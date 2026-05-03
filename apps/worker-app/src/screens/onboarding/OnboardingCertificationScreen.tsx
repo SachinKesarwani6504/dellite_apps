@@ -1,4 +1,3 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,13 +13,15 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
-import { OnboardingStackParamList } from '@/types/navigation';
+import type { OnboardingCertificationScreenProps } from '@/types/screen-props';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
 import { SelectedCertificateFile } from '@/types/onboarding';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import {
   getCertificateCardId,
+  isSupportedCertificateFile,
   isLockedCertificate,
+  pickCertificateType,
   resolveCertificateWorkerSkillIds,
   titleCase,
   toWorkerCertificateWriteItem,
@@ -30,24 +31,7 @@ import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
 
-type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingCertification'>;
-
-function pickCertificateType(card: WorkerCertificateCard, selectedTypeByCard: Record<string, string>) {
-  const cardId = getCertificateCardId(card);
-  return selectedTypeByCard[cardId] ?? '';
-}
-
-function isSupportedCertificateFile(name: string, mimeType?: string | null) {
-  const normalizedMime = (mimeType ?? '').toLowerCase();
-  const normalizedName = name.toLowerCase();
-  if (normalizedMime === 'application/pdf') return true;
-  if (normalizedMime.startsWith('image/')) {
-    return /\.(png|jpe?g)$/i.test(normalizedName);
-  }
-  return /\.(pdf|png|jpe?g)$/i.test(normalizedName);
-}
-
-export function OnboardingCertificationScreen({ navigation }: Props) {
+export function OnboardingCertificationScreen({ navigation }: OnboardingCertificationScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const {
     getOnboardingRedirect,

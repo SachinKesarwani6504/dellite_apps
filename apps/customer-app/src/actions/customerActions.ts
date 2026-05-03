@@ -1,10 +1,12 @@
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiError, type ApiEnvelope } from '@/types/api';
 import type {
+  CustomerCategoryDetailQuery,
   CustomerCatalogQuery,
   CustomerCatalogService,
   CustomerCatalogSubcategory,
   CustomerBookingCreateResult,
+  CustomerServiceDetailQuery,
   CreateCustomerProfileResponse,
   CreateCustomerBookingPayload,
   CustomerBookableService,
@@ -12,14 +14,23 @@ import type {
   CustomerHomeContentSection,
   CustomerHomePayload,
   CustomerHomeService,
+  CustomerImageUsageType,
   CustomerProfile,
   CustomerProfileResponse,
   CustomerServiceListItem,
   CustomerServicePriceOption,
   CustomerServiceTask,
+  CustomerSubcategoryDetailQuery,
+  CustomerSubcategoryListQuery,
   CustomerServicesListQuery,
   UpdateCustomerIdentityPayload,
   UpdateCustomerProfilePayload,
+} from '@/types/customer';
+import {
+  PRICE_COMPUTATION_MODE,
+  PRICE_TYPE,
+  ROUNDING_MODE,
+  SERVICE_TASK_TYPE,
 } from '@/types/customer';
 import { toFormData } from '@/utils/form-data';
 
@@ -35,6 +46,14 @@ const customerHomeCacheByCity = new Map<string, CustomerHomePayload>();
 
 function normalizeCity(city: string) {
   return city.trim().toUpperCase();
+}
+
+function requireCity(city: string, endpointLabel: string) {
+  const normalizedCity = normalizeCity(city);
+  if (!normalizedCity) {
+    throw new Error(`City query is required for ${endpointLabel}.`);
+  }
+  return normalizedCity;
 }
 
 function isCustomerHomeService(value: unknown): value is CustomerHomeService {
@@ -129,9 +148,28 @@ function normalizeCityQuery(city: string) {
   return city.trim().toUpperCase();
 }
 
-function toQueryString(query: CustomerCatalogQuery) {
-  const params = new URLSearchParams();
-  params.set('city', normalizeCityQuery(query.city));
+function normalizePage(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(1, Math.floor(value));
+}
+
+function normalizeLimit(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.min(100, Math.max(1, Math.floor(value)));
+}
+
+function appendIncludeParams(params: URLSearchParams, query: {
+  includeCategory?: boolean;
+  includeSubcategory?: boolean;
+  includeServices?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: CustomerImageUsageType[];
+}) {
+  if (typeof query.includeCategory === 'boolean') {
+    params.set('includeCategory', String(query.includeCategory));
+  }
   if (typeof query.includeSubcategory === 'boolean') {
     params.set('includeSubcategory', String(query.includeSubcategory));
   }
@@ -148,8 +186,25 @@ function toQueryString(query: CustomerCatalogQuery) {
     params.set('includeImage', String(query.includeImage));
   }
   if (Array.isArray(query.usageType) && query.usageType.length > 0) {
-    params.set('usageType', query.usageType.join(','));
+    const normalizedUsageTypes = query.usageType
+      .map(value => value.trim().toUpperCase())
+      .filter(value => value.length > 0);
+    if (normalizedUsageTypes.length > 0) {
+      params.set('usageType', normalizedUsageTypes.join(','));
+    }
   }
+}
+
+function toCategoriesQueryString(query: CustomerCatalogQuery | CustomerCategoryDetailQuery) {
+  const params = new URLSearchParams();
+  params.set('city', normalizeCityQuery(query.city));
+  if ('categoryName' in query && typeof query.categoryName === 'string' && query.categoryName.trim().length > 0) {
+    params.set('categoryName', query.categoryName.trim());
+  }
+  if ('serviceName' in query && typeof query.serviceName === 'string' && query.serviceName.trim().length > 0) {
+    params.set('serviceName', query.serviceName.trim());
+  }
+  appendIncludeParams(params, query);
   return params.toString();
 }
 
@@ -160,40 +215,45 @@ function toServicesQueryString(query: CustomerServicesListQuery) {
   if (typeof query.search === 'string' && query.search.trim().length > 0) {
     params.set('search', query.search.trim());
   }
+  if (typeof query.categoryName === 'string' && query.categoryName.trim().length > 0) {
+    params.set('categoryName', query.categoryName.trim());
+  }
+  if (typeof query.serviceName === 'string' && query.serviceName.trim().length > 0) {
+    params.set('serviceName', query.serviceName.trim());
+  }
 
   // Pagination is opt-in: if page/limit are not sent, backend returns full list (legacy behavior).
-  if (typeof query.page === 'number' && Number.isFinite(query.page)) {
-    params.set('page', String(query.page));
-  }
-  if (typeof query.limit === 'number' && Number.isFinite(query.limit)) {
-    params.set('limit', String(query.limit));
-  }
+  const page = normalizePage(query.page);
+  const limit = normalizeLimit(query.limit);
+  if (page != null) params.set('page', String(page));
+  if (limit != null) params.set('limit', String(limit));
 
-  if (typeof query.includeCategory === 'boolean') {
-    params.set('includeCategory', String(query.includeCategory));
-  }
-  if (typeof query.includeSubcategory === 'boolean') {
-    params.set('includeSubcategory', String(query.includeSubcategory));
-  }
-  if (typeof query.includePriceOptions === 'boolean') {
-    params.set('includePriceOptions', String(query.includePriceOptions));
-  }
-  if (typeof query.includeTask === 'boolean') {
-    params.set('includeTask', String(query.includeTask));
-  }
-  if (typeof query.includeImage === 'boolean') {
-    params.set('includeImage', String(query.includeImage));
-  }
+  appendIncludeParams(params, query);
 
-  if (Array.isArray(query.usageType) && query.usageType.length > 0) {
-    const normalizedUsageTypes = query.usageType
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      .map(value => value.trim().toUpperCase());
-    if (normalizedUsageTypes.length > 0) {
-      params.set('usageType', normalizedUsageTypes.join(','));
-    }
-  }
+  return params.toString();
+}
 
+function toSubcategoriesQueryString(query: CustomerSubcategoryListQuery | CustomerSubcategoryDetailQuery) {
+  const params = new URLSearchParams();
+  params.set('city', normalizeCityQuery(query.city));
+  if ('search' in query && typeof query.search === 'string' && query.search.trim().length > 0) {
+    params.set('search', query.search.trim());
+  }
+  if ('categoryName' in query && typeof query.categoryName === 'string' && query.categoryName.trim().length > 0) {
+    params.set('categoryName', query.categoryName.trim());
+  }
+  if ('serviceName' in query && typeof query.serviceName === 'string' && query.serviceName.trim().length > 0) {
+    params.set('serviceName', query.serviceName.trim());
+  }
+  if ('page' in query) {
+    const page = normalizePage(query.page);
+    if (page != null) params.set('page', String(page));
+  }
+  if ('limit' in query) {
+    const limit = normalizeLimit(query.limit);
+    if (limit != null) params.set('limit', String(limit));
+  }
+  appendIncludeParams(params, query);
   return params.toString();
 }
 
@@ -204,14 +264,34 @@ function toBoolean(value: unknown) {
   return false;
 }
 
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function toEnumValue<T extends string>(value: unknown, allowedValues: readonly T[]): T | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toUpperCase();
+  return allowedValues.find((item) => item === normalized as T);
+}
+
 function normalizeCatalogService(service: CustomerCatalogService) {
   const raw = service as CustomerCatalogService & Record<string, unknown>;
   const images = normalizeImageList(raw.images);
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? service.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerCatalogService['mainImage']) ?? service.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   return {
     ...service,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? service.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? service.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
     isCertificateRequired: toBoolean(
       raw.isCertificateRequired
         ?? raw.is_certificate_required
@@ -228,8 +308,19 @@ function normalizeImageList(value: unknown) {
   });
 }
 
-function pickImageByUsage(images: NonNullable<CustomerCatalogService['images']>, usageType: 'MAIN' | 'ICON') {
+function pickImageByUsage(images: NonNullable<CustomerCatalogService['images']>, usageType: 'MAIN' | 'ICON' | 'BANNER') {
   return images.find(image => image.usageType?.toUpperCase() === usageType);
+}
+
+function pickExplicitImage(
+  raw: Record<string, unknown>,
+  field: 'iconImage' | 'cardImage' | 'bannerImage',
+) {
+  const candidate = raw[field];
+  if (candidate && typeof candidate === 'object') {
+    return candidate as CustomerCatalogService['iconImage'];
+  }
+  return undefined;
 }
 
 function normalizePriceOption(value: unknown): CustomerServicePriceOption | null {
@@ -241,33 +332,30 @@ function normalizePriceOption(value: unknown): CustomerServicePriceOption | null
   const title = titleCandidates.find((item): item is string => typeof item === 'string' && item.trim().length > 0);
   if (!title) return null;
 
-  const amount = typeof raw.amount === 'number'
-    ? raw.amount
-    : (typeof raw.price === 'number' ? raw.price : undefined);
-
-  const originalAmount = typeof raw.originalAmount === 'number'
-    ? raw.originalAmount
-    : (typeof raw.originalPrice === 'number' ? raw.originalPrice : undefined);
-
-  const durationMinutes = typeof raw.durationMinutes === 'number'
-    ? raw.durationMinutes
-    : (typeof raw.duration === 'number' ? raw.duration : undefined);
+  const amount = toOptionalNumber(raw.amount) ?? toOptionalNumber(raw.price);
 
   return {
     id: raw.id,
+    serviceAvailabilityId: typeof raw.serviceAvailabilityId === 'string' ? raw.serviceAvailabilityId : undefined,
     title: title.trim(),
     description: typeof raw.description === 'string' ? raw.description : undefined,
-    amount,
-    originalAmount,
-    currency: typeof raw.currency === 'string' ? raw.currency : undefined,
-    unitLabel: typeof raw.unitLabel === 'string'
-      ? raw.unitLabel
-      : (typeof raw.unit === 'string' ? raw.unit : undefined),
-    durationMinutes,
+    price: amount,
+    priceType: toEnumValue(raw.priceType, Object.values(PRICE_TYPE)),
+    minMinutes: toOptionalNumber(raw.minMinutes) ?? null,
+    maxMinutes: toOptionalNumber(raw.maxMinutes) ?? null,
+    billingUnitMinutes: toOptionalNumber(raw.billingUnitMinutes) ?? null,
+    roundingMode: toEnumValue(raw.roundingMode, Object.values(ROUNDING_MODE)) ?? null,
+    priceComputationMode: toEnumValue(raw.priceComputationMode, Object.values(PRICE_COMPUTATION_MODE)) ?? null,
+    estimatedMinutes: toOptionalNumber(raw.estimatedMinutes) ?? null,
+    isOptional: toBoolean(raw.isOptional),
+    isActive: toBoolean(raw.isActive),
+    isDeleted: toBoolean(raw.isDeleted),
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : undefined,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : undefined,
   };
 }
 
-function normalizeTaskItem(value: unknown): CustomerServiceTask | null {
+function normalizeTaskItem(value: unknown, defaultType?: CustomerServiceTask['type']): CustomerServiceTask | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   const titleCandidates = [raw.title, raw.name, raw.label];
@@ -277,23 +365,34 @@ function normalizeTaskItem(value: unknown): CustomerServiceTask | null {
   return {
     id: typeof raw.id === 'string' ? raw.id : undefined,
     title: title.trim(),
-    description: typeof raw.description === 'string' ? raw.description : undefined,
+    type: toEnumValue(raw.type, Object.values(SERVICE_TASK_TYPE)) ?? defaultType,
+    order: toOptionalNumber(raw.order),
   };
 }
 
 function normalizeCatalogSubcategory(subcategory: CustomerCatalogSubcategory) {
-  const images = normalizeImageList((subcategory as CustomerCatalogSubcategory & Record<string, unknown>).images);
+  const raw = subcategory as CustomerCatalogSubcategory & Record<string, unknown>;
+  const images = normalizeImageList(raw.images);
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? subcategory.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerCatalogSubcategory['mainImage']) ?? subcategory.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   return {
     ...subcategory,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? subcategory.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? subcategory.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
     services: Array.isArray(subcategory.services) ? subcategory.services.map(normalizeBookableService) : [],
   };
 }
 
 function normalizeCatalogCategory(category: RawCustomerCategory) {
-  const images = normalizeImageList((category as RawCustomerCategory & Record<string, unknown>).images);
+  const raw = category as RawCustomerCategory & Record<string, unknown>;
+  const images = normalizeImageList(raw.images);
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? category.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerHomeCategory['mainImage']) ?? category.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   const normalizedSubcategories = Array.isArray(category.subcategories)
     ? category.subcategories
     : (Array.isArray(category.subCategories) ? category.subCategories : []);
@@ -305,8 +404,10 @@ function normalizeCatalogCategory(category: RawCustomerCategory) {
   return {
     ...category,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? category.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? category.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
     services: normalizedServices.map(normalizeBookableService),
     subcategories: normalizedSubcategories.map(normalizeCatalogSubcategory),
   };
@@ -322,10 +423,10 @@ function normalizeBookableService(service: CustomerCatalogService): CustomerBook
       ? raw.priceOptions.map(normalizePriceOption).filter((item): item is CustomerServicePriceOption => Boolean(item))
       : [],
     includedTasks: Array.isArray(raw.includedTasks)
-      ? raw.includedTasks.map(normalizeTaskItem).filter((item): item is CustomerServiceTask => Boolean(item))
+      ? raw.includedTasks.map(item => normalizeTaskItem(item, SERVICE_TASK_TYPE.INCLUDED)).filter((item): item is CustomerServiceTask => Boolean(item))
       : [],
     excludedTasks: Array.isArray(raw.excludedTasks)
-      ? raw.excludedTasks.map(normalizeTaskItem).filter((item): item is CustomerServiceTask => Boolean(item))
+      ? raw.excludedTasks.map(item => normalizeTaskItem(item, SERVICE_TASK_TYPE.EXCLUDED)).filter((item): item is CustomerServiceTask => Boolean(item))
       : [],
   };
 }
@@ -371,7 +472,8 @@ export async function getCustomerHome(city: string): Promise<CustomerHomePayload
 }
 
 export async function getCustomerServiceCatalog(query: CustomerCatalogQuery) {
-  const qs = toQueryString(query);
+  requireCity(query.city, 'categories');
+  const qs = toCategoriesQueryString(query);
   const response = await apiGet<ApiEnvelope<RawCustomerCategory[]> | RawCustomerCategory[]>(`/categories?${qs}`, {
     auth: false,
     retryOnAuthFailure: false,
@@ -384,6 +486,71 @@ export async function getCustomerServiceCatalog(query: CustomerCatalogQuery) {
   return data
     .filter((item): item is RawCustomerCategory => Boolean(item && typeof item === 'object'))
     .map(normalizeCatalogCategory);
+}
+
+export async function getCustomerCategoryById(categoryId: string, query: CustomerCategoryDetailQuery) {
+  const normalizedCategoryId = categoryId.trim();
+  if (!normalizedCategoryId) {
+    throw new Error('categoryId is required for category detail.');
+  }
+  const normalizedCity = requireCity(query.city, 'category detail');
+  void normalizedCity;
+  const qs = toCategoriesQueryString(query);
+  const response = await apiGet<ApiEnvelope<RawCustomerCategory> | RawCustomerCategory>(
+    `/categories/${encodeURIComponent(normalizedCategoryId)}?${qs}`,
+    {
+      auth: false,
+      retryOnAuthFailure: false,
+      cache: 'no-store',
+    },
+  );
+  const data = unwrapData(response) as RawCustomerCategory;
+  if (!data || typeof data !== 'object') {
+    throw new Error('Category detail is unavailable right now.');
+  }
+  return normalizeCatalogCategory(data);
+}
+
+export async function getCustomerSubcategories(query: CustomerSubcategoryListQuery): Promise<CustomerCatalogSubcategory[]> {
+  const normalizedCity = requireCity(query.city, 'subcategories');
+  void normalizedCity;
+  const qs = toSubcategoriesQueryString(query);
+  const response = await apiGet<ApiEnvelope<CustomerCatalogSubcategory[]> | CustomerCatalogSubcategory[]>(
+    `/subcategories?${qs}`,
+    {
+      auth: false,
+      retryOnAuthFailure: false,
+      cache: 'no-store',
+    },
+  );
+  const data = unwrapData(response) as CustomerCatalogSubcategory[];
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((item): item is CustomerCatalogSubcategory => Boolean(item && typeof item === 'object'))
+    .map(normalizeCatalogSubcategory);
+}
+
+export async function getCustomerSubcategoryById(subCategoryId: string, query: CustomerSubcategoryDetailQuery) {
+  const normalizedSubcategoryId = subCategoryId.trim();
+  if (!normalizedSubcategoryId) {
+    throw new Error('subCategoryId is required for subcategory detail.');
+  }
+  const normalizedCity = requireCity(query.city, 'subcategory detail');
+  void normalizedCity;
+  const qs = toSubcategoriesQueryString(query);
+  const response = await apiGet<ApiEnvelope<CustomerCatalogSubcategory> | CustomerCatalogSubcategory>(
+    `/subcategories/${encodeURIComponent(normalizedSubcategoryId)}?${qs}`,
+    {
+      auth: false,
+      retryOnAuthFailure: false,
+      cache: 'no-store',
+    },
+  );
+  const data = unwrapData(response) as CustomerCatalogSubcategory;
+  if (!data || typeof data !== 'object') {
+    throw new Error('Subcategory detail is unavailable right now.');
+  }
+  return normalizeCatalogSubcategory(data);
 }
 
 type RawCustomerServiceListCategory = Partial<Omit<CustomerHomeCategory, 'subcategories' | 'services'>> & {
@@ -401,22 +568,34 @@ type RawCustomerServiceListItem = Partial<CustomerServiceListItem> & {
 };
 
 function normalizeServiceListCategory(category: RawCustomerServiceListCategory) {
+  const raw = category as RawCustomerServiceListCategory & Record<string, unknown>;
   const images = normalizeImageList(category.images);
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? category.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerHomeCategory['mainImage']) ?? category.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   return {
     ...category,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? category.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? category.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
   } as CustomerHomeCategory;
 }
 
 function normalizeServiceListSubcategory(subCategory: RawCustomerServiceListSubcategory) {
+  const raw = subCategory as RawCustomerServiceListSubcategory & Record<string, unknown>;
   const images = normalizeImageList(subCategory.images);
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? subCategory.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerCatalogSubcategory['mainImage']) ?? subCategory.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   return {
     ...subCategory,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? subCategory.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? subCategory.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
   } as CustomerCatalogSubcategory;
 }
 
@@ -425,6 +604,10 @@ function normalizeServiceListItem(item: RawCustomerServiceListItem): CustomerSer
   if (typeof item.id !== 'string' || typeof item.name !== 'string') return null;
 
   const images = normalizeImageList(item.images);
+  const raw = item as RawCustomerServiceListItem & Record<string, unknown>;
+  const iconImage = pickExplicitImage(raw, 'iconImage') ?? pickImageByUsage(images, 'ICON') ?? item.iconImage;
+  const cardImage = pickExplicitImage(raw, 'cardImage') ?? pickImageByUsage(images, 'MAIN') ?? (raw.mainImage as CustomerServiceListItem['mainImage']) ?? item.mainImage;
+  const bannerImage = pickExplicitImage(raw, 'bannerImage') ?? pickImageByUsage(images, 'BANNER');
   return {
     id: item.id,
     name: item.name,
@@ -432,27 +615,26 @@ function normalizeServiceListItem(item: RawCustomerServiceListItem): CustomerSer
     iconText: typeof item.iconText === 'string' ? item.iconText : undefined,
     isCertificateRequired: typeof item.isCertificateRequired === 'boolean' ? item.isCertificateRequired : undefined,
     images,
-    mainImage: pickImageByUsage(images, 'MAIN') ?? item.mainImage,
-    iconImage: pickImageByUsage(images, 'ICON') ?? item.iconImage,
+    iconImage,
+    cardImage,
+    bannerImage,
+    mainImage: cardImage,
     category: item.category && typeof item.category === 'object' ? normalizeServiceListCategory(item.category) : undefined,
     subCategory: item.subCategory && typeof item.subCategory === 'object' ? normalizeServiceListSubcategory(item.subCategory) : undefined,
     priceOptions: Array.isArray(item.priceOptions)
       ? item.priceOptions.map(normalizePriceOption).filter((entry): entry is CustomerServicePriceOption => Boolean(entry))
       : [],
     includedTasks: Array.isArray(item.includedTasks)
-      ? item.includedTasks.map(normalizeTaskItem).filter((entry): entry is CustomerServiceTask => Boolean(entry))
+      ? item.includedTasks.map(entry => normalizeTaskItem(entry, SERVICE_TASK_TYPE.INCLUDED)).filter((entry): entry is CustomerServiceTask => Boolean(entry))
       : [],
     excludedTasks: Array.isArray(item.excludedTasks)
-      ? item.excludedTasks.map(normalizeTaskItem).filter((entry): entry is CustomerServiceTask => Boolean(entry))
+      ? item.excludedTasks.map(entry => normalizeTaskItem(entry, SERVICE_TASK_TYPE.EXCLUDED)).filter((entry): entry is CustomerServiceTask => Boolean(entry))
       : [],
   };
 }
 
 export async function getCustomerServices(query: CustomerServicesListQuery): Promise<CustomerServiceListItem[]> {
-  const normalizedCity = normalizeCity(query.city);
-  if (!normalizedCity) {
-    throw new Error('City query is required for services.');
-  }
+  const normalizedCity = requireCity(query.city, 'services');
 
   const qs = toServicesQueryString({ ...query, city: normalizedCity });
   const response = await apiGet<ApiEnvelope<RawCustomerServiceListItem[]> | RawCustomerServiceListItem[]>(
@@ -478,6 +660,37 @@ export async function getCustomerServices(query: CustomerServicesListQuery): Pro
   return data
     .map(normalizeServiceListItem)
     .filter((item): item is CustomerServiceListItem => Boolean(item));
+}
+
+export async function getCustomerServiceById(serviceId: string, query: CustomerServiceDetailQuery): Promise<CustomerServiceListItem> {
+  const normalizedServiceId = serviceId.trim();
+  if (!normalizedServiceId) {
+    throw new Error('serviceId is required for service detail.');
+  }
+  const normalizedCity = requireCity(query.city, 'service detail');
+  const qs = toServicesQueryString({
+    city: normalizedCity,
+    includeCategory: query.includeCategory,
+    includeSubcategory: query.includeSubcategory,
+    includePriceOptions: query.includePriceOptions,
+    includeTask: query.includeTask,
+    includeImage: query.includeImage,
+    usageType: query.usageType,
+  });
+  const response = await apiGet<ApiEnvelope<RawCustomerServiceListItem> | RawCustomerServiceListItem>(
+    `/services/${encodeURIComponent(normalizedServiceId)}?${qs}`,
+    {
+      auth: false,
+      retryOnAuthFailure: false,
+      cache: 'no-store',
+    },
+  );
+  const data = unwrapData(response) as RawCustomerServiceListItem;
+  const normalized = normalizeServiceListItem(data);
+  if (!normalized) {
+    throw new Error('Service detail is unavailable right now.');
+  }
+  return normalized;
 }
 
 export async function createCustomerProfile(

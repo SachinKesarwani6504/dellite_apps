@@ -127,6 +127,8 @@ export const APP_TEXT = {
       lineTotalLabel: 'Total',
       includedTitle: 'What is included',
       excludedTitle: 'Not included',
+      tasksNoIncluded: 'No included tasks for this service.',
+      tasksNoExcluded: 'No excluded tasks for this service.',
       locationTitle: 'Location',
       locationCurrentTitle: 'Use Current Location',
       locationCurrentSubtitle: 'Auto-fill your live location and nearby address details.',

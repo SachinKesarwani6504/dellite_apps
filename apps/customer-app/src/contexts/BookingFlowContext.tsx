@@ -1,10 +1,10 @@
 import React, { createContext, useContext } from 'react';
 import { useBookingFlowController } from '@/hooks/useBookingFlowController';
-import type { BookingFlowContextType } from '@/types/booking-flow-context';
+import type { BookingFlowContextType, BookingFlowProviderProps } from '@/types/booking-flow-context';
 
 const BookingFlowContext = createContext<BookingFlowContextType | undefined>(undefined);
 
-export function BookingFlowProvider({ children }: { children: React.ReactNode }) {
+export function BookingFlowProvider({ children }: BookingFlowProviderProps) {
   const value = useBookingFlowController();
   return <BookingFlowContext.Provider value={value}>{children}</BookingFlowContext.Provider>;
 }

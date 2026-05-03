@@ -47,13 +47,67 @@ export type CustomerHomeAsset = {
   filepath?: string;
   url?: string;
   fileType?: string;
-  usageType?: 'MAIN' | 'ICON' | string;
+  usageType?: CustomerImageUsageType | null;
 };
+
+export type CustomerImageUsageType =
+  | 'MAIN'
+  | 'PROFILE_MAIN'
+  | 'PROFILE_THUMBNAIL'
+  | 'PROFILE_COVER'
+  | 'ICON'
+  | 'BANNER'
+  | 'PLACEHOLDER'
+  | 'CUSTOMER_HOME_BANNER'
+  | 'WORKER_HOME_BANNER';
+
+export const PRICE_TYPE = {
+  VISIT: 'VISIT',
+  HOURLY: 'HOURLY',
+  DAILY: 'DAILY',
+  PER_UNIT: 'PER_UNIT',
+} as const;
+
+export type PriceType = (typeof PRICE_TYPE)[keyof typeof PRICE_TYPE];
+
+export const PRICE_COMPUTATION_MODE = {
+  FLAT: 'FLAT',
+  PER_BLOCK: 'PER_BLOCK',
+  PER_MINUTE: 'PER_MINUTE',
+} as const;
+
+export type PriceComputationMode =
+  (typeof PRICE_COMPUTATION_MODE)[keyof typeof PRICE_COMPUTATION_MODE];
+
+export const ROUNDING_MODE = {
+  CEIL: 'CEIL',
+  FLOOR: 'FLOOR',
+  NEAREST: 'NEAREST',
+} as const;
+
+export type RoundingMode = (typeof ROUNDING_MODE)[keyof typeof ROUNDING_MODE];
+
+export const SERVICE_TASK_TYPE = {
+  INCLUDED: 'INCLUDED',
+  EXCLUDED: 'EXCLUDED',
+} as const;
+
+export type ServiceTaskType = (typeof SERVICE_TASK_TYPE)[keyof typeof SERVICE_TASK_TYPE];
+
+export const COMMISSION_TYPE = {
+  PERCENTAGE: 'PERCENTAGE',
+  FLAT: 'FLAT',
+} as const;
+
+export type CommissionType = (typeof COMMISSION_TYPE)[keyof typeof COMMISSION_TYPE];
 
 export type CustomerImageCarrier = {
   images?: CustomerHomeAsset[];
-  mainImage?: CustomerHomeAsset;
   iconImage?: CustomerHomeAsset;
+  cardImage?: CustomerHomeAsset;
+  bannerImage?: CustomerHomeAsset;
+  // Legacy compatibility during backend rollout.
+  mainImage?: CustomerHomeAsset;
 };
 
 export type CustomerCatalogService = {
@@ -66,37 +120,29 @@ export type CustomerCatalogService = {
 
 export type CustomerServicePriceOption = {
   id: string;
+  serviceAvailabilityId?: string;
   title: string;
   description?: string;
-  amount?: number;
   price?: number;
-  originalAmount?: number;
-  currency?: string;
-  unitLabel?: string;
-  durationMinutes?: number;
-  priceType?: 'FIXED' | 'HOURLY' | 'DAILY' | 'FULLDAY' | 'PER_UNIT' | 'PER_GUEST' | 'VISIT' | string;
-  duration?: 'PER_JOB' | 'PER_HOUR' | 'HALF_DAY' | 'FULL_DAY' | 'PER_VISIT' | 'MONTHLY' | string;
-  unit?: string;
+  priceType?: PriceType;
   minMinutes?: number | null;
   maxMinutes?: number | null;
   billingUnitMinutes?: number | null;
-  includedMinutes?: number | null;
-  graceMinutes?: number | null;
-  roundingMode?: 'CEIL' | 'FLOOR' | 'NEAREST' | string | null;
-  overtimePrice?: number | null;
-  isDurationSelectable?: boolean;
-  allowedDurations?: number[];
-  maxSelectableMinutes?: number | null;
-  priceComputationMode?: 'FLAT' | 'PER_BLOCK' | 'PER_MINUTE' | string;
+  roundingMode?: RoundingMode | null;
+  priceComputationMode?: PriceComputationMode | null;
+  estimatedMinutes?: number | null;
   isOptional?: boolean;
   isActive?: boolean;
   isDeleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type CustomerServiceTask = {
   id?: string;
   title: string;
-  description?: string;
+  type?: ServiceTaskType;
+  order?: number;
 };
 
 export type CustomerCatalogSubcategory = {
@@ -124,6 +170,10 @@ export type CustomerHomeService = {
   description?: string;
   iconText?: string;
   isCertificateRequired?: boolean;
+  iconImage?: CustomerHomeAsset;
+  cardImage?: CustomerHomeAsset;
+  bannerImage?: CustomerHomeAsset;
+  // Legacy compatibility during backend rollout.
   mainImage?: CustomerHomeAsset;
   category?: CustomerHomeCategory;
   subCategory?: {
@@ -145,6 +195,8 @@ export type CustomerBookableService = CustomerCatalogService & {
 export type CustomerServicesListQuery = {
   city: string;
   search?: string;
+  categoryName?: string;
+  serviceName?: string;
   page?: number;
   limit?: number;
   includeCategory?: boolean;
@@ -152,7 +204,7 @@ export type CustomerServicesListQuery = {
   includePriceOptions?: boolean;
   includeTask?: boolean;
   includeImage?: boolean;
-  usageType?: Array<'MAIN' | 'ICON' | string>;
+  usageType?: CustomerImageUsageType[];
 };
 
 export type CustomerServiceListItem = {
@@ -162,8 +214,11 @@ export type CustomerServiceListItem = {
   iconText?: string;
   isCertificateRequired?: boolean;
   images?: CustomerHomeAsset[];
-  mainImage?: CustomerHomeAsset;
   iconImage?: CustomerHomeAsset;
+  cardImage?: CustomerHomeAsset;
+  bannerImage?: CustomerHomeAsset;
+  // Legacy compatibility during backend rollout.
+  mainImage?: CustomerHomeAsset;
   category?: CustomerHomeCategory;
   subCategory?: CustomerCatalogSubcategory;
   priceOptions?: CustomerServicePriceOption[];
@@ -171,7 +226,13 @@ export type CustomerServiceListItem = {
   excludedTasks?: CustomerServiceTask[];
 };
 
-export type CustomerBookingType = 'INSTANT' | 'SCHEDULED';
+export const CUSTOMER_BOOKING_TYPE = {
+  INSTANT: 'INSTANT',
+  SCHEDULED: 'SCHEDULED',
+} as const;
+
+export type CustomerBookingType =
+  (typeof CUSTOMER_BOOKING_TYPE)[keyof typeof CUSTOMER_BOOKING_TYPE];
 
 export type CustomerBookingAddressInput = {
   country: string;
@@ -268,10 +329,57 @@ export type CustomerHomePayload = {
 
 export type CustomerCatalogQuery = {
   city: string;
+  categoryName?: string;
+  serviceName?: string;
   includeSubcategory?: boolean;
   includeServices?: boolean;
   includePriceOptions?: boolean;
   includeTask?: boolean;
   includeImage?: boolean;
-  usageType?: Array<'MAIN' | 'ICON' | string>;
+  usageType?: CustomerImageUsageType[];
+};
+
+export type CustomerCategoryDetailQuery = {
+  city: string;
+  includeSubcategory?: boolean;
+  includeServices?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: CustomerImageUsageType[];
+};
+
+export type CustomerSubcategoryListQuery = {
+  city: string;
+  search?: string;
+  categoryName?: string;
+  serviceName?: string;
+  includeCategory?: boolean;
+  includeServices?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: CustomerImageUsageType[];
+  page?: number;
+  limit?: number;
+};
+
+export type CustomerSubcategoryDetailQuery = {
+  city: string;
+  includeCategory?: boolean;
+  includeServices?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: CustomerImageUsageType[];
+};
+
+export type CustomerServiceDetailQuery = {
+  city: string;
+  includeCategory?: boolean;
+  includeSubcategory?: boolean;
+  includePriceOptions?: boolean;
+  includeTask?: boolean;
+  includeImage?: boolean;
+  usageType?: CustomerImageUsageType[];
 };

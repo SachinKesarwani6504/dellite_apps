@@ -1,8 +1,10 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
+import { View } from 'react-native';
 import { useColorScheme } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
-import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
 import { BookingFlowProvider } from '@/contexts/BookingFlowContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
@@ -24,11 +26,20 @@ export function AppNavigator() {
     && Boolean(authState.tokens?.accessToken)
     && !authState.user;
 
+  useEffect(() => {
+    if (authState.status === AUTH_STATUS.BOOTSTRAPPING || needsOnboardingSnapshot) {
+      return;
+    }
+    void SplashScreen.hideAsync().catch(() => {
+      // No-op if already hidden.
+    });
+  }, [authState.status, needsOnboardingSnapshot]);
+
   if (
     authState.status === AUTH_STATUS.BOOTSTRAPPING
     || needsOnboardingSnapshot
   ) {
-    return <AnimatedLogoSplash />;
+    return <View style={{ flex: 1, backgroundColor: isDark ? palette.dark.background : palette.light.background }} />;
   }
 
   const navigationTheme = {

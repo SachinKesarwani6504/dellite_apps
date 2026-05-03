@@ -1,4 +1,3 @@
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
@@ -13,13 +12,15 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
-import { ProfileStackParamList } from '@/types/navigation';
+import type { ProfileCertificateManagerScreenProps } from '@/types/screen-props';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
 import { SelectedCertificateFile } from '@/types/onboarding';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import {
   getCertificateCardId,
+  isSupportedCertificateFile,
   isLockedCertificate,
+  pickCertificateType,
   resolveCertificateWorkerSkillIds,
   titleCase,
   toWorkerCertificateWriteItem,
@@ -29,24 +30,7 @@ import { APP_LAYOUT } from '@/utils/layout';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.certificateManager>;
-
-function pickCertificateType(card: WorkerCertificateCard, selectedTypeByCard: Record<string, string>) {
-  const cardId = getCertificateCardId(card);
-  return selectedTypeByCard[cardId] ?? '';
-}
-
-function isSupportedCertificateFile(name: string, mimeType?: string | null) {
-  const normalizedMime = (mimeType ?? '').toLowerCase();
-  const normalizedName = name.toLowerCase();
-  if (normalizedMime === 'application/pdf') return true;
-  if (normalizedMime.startsWith('image/')) {
-    return /\.(png|jpe?g)$/i.test(normalizedName);
-  }
-  return /\.(pdf|png|jpe?g)$/i.test(normalizedName);
-}
-
-export function ProfileCertificateAddAndEditScreen({ navigation }: Props) {
+export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertificateManagerScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);

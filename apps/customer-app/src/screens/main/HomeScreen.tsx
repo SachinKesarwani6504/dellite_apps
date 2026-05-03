@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -24,6 +22,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
+import type { HomeScreenProps } from '@/types/main-screens';
 import type {
   CustomerHomeCategory,
   CustomerHomeContentSection,
@@ -32,71 +31,18 @@ import type {
 } from '@/types/customer';
 import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
+import {
+  extractFooterOnlyHomePayload,
+  isCustomerHomeCategory,
+  isCustomerHomeService,
+  normalizeHomeQueryCity,
+} from '@/utils/home-screen';
 import { getErrorMessage, palette, safeImageUrl, theme, titleCase, uiColors } from '@/utils';
 
 const LOGO = require('@/assets/images/png/dellite_logo.png');
 const HOME_DOODLES = require('@/assets/images/png/home_page_doddles.png');
 
-function normalizeForCompare(value?: string | null) {
-  if (!value || !value.trim()) return '';
-  return value
-    .trim()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .toUpperCase();
-}
-
-function extractFooterOnlyHomePayload(payload: unknown): Pick<CustomerHomePayload, 'footer' | 'header'> | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const source = payload as { data?: unknown; footer?: unknown; header?: unknown };
-  const data = (source.data && typeof source.data === 'object')
-    ? source.data as { footer?: unknown; header?: unknown }
-    : null;
-
-  const footer = (data?.footer && typeof data.footer === 'object')
-    ? data.footer as CustomerHomePayload['footer']
-    : (source.footer && typeof source.footer === 'object')
-      ? source.footer as CustomerHomePayload['footer']
-      : undefined;
-
-  const header = (data?.header && typeof data.header === 'object')
-    ? data.header as CustomerHomePayload['header']
-    : (source.header && typeof source.header === 'object')
-      ? source.header as CustomerHomePayload['header']
-      : undefined;
-
-  if (!footer && !header) return null;
-  return { header, footer };
-}
-
-function normalizeHomeQueryCity(value: string | null | undefined): string {
-  if (!value) return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (trimmed.toLowerCase() === 'your area') return '';
-  return trimmed.toUpperCase();
-}
-
-function getPopularFallbackLabel(service: CustomerHomeService) {
-  if (service.iconText?.trim()) return service.iconText.trim();
-  if (service.category?.iconText?.trim()) return service.category.iconText.trim();
-  if (service.name?.trim()) return service.name.trim().charAt(0).toUpperCase();
-  return '?';
-}
-
-function isCustomerHomeService(value: unknown): value is CustomerHomeService {
-  if (!value || typeof value !== 'object') return false;
-  const source = value as { id?: unknown; name?: unknown };
-  return typeof source.id === 'string' && typeof source.name === 'string';
-}
-
-function isCustomerHomeCategory(value: unknown): value is CustomerHomeCategory {
-  if (!value || typeof value !== 'object') return false;
-  const source = value as { id?: unknown; name?: unknown };
-  return typeof source.id === 'string' && typeof source.name === 'string';
-}
-
-export function HomeScreen({ navigation }: { navigation: { navigate: (screen: string, params?: unknown) => void } }) {
+export function HomeScreen({ navigation }: HomeScreenProps) {
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
   const {
@@ -208,6 +154,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       params: {
         sourceType: 'popular_service',
         categoryId: service.category?.id,
+        subcategoryId: service.subCategory?.id,
         serviceId: service.id,
         city: selectedCity,
       },
@@ -245,7 +192,10 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
               <View className="flex-row gap-3">
                 {services.map(service => {
-                  const imageUrl = safeImageUrl(service.mainImage?.url);
+                  const imageUrl = safeImageUrl(service.cardImage?.url)
+                    ?? safeImageUrl(service.bannerImage?.url)
+                    ?? safeImageUrl(service.iconImage?.url)
+                    ?? safeImageUrl(service.mainImage?.url);
                   const hideImage = !imageUrl || Boolean(failedPopularImages[service.id]);
                   return (
                     <ServiceHeroCard
@@ -398,7 +348,8 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
 
   return (
     <GradientScreen
-      contentContainerStyle={{ padding: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
+      refreshControl={<RefreshControl {...refreshControlProps} />}
       floatingBackground={(
         <AppImage
           source={HOME_DOODLES}
@@ -409,11 +360,6 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
       )}
       floatingBackgroundTopInset={0}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
-        refreshControl={<RefreshControl {...refreshControlProps} />}
-      >
         <View className="mb-4 flex-row items-center justify-between">
           <AppImage source={LOGO} resizeMode="contain" style={{ width: 104, height: 30 }} />
           <View
@@ -525,7 +471,6 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (screen: st
             </View>
           )
         )}
-      </ScrollView>
     </GradientScreen>
   );
 }

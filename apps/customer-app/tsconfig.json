@@ -8,10 +8,9 @@
       "react",
       "react-native"
     ],
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     }
   },

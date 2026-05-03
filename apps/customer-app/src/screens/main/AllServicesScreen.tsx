@@ -20,8 +20,10 @@ import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl'
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
-import type { CustomerServiceListItem } from '@/types/customer';
+import type { CustomerImageUsageType, CustomerServiceListItem } from '@/types/customer';
+import type { AllServicesScreenProps } from '@/types/main-screens';
 import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { pickServiceImage } from '@/utils/booking-catalog';
 import { createBookingFlowService, getErrorMessage } from '@/utils';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -30,18 +32,7 @@ import { APP_TEXT } from '@/utils/appText';
 const PAGINATION_ENABLED = true;
 const DEFAULT_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;
-
-function pickServiceImage(service: CustomerServiceListItem) {
-  return safeImageUrl(service.mainImage?.url)
-    ?? safeImageUrl(service.iconImage?.url)
-    ?? safeImageUrl(service.images?.[0]?.url);
-}
-
-type AllServicesScreenProps = {
-  navigation: {
-    navigate: (screen: string, params?: unknown) => void;
-  };
-};
+const CATALOG_USAGE_TYPES: CustomerImageUsageType[] = ['MAIN', 'ICON'];
 
 export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const isDark = useColorScheme() === 'dark';
@@ -91,7 +82,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       includePriceOptions: true,
       includeTask: true,
       includeImage: true,
-      usageType: ['MAIN', 'ICON'],
+      usageType: CATALOG_USAGE_TYPES,
     };
 
     try {
@@ -221,6 +212,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
                       params: {
                         sourceType: 'popular_service',
                         categoryId: item.category?.id,
+                        subcategoryId: item.subCategory?.id,
                         serviceId: item.id,
                         city: selectedCity,
                       },

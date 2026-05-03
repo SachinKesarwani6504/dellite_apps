@@ -1,30 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View, useColorScheme } from 'react-native';
-import { WorkerCurrentStatus } from '@/types/auth';
-import { titleCase } from '@/utils';
+import type { WorkerCurrentStatusBannerProps } from '@/types/component-types';
+import { formatStatusTimestamp, resolveStatusTone } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
-
-type WorkerCurrentStatusBannerProps = {
-  currentStatus?: WorkerCurrentStatus | null;
-};
-
-function resolveStatusTone(status?: string) {
-  const normalized = String(status ?? '').trim().toUpperCase();
-  if (normalized === 'APPROVED') {
-    return { label: 'Approved', color: theme.colors.positive, icon: 'checkmark-circle-outline' as const };
-  }
-  if (normalized === 'REJECTED') {
-    return { label: 'Rejected', color: theme.colors.negative, icon: 'close-circle-outline' as const };
-  }
-  if (normalized === 'PENDING_APPROVAL' || normalized === 'PENDING') {
-    return { label: 'Pending Approval', color: theme.colors.caution, icon: 'time-outline' as const };
-  }
-  return {
-    label: normalized ? titleCase(normalized.replace(/_/g, ' ')) : 'Status',
-    color: theme.colors.primary,
-    icon: 'information-circle-outline' as const,
-  };
-}
 
 export function WorkerCurrentStatusBanner({ currentStatus }: WorkerCurrentStatusBannerProps) {
   const isDark = useColorScheme() === 'dark';
@@ -34,22 +12,8 @@ export function WorkerCurrentStatusBanner({ currentStatus }: WorkerCurrentStatus
   const message = typeof currentStatus.message === 'string' && currentStatus.message.trim().length > 0
     ? currentStatus.message.trim()
     : 'Status updated.';
-  const createdAtText = typeof currentStatus.createdAt === 'string'
-    ? currentStatus.createdAt
-    : undefined;
-  const formattedLastStatusAt = (() => {
-    if (!createdAtText) return '';
-    const parsed = new Date(createdAtText);
-    if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  })();
+  const createdAtText = typeof currentStatus.createdAt === 'string' ? currentStatus.createdAt : undefined;
+  const formattedLastStatusAt = formatStatusTimestamp(createdAtText);
 
   return (
     <View

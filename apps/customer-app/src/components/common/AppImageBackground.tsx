@@ -1,38 +1,32 @@
-import { forwardRef, useMemo } from 'react';
-import type { ImageSourcePropType, ImageURISource } from 'react-native';
+import { forwardRef, useMemo, useState } from 'react';
 import { ImageBackground } from 'react-native';
+import type { AppImageBackgroundProps, AppImageBackgroundRef } from '@/types/component-types';
+import { withDefaultImageCache } from '@/utils/image-cache';
 
-type CacheMode = ImageURISource['cache'];
+const DEFAULT_FALLBACK_IMAGE = require('@/assets/images/webp/dummy_image.webp');
 
-type AppImageBackgroundProps = Omit<React.ComponentProps<typeof ImageBackground>, 'source'> & {
-  source?: ImageSourcePropType;
-  cacheMode?: CacheMode;
-};
-
-function withDefaultCache(source: ImageSourcePropType | undefined, cacheMode: CacheMode): ImageSourcePropType | undefined {
-  if (!source) return source;
-  if (typeof source === 'number') return source;
-
-  if (Array.isArray(source)) {
-    return source.map(item => withDefaultCache(item, cacheMode) as ImageURISource) as unknown as ImageSourcePropType;
-  }
-
-  const uriSource = source as ImageURISource;
-  if (typeof uriSource.uri === 'string' && uriSource.uri.trim().length > 0) {
-    return { ...uriSource, cache: uriSource.cache ?? cacheMode };
-  }
-  return source;
-}
-
-export const AppImageBackground = forwardRef<React.ElementRef<typeof ImageBackground>, AppImageBackgroundProps>(function AppImageBackground(
-  { source, cacheMode = 'force-cache', ...props },
+export const AppImageBackground = forwardRef<AppImageBackgroundRef, AppImageBackgroundProps>(function AppImageBackground(
+  { source, cacheMode = 'force-cache', onError, ...props },
   ref,
 ) {
+  const [hasLoadError, setHasLoadError] = useState(false);
+  const effectiveSource = hasLoadError || !source ? DEFAULT_FALLBACK_IMAGE : source;
   const resolvedSource = useMemo(
-    () => withDefaultCache(source, cacheMode),
-    [cacheMode, source],
+    () => withDefaultImageCache(effectiveSource, cacheMode),
+    [cacheMode, effectiveSource],
   );
 
-  return <ImageBackground ref={ref} source={resolvedSource} {...props} />;
+  return (
+    <ImageBackground
+      ref={ref}
+      source={resolvedSource}
+      onError={(event) => {
+        if (!hasLoadError) {
+          setHasLoadError(true);
+        }
+        onError?.(event);
+      }}
+      {...props}
+    />
+  );
 });
-

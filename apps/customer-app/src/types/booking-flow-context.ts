@@ -2,8 +2,8 @@ import type {
   CustomerBookableService,
   CustomerBookingCreateResult,
   CustomerBookingType,
-  CustomerHomeCategory,
 } from '@/types/customer';
+import type { ReactNode } from 'react';
 
 export type BookingFlowSourceType = 'popular_service' | 'category';
 
@@ -34,6 +34,11 @@ export type BookingFlowStartPayload = {
   service?: CustomerBookableService;
 };
 
+export type BookingFlowEntityPayload = {
+  id: string;
+  name?: string | null;
+};
+
 export type BookingFlowDetailsDraft = {
   bookingType: CustomerBookingType;
   scheduledDate: string;
@@ -50,17 +55,14 @@ export type BookingFlowContextType = {
   subcategoryName: string | null;
   selectedServices: BookingFlowSelectedServiceLine[];
   selectedServiceIds: Record<string, true>;
-  catalog: CustomerHomeCategory[];
-  catalogLoading: boolean;
-  catalogError: string | null;
   bookingType: CustomerBookingType;
   scheduledDate: string;
   scheduledTime: string;
   address: BookingFlowAddressDraft;
   notes: string;
   beginFlow: (payload: BookingFlowStartPayload) => void;
-  setCategory: (payload: { id: string; name?: string | null }) => void;
-  setSubcategory: (payload: { id: string; name?: string | null }) => void;
+  setCategory: (payload: BookingFlowEntityPayload) => void;
+  setSubcategory: (payload: BookingFlowEntityPayload) => void;
   toggleService: (service: CustomerBookableService) => void;
   resetSelectedServices: () => void;
   clearSubcategorySelection: () => void;
@@ -68,8 +70,10 @@ export type BookingFlowContextType = {
   setServicePriceOption: (serviceId: string, priceOptionId: string) => void;
   removeService: (serviceId: string) => void;
   setBookingDetails: (payload: BookingFlowDetailsDraft) => void;
-  ensureCatalog: (city: string) => Promise<CustomerHomeCategory[]>;
-  refreshCatalog: (city: string) => Promise<CustomerHomeCategory[]>;
   createBooking: (city: string) => Promise<CustomerBookingCreateResult>;
   resetFlow: () => void;
+};
+
+export type BookingFlowProviderProps = {
+  children: ReactNode;
 };

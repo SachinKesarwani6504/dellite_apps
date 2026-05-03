@@ -47,6 +47,21 @@ export function resolveCertificateWorkerSkillIds(card: WorkerCertificateCard): s
 
 export const resolveCertificateServiceIds = resolveCertificateWorkerSkillIds;
 
+export function pickCertificateType(card: WorkerCertificateCard, selectedTypeByCard: Record<string, string>) {
+  const cardId = getCertificateCardId(card);
+  return selectedTypeByCard[cardId] ?? '';
+}
+
+export function isSupportedCertificateFile(name: string, mimeType?: string | null) {
+  const normalizedMime = (mimeType ?? '').toLowerCase();
+  const normalizedName = name.toLowerCase();
+  if (normalizedMime === 'application/pdf') return true;
+  if (normalizedMime.startsWith('image/')) {
+    return /\.(png|jpe?g)$/i.test(normalizedName);
+  }
+  return /\.(pdf|png|jpe?g)$/i.test(normalizedName);
+}
+
 export function toWorkerCertificateWriteItem(args: {
   card: WorkerCertificateCard;
   certificateType: string;

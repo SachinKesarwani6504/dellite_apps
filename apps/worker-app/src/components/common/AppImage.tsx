@@ -1,38 +1,32 @@
-import { forwardRef, useMemo } from 'react';
-import type { ImageSourcePropType, ImageURISource } from 'react-native';
+import { forwardRef, useMemo, useState } from 'react';
 import { Image } from 'react-native';
+import type { AppImageProps, AppImageRef } from '@/types/component-types';
+import { withDefaultImageCache } from '@/utils/image-cache';
 
-type CacheMode = ImageURISource['cache'];
+const DEFAULT_FALLBACK_IMAGE = require('@/assets/images/webp/dummy_image.webp');
 
-type AppImageProps = Omit<React.ComponentProps<typeof Image>, 'source'> & {
-  source?: ImageSourcePropType;
-  cacheMode?: CacheMode;
-};
-
-function withDefaultCache(source: ImageSourcePropType | undefined, cacheMode: CacheMode): ImageSourcePropType | undefined {
-  if (!source) return source;
-  if (typeof source === 'number') return source;
-
-  if (Array.isArray(source)) {
-    return source.map(item => withDefaultCache(item, cacheMode) as ImageURISource) as unknown as ImageSourcePropType;
-  }
-
-  const uriSource = source as ImageURISource;
-  if (typeof uriSource.uri === 'string' && uriSource.uri.trim().length > 0) {
-    return { ...uriSource, cache: uriSource.cache ?? cacheMode };
-  }
-  return source;
-}
-
-export const AppImage = forwardRef<React.ElementRef<typeof Image>, AppImageProps>(function AppImage(
-  { source, cacheMode = 'force-cache', ...props },
+export const AppImage = forwardRef<AppImageRef, AppImageProps>(function AppImage(
+  { source, cacheMode = 'force-cache', onError, ...props },
   ref,
 ) {
+  const [hasLoadError, setHasLoadError] = useState(false);
+  const effectiveSource = hasLoadError || !source ? DEFAULT_FALLBACK_IMAGE : source;
   const resolvedSource = useMemo(
-    () => withDefaultCache(source, cacheMode),
-    [cacheMode, source],
+    () => withDefaultImageCache(effectiveSource, cacheMode),
+    [cacheMode, effectiveSource],
   );
 
-  return <Image ref={ref} source={resolvedSource} {...props} />;
+  return (
+    <Image
+      ref={ref}
+      source={resolvedSource}
+      onError={(event) => {
+        if (!hasLoadError) {
+          setHasLoadError(true);
+        }
+        onError?.(event);
+      }}
+      {...props}
+    />
+  );
 });
-

@@ -6,6 +6,9 @@ import type {
   CustomerServicePriceOption,
   CustomerServiceTask,
 } from '@/types/customer';
+import { CUSTOMER_BOOKING_TYPE, PRICE_COMPUTATION_MODE, PRICE_TYPE } from '@/types/customer';
+import { HOURLY_DURATION_CHIP_STEP_MINUTES } from '@/utils/pricing/pricing.constants';
+import { calculateLineSubtotal } from '@/utils/pricing/calculateLineSubtotal';
 import type {
   BookingFlowAddressDraft,
   BookingFlowAddressMode,
@@ -53,14 +56,11 @@ export function createSelectedServiceLine(service: CustomerBookableService): Boo
 export function formatPriceOptionAmount(option: CustomerServicePriceOption) {
   const amountValue = typeof option.price === 'number' && Number.isFinite(option.price)
     ? option.price
-    : (typeof option.amount === 'number' && Number.isFinite(option.amount) ? option.amount : null);
+    : null;
   if (amountValue == null) {
-    return option.unitLabel ? option.unitLabel : 'Custom price';
+    return 'Custom price';
   }
-
-  const optionUnit = option.unitLabel || option.unit;
-  const unitSuffix = optionUnit ? ` / ${optionUnit}` : '';
-  return `\u20B9${amountValue.toLocaleString('en-IN')}${unitSuffix}`;
+  return `\u20B9${amountValue.toLocaleString('en-IN')}`;
 }
 
 export function getSelectedPriceOption(
@@ -79,13 +79,26 @@ export function getServiceLineTotalAmount(service: CustomerBookableService, sele
   const amountValue = option
     ? (typeof option.price === 'number' && Number.isFinite(option.price)
       ? option.price
-      : (typeof option.amount === 'number' && Number.isFinite(option.amount) ? option.amount : null))
+      : null)
     : null;
   if (!option || amountValue == null) {
     return null;
   }
+  const resolvedRoundingMode = option.roundingMode === 'NEAREST'
+    ? 'ROUND'
+    : option.roundingMode;
 
-  return amountValue * quantity;
+  return calculateLineSubtotal({
+    price: amountValue,
+    priceType: option.priceType ?? PRICE_TYPE.VISIT,
+    priceComputationMode: option.priceComputationMode ?? PRICE_COMPUTATION_MODE.FLAT,
+    quantity,
+    estimatedMinutes: option.estimatedMinutes ?? null,
+    minMinutes: option.minMinutes ?? null,
+    maxMinutes: option.maxMinutes ?? null,
+    billingUnitMinutes: option.billingUnitMinutes ?? null,
+    roundingMode: resolvedRoundingMode ?? null,
+  }).subtotal;
 }
 
 export function formatCurrencyAmount(amount?: number | null) {
@@ -96,28 +109,100 @@ export function formatCurrencyAmount(amount?: number | null) {
   return `\u20B9${amount.toLocaleString('en-IN')}`;
 }
 
+export function formatSubtotalMultiplierLabel(input: {
+  unitPriceAmount: number | null;
+  quantity: number;
+  priceType?: string;
+  selectedDurationMinutes?: number | null;
+}) {
+  if (input.unitPriceAmount == null) return null;
+  const unitPriceLabel = Number.isFinite(input.unitPriceAmount)
+    ? input.unitPriceAmount.toLocaleString('en-IN')
+    : null;
+  if (!unitPriceLabel) return null;
+
+  if (input.priceType === PRICE_TYPE.HOURLY && typeof input.selectedDurationMinutes === 'number' && input.selectedDurationMinutes > 0) {
+    return `${input.selectedDurationMinutes}min X ${unitPriceLabel}`;
+  }
+  if (input.priceType === PRICE_TYPE.PER_UNIT) return `${input.quantity}unit X ${unitPriceLabel}`;
+  if (input.priceType === PRICE_TYPE.VISIT) return `${input.quantity}visit X ${unitPriceLabel}`;
+  if (input.priceType === PRICE_TYPE.DAILY) return `${input.quantity}days X ${unitPriceLabel}`;
+
+  return `${input.quantity} X ${unitPriceLabel}`;
+}
+
 export function formatPriceOptionMeta(option: CustomerServicePriceOption) {
-  const parts: string[] = [];
-  if (option.description?.trim()) {
-    parts.push(option.description.trim());
+  const amountLabel = formatPriceOptionAmount(option);
+  const description = option.description?.trim() ?? '';
+  const withDescription = (pricingLabel: string) => (description ? `${description} • ${pricingLabel}` : pricingLabel);
+
+  if (option.priceType === PRICE_TYPE.HOURLY) {
+    if (option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_MINUTE) {
+      return withDescription(`${amountLabel} Per Minute`);
+    }
+    if (
+      option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_BLOCK
+      && typeof option.billingUnitMinutes === 'number'
+      && Number.isFinite(option.billingUnitMinutes)
+      && option.billingUnitMinutes > 0
+    ) {
+      return withDescription(`${amountLabel} Per ${option.billingUnitMinutes} Min Block`);
+    }
+    return withDescription(`${amountLabel} Per Hour`);
   }
-  if (option.priceType?.trim()) {
-    parts.push(option.priceType.trim().replace(/_/g, ' '));
+
+  if (option.priceType === PRICE_TYPE.PER_UNIT) {
+    return withDescription(`${amountLabel} Per Unit`);
   }
-  if (option.duration?.trim()) {
-    parts.push(option.duration.trim().replace(/_/g, ' '));
+  if (option.priceType === PRICE_TYPE.DAILY) {
+    return withDescription(`${amountLabel} Per Day`);
   }
-  if (typeof option.durationMinutes === 'number' && Number.isFinite(option.durationMinutes)) {
-    parts.push(`${option.durationMinutes} min`);
+  if (option.priceType === PRICE_TYPE.VISIT) {
+    return withDescription(`${amountLabel} Per Visit`);
   }
-  if (
-    option.priceComputationMode === 'PER_BLOCK'
-    && typeof option.billingUnitMinutes === 'number'
-    && Number.isFinite(option.billingUnitMinutes)
-  ) {
-    parts.push(`${option.billingUnitMinutes} min block`);
+
+  return withDescription(amountLabel);
+}
+
+export function shouldAllowQuantityControl(option: CustomerServicePriceOption | null) {
+  if (!option?.priceType) return false;
+  return option.priceType === PRICE_TYPE.DAILY || option.priceType === PRICE_TYPE.PER_UNIT;
+}
+
+export function shouldAllowDurationControl(option: CustomerServicePriceOption | null) {
+  if (!option) return false;
+  if (option.priceType === PRICE_TYPE.HOURLY) return true;
+  return option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_BLOCK
+    || option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_MINUTE;
+}
+
+export function getSelectableDurations(option: CustomerServicePriceOption | null): number[] {
+  if (!option) return [];
+  if (!shouldAllowDurationControl(option)) return [];
+
+  const durationStepMinutes = option.priceType === PRICE_TYPE.HOURLY
+    ? HOURLY_DURATION_CHIP_STEP_MINUTES
+    : (typeof option.billingUnitMinutes === 'number' && option.billingUnitMinutes > 0
+      ? option.billingUnitMinutes
+      : 30);
+  if (!durationStepMinutes) return [];
+
+  const minDuration = typeof option.minMinutes === 'number' && option.minMinutes > 0
+    ? option.minMinutes
+    : durationStepMinutes;
+  const fallbackMax = typeof option.estimatedMinutes === 'number' && option.estimatedMinutes > 0
+    ? Math.max(minDuration, option.estimatedMinutes)
+    : minDuration;
+  const maxDuration = typeof option.maxMinutes === 'number' && option.maxMinutes > 0
+    ? Math.max(minDuration, option.maxMinutes)
+    : fallbackMax;
+
+  const durations: number[] = [];
+  for (let next = minDuration; next <= maxDuration; next += durationStepMinutes) {
+    durations.push(next);
+    if (durations.length >= 24) break;
   }
-  return parts.join('  -  ');
+  return durations;
 }
 
 export function formatTaskList(tasks?: CustomerServiceTask[]) {
@@ -145,7 +230,7 @@ export function formatAddressModeLabel(mode: BookingFlowAddressMode) {
 }
 
 export function formatBookingTypeLabel(type: CustomerBookingType) {
-  return type === 'INSTANT' ? 'Instant Booking' : 'Scheduled Booking';
+  return type === CUSTOMER_BOOKING_TYPE.INSTANT ? 'Instant Booking' : 'Scheduled Booking';
 }
 
 export function buildAddressSummary(address: BookingFlowAddressDraft) {
@@ -268,6 +353,49 @@ export function buildScheduledStartAt(date: string, time: string) {
   return isoValue.toISOString();
 }
 
+export type BookingDateChoice = {
+  value: string;
+  topLabel: string;
+  dayOfMonth: string;
+  monthLabel: string;
+};
+
+export function buildNextBookingDateChoices(): BookingDateChoice[] {
+  return Array.from({ length: 5 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const value = date.toISOString().slice(0, 10);
+    return {
+      value,
+      topLabel: index === 0
+        ? 'TODAY'
+        : new Intl.DateTimeFormat('en-IN', { weekday: 'short' }).format(date).toUpperCase(),
+      dayOfMonth: new Intl.DateTimeFormat('en-IN', { day: 'numeric' }).format(date),
+      monthLabel: new Intl.DateTimeFormat('en-IN', { month: 'short' }).format(date),
+    };
+  });
+}
+
+export function buildBookingTimeOptions() {
+  const options: string[] = [];
+  for (let hour = 6; hour <= 23; hour += 1) {
+    for (let minute = 0; minute <= 30; minute += 30) {
+      if (hour === 23 && minute > 30) continue;
+      const hourLabel = String(hour).padStart(2, '0');
+      const minuteLabel = String(minute).padStart(2, '0');
+      options.push(`${hourLabel}:${minuteLabel}`);
+    }
+  }
+  return options;
+}
+
+export function formatBookingTimeChipLabel(value: string) {
+  const [hours = '09', minutes = '00'] = value.split(':');
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+  return new Intl.DateTimeFormat('en-IN', { timeStyle: 'short' }).format(date);
+}
+
 export function getInstantScheduleLabel() {
   const formatter = new Intl.DateTimeFormat('en-IN', {
     dateStyle: 'medium',
@@ -285,7 +413,7 @@ export function buildCreateBookingPayload(input: {
   address: BookingFlowAddressDraft;
   selectedServices: BookingFlowSelectedServiceLine[];
 }): CreateCustomerBookingPayload {
-  const scheduledStartAt = input.bookingType === 'SCHEDULED'
+  const scheduledStartAt = input.bookingType === CUSTOMER_BOOKING_TYPE.SCHEDULED
     ? buildScheduledStartAt(input.scheduledDate, input.scheduledTime) ?? undefined
     : undefined;
 

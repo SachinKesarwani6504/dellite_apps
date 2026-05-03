@@ -1,35 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import type { CustomerServicePriceOption } from '@/types/customer';
-import { formatPriceOptionAmount, titleCase } from '@/utils';
+import type { ServicePricingHeaderCardProps } from '@/types/component-types';
+import { PRICE_TYPE } from '@/types/customer';
+import { formatDurationChip, getSelectableDurations, titleCase } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
-
-type ServicePricingHeaderCardProps = {
-  serviceName: string;
-  selectedPriceOption: CustomerServicePriceOption | null;
-  priceOptions: CustomerServicePriceOption[];
-  selectedPriceOptionId: string | null;
-  quantity: number;
-  isDark: boolean;
-  selectedDurationMinutes: number | null;
-  onSelectPriceOption: (priceOptionId: string) => void;
-  onSelectDurationMinutes: (minutes: number) => void;
-  onDecreaseQuantity: () => void;
-  onIncreaseQuantity: () => void;
-};
-
-function formatEnumLabel(value?: string) {
-  if (!value?.trim()) return '';
-  return value.trim().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
-}
-
-function formatDurationChip(minutes: number) {
-  if (minutes >= 60 && minutes % 60 === 0) {
-    const hours = minutes / 60;
-    return `${hours}h`;
-  }
-  return `${minutes}m`;
-}
 
 export function ServicePricingHeaderCard({
   serviceName,
@@ -44,36 +18,33 @@ export function ServicePricingHeaderCard({
   onDecreaseQuantity,
   onIncreaseQuantity,
 }: ServicePricingHeaderCardProps) {
-  const canSelectDuration = Boolean(
-    selectedPriceOption?.isDurationSelectable
-    && selectedPriceOption.priceComputationMode === 'PER_BLOCK'
-    && Array.isArray(selectedPriceOption.allowedDurations)
-    && selectedPriceOption.allowedDurations.length > 0,
-  );
+  const selectableDurations = getSelectableDurations(selectedPriceOption);
+  const selectedPriceType = selectedPriceOption?.priceType;
+  const canSelectDuration = selectableDurations.length > 0;
+  const canSelectQuantity = selectedPriceType === PRICE_TYPE.DAILY || selectedPriceType === PRICE_TYPE.PER_UNIT;
 
   return (
     <View
-      className="rounded-2xl  p-3"
+      className="rounded-2xl"
       style={{
         borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
         backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
       }}
     >
-      <View className="flex-row items-start justify-between">
-        <View className="mr-3 flex-1">
-          <Text className="text-base font-extrabold text-baseDark dark:text-white">{titleCase(serviceName)}</Text>
-          {selectedPriceOption ? (
-            <Text className="mt-1 text-xs font-semibold text-primary">
-              {formatPriceOptionAmount(selectedPriceOption)}
-              {selectedPriceOption.priceType ? ` • ${formatEnumLabel(selectedPriceOption.priceType)}` : ''}
-            </Text>
-          ) : null}
-        </View>
+      <View className="flex-row items-start">
         <View
-          className="h-10 w-10 items-center justify-center rounded-xl"
+          className="mr-3 h-10 w-10 items-center justify-center rounded-xl"
           style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF1E6' }}
         >
           <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-extrabold text-baseDark dark:text-white">{titleCase(serviceName)}</Text>
+          {selectedPriceOption ? (
+            <Text className="mt-1 text-xs font-semibold text-primary">
+              {selectedPriceOption.title}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -81,7 +52,7 @@ export function ServicePricingHeaderCard({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 8 }}
+          contentContainerStyle={{ paddingLeft: 12, paddingTop: 10, paddingBottom: 2, gap: 8 }}
         >
           {priceOptions.map((option) => {
             const isSelected = option.id === selectedPriceOptionId;
@@ -89,7 +60,7 @@ export function ServicePricingHeaderCard({
               <Pressable
                 key={option.id}
                 onPress={() => onSelectPriceOption(option.id)}
-                className="rounded-full border px-3 py-2"
+                className="rounded-full border py-2"
                 style={{
                   borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
                   backgroundColor: isSelected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
@@ -110,9 +81,9 @@ export function ServicePricingHeaderCard({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 8, paddingBottom: 2, gap: 8 }}
+            contentContainerStyle={{ paddingLeft: 12, paddingTop: 8, paddingBottom: 2, gap: 8 }}
           >
-            {selectedPriceOption.allowedDurations?.map((minutes) => {
+            {selectableDurations.map((minutes) => {
               const isSelected = minutes === selectedDurationMinutes;
               return (
                 <Pressable
@@ -134,35 +105,35 @@ export function ServicePricingHeaderCard({
         </View>
       ) : null}
 
-      <View className="mt-3 flex-row items-center justify-between">
-        <View className="mr-3 flex-1">
-          <Text className="text-sm font-bold text-baseDark dark:text-white">
-            {canSelectDuration ? 'Selected units' : 'Quantity'}
-          </Text>
-          <Text className="mt-0.5 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {canSelectDuration ? 'Based on chosen duration' : 'How many do you need?'}
-          </Text>
-        </View>
-        <View
-          className="flex-row items-center rounded-full border px-3 py-2"
-          style={{
-            borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-          }}
-        >
-          <Pressable onPress={onDecreaseQuantity} className="h-9 w-9 items-center justify-center rounded-full">
-            <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-          </Pressable>
-          <Text className="mx-5 text-lg font-extrabold text-baseDark dark:text-white">{quantity}</Text>
-          <Pressable
-            onPress={onIncreaseQuantity}
-            className="h-9 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: theme.colors.primary }}
+      {canSelectQuantity ? (
+        <View className="mt-3 flex-row items-center justify-between  pb-3">
+          <View className="mr-3 flex-1">
+            <Text className="text-sm font-bold text-baseDark dark:text-white">Quantity</Text>
+            <Text className="mt-0.5 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              {selectedPriceType === PRICE_TYPE.DAILY ? 'Number of days' : 'Number of units'}
+            </Text>
+          </View>
+          <View
+            className="flex-row items-center rounded-full border px-3 py-2"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+            }}
           >
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-          </Pressable>
+            <Pressable onPress={onDecreaseQuantity} className="h-9 w-9 items-center justify-center rounded-full">
+              <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+            </Pressable>
+            <Text className="mx-5 text-lg font-extrabold text-baseDark dark:text-white">{quantity}</Text>
+            <Pressable
+              onPress={onIncreaseQuantity}
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
-      </View>
+      ) : null}
     </View>
   );
 }

@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { customerActions } from '@/actions';
-import type { BookingFlowContextType, BookingFlowDetailsDraft, BookingFlowSelectedServiceLine, BookingFlowSourceType } from '@/types/booking-flow-context';
-import type { CustomerBookableService, CustomerHomeCategory } from '@/types/customer';
+import type {
+  BookingFlowContextType,
+  BookingFlowDetailsDraft,
+  BookingFlowEntityPayload,
+  BookingFlowSelectedServiceLine,
+  BookingFlowSourceType,
+  BookingFlowStartPayload,
+} from '@/types/booking-flow-context';
+import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
+import type { CustomerBookableService } from '@/types/customer';
 import {
   buildCreateBookingPayload,
   createEmptyAddressDraft,
@@ -20,7 +28,7 @@ function getNextHourTimeValue() {
 
 function createDefaultDetailsDraft(): BookingFlowDetailsDraft {
   return {
-    bookingType: 'INSTANT',
+    bookingType: CUSTOMER_BOOKING_TYPE.INSTANT,
     scheduledDate: getTodayDateValue(),
     scheduledTime: getNextHourTimeValue(),
     address: createEmptyAddressDraft(),
@@ -49,13 +57,10 @@ export function useBookingFlowController(): BookingFlowContextType {
   const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
   const [subcategoryName, setSubcategoryName] = useState<string | null>(null);
   const [selectedServicesById, setSelectedServicesById] = useState<Record<string, BookingFlowSelectedServiceLine>>({});
-  const [catalog, setCatalog] = useState<CustomerHomeCategory[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [detailsDraft, setDetailsDraft] = useState<BookingFlowDetailsDraft>(createDefaultDetailsDraft);
   const lastToggleRef = useRef<{ serviceId: string; timestamp: number } | null>(null);
 
-  const beginFlow = useCallback((payload: { sourceType: BookingFlowSourceType; categoryId?: string; service?: CustomerBookableService }) => {
+  const beginFlow = useCallback((payload: BookingFlowStartPayload) => {
     setSourceType(payload.sourceType);
     setCategoryId(payload.categoryId ?? null);
     setCategoryName(null);
@@ -65,12 +70,12 @@ export function useBookingFlowController(): BookingFlowContextType {
     setDetailsDraft(createDefaultDetailsDraft());
   }, []);
 
-  const setCategory = useCallback((payload: { id: string; name?: string | null }) => {
+  const setCategory = useCallback((payload: BookingFlowEntityPayload) => {
     setCategoryId(payload.id);
     setCategoryName(payload.name ?? null);
   }, []);
 
-  const setSubcategory = useCallback((payload: { id: string; name?: string | null }) => {
+  const setSubcategory = useCallback((payload: BookingFlowEntityPayload) => {
     setSubcategoryId((currentId) => {
       if (currentId && currentId !== payload.id) {
         setSelectedServicesById({});
@@ -153,40 +158,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     setDetailsDraft(payload);
   }, []);
 
-  const loadCatalog = useCallback(async (city: string, forceRefresh: boolean) => {
-    if (!forceRefresh && catalog.length > 0) {
-      return catalog;
-    }
-
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      const nextCatalog = await customerActions.getCustomerServiceCatalog({
-        city,
-        includeSubcategory: true,
-        includeServices: true,
-        includePriceOptions: true,
-        includeTask: true,
-        includeImage: true,
-        usageType: ['MAIN', 'ICON'],
-      });
-      setCatalog(nextCatalog);
-      return nextCatalog;
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setCatalogError(error.message);
-      } else {
-        setCatalogError('Unable to load services right now.');
-      }
-      return [];
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, [catalog]);
-
-  const ensureCatalog = useCallback((city: string) => loadCatalog(city, false), [loadCatalog]);
-  const refreshCatalog = useCallback((city: string) => loadCatalog(city, true), [loadCatalog]);
-
   const createBooking = useCallback(async (city: string) => {
     const payload = buildCreateBookingPayload({
       city,
@@ -208,8 +179,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     setSubcategoryId(null);
     setSubcategoryName(null);
     setSelectedServicesById({});
-    setCatalog([]);
-    setCatalogError(null);
     setDetailsDraft(createDefaultDetailsDraft());
   }, []);
 
@@ -231,9 +200,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     subcategoryName,
     selectedServices,
     selectedServiceIds,
-    catalog,
-    catalogLoading,
-    catalogError,
     bookingType: detailsDraft.bookingType,
     scheduledDate: detailsDraft.scheduledDate,
     scheduledTime: detailsDraft.scheduledTime,
@@ -249,8 +215,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     setServicePriceOption,
     removeService,
     setBookingDetails,
-    ensureCatalog,
-    refreshCatalog,
     createBooking,
     resetFlow,
   }), [
@@ -261,9 +225,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     subcategoryName,
     selectedServices,
     selectedServiceIds,
-    catalog,
-    catalogLoading,
-    catalogError,
     detailsDraft.bookingType,
     detailsDraft.scheduledDate,
     detailsDraft.scheduledTime,
@@ -279,8 +240,6 @@ export function useBookingFlowController(): BookingFlowContextType {
     setServicePriceOption,
     removeService,
     setBookingDetails,
-    ensureCatalog,
-    refreshCatalog,
     createBooking,
     resetFlow,
   ]);
