@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   CreateCustomerBookingPayload,
   CustomerBookableService,
   CustomerBookingAddressInput,
@@ -14,6 +14,7 @@ import type {
   BookingFlowAddressMode,
   BookingFlowSelectedServiceLine,
 } from '@/types/booking-flow-context';
+import type { LocationCoordinates } from '@/modules/location/types/location.types';
 
 function toTrimmedString(value?: string | null) {
   return typeof value === 'string' ? value.trim() : '';
@@ -33,7 +34,8 @@ export function getDefaultSelectedPriceOptionId(priceOptions?: CustomerServicePr
     return null;
   }
 
-  return priceOptions[0]?.id ?? null;
+  const defaultOption = priceOptions.find(option => !option.isOptional) ?? priceOptions[0];
+  return defaultOption?.id ?? null;
 }
 
 export function createBookingFlowService(service: CustomerBookableService): CustomerBookableService {
@@ -72,6 +74,16 @@ export function getSelectedPriceOption(
   }
 
   return service.priceOptions.find(option => option.id === selectedPriceOptionId) ?? null;
+}
+
+export function getRequiredPriceOptions(priceOptions?: CustomerServicePriceOption[]) {
+  if (!Array.isArray(priceOptions)) return [];
+  return priceOptions.filter(option => !option.isOptional);
+}
+
+export function getOptionalPriceOptions(priceOptions?: CustomerServicePriceOption[]) {
+  if (!Array.isArray(priceOptions)) return [];
+  return priceOptions.filter(option => option.isOptional);
 }
 
 export function getServiceLineTotalAmount(service: CustomerBookableService, selectedPriceOptionId: string | null, quantity: number) {
@@ -132,13 +144,22 @@ export function formatSubtotalMultiplierLabel(input: {
 }
 
 export function formatPriceOptionMeta(option: CustomerServicePriceOption) {
+  const pricingLabel = formatPriceOptionPricingLabel(option);
+  const description = formatPriceOptionDescription(option);
+  if (description) return `${pricingLabel} • ${description}`;
+  return pricingLabel;
+}
+
+export function formatPriceOptionDescription(option: CustomerServicePriceOption) {
+  return option.description?.trim() ?? '';
+}
+
+export function formatPriceOptionPricingLabel(option: CustomerServicePriceOption) {
   const amountLabel = formatPriceOptionAmount(option);
-  const description = option.description?.trim() ?? '';
-  const withDescription = (pricingLabel: string) => (description ? `${description} • ${pricingLabel}` : pricingLabel);
 
   if (option.priceType === PRICE_TYPE.HOURLY) {
     if (option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_MINUTE) {
-      return withDescription(`${amountLabel} Per Minute`);
+      return `${amountLabel} Per Minute`;
     }
     if (
       option.priceComputationMode === PRICE_COMPUTATION_MODE.PER_BLOCK
@@ -146,22 +167,22 @@ export function formatPriceOptionMeta(option: CustomerServicePriceOption) {
       && Number.isFinite(option.billingUnitMinutes)
       && option.billingUnitMinutes > 0
     ) {
-      return withDescription(`${amountLabel} Per ${option.billingUnitMinutes} Min Block`);
+            return `${amountLabel} Per ${option.billingUnitMinutes} Min Block`;
     }
-    return withDescription(`${amountLabel} Per Hour`);
+    return `${amountLabel} Per Hour`;
   }
 
   if (option.priceType === PRICE_TYPE.PER_UNIT) {
-    return withDescription(`${amountLabel} Per Unit`);
+    return `${amountLabel} Per Unit`;
   }
   if (option.priceType === PRICE_TYPE.DAILY) {
-    return withDescription(`${amountLabel} Per Day`);
+    return `${amountLabel} Per Day`;
   }
   if (option.priceType === PRICE_TYPE.VISIT) {
-    return withDescription(`${amountLabel} Per Visit`);
+    return `${amountLabel} Per Visit`;
   }
 
-  return withDescription(amountLabel);
+  return amountLabel;
 }
 
 export function shouldAllowQuantityControl(option: CustomerServicePriceOption | null) {
@@ -321,6 +342,24 @@ export function hasValidCoordinates(address: BookingFlowAddressDraft) {
     && Number.isFinite(address.longitude);
 }
 
+export function getAddressDraftCoordinates(address: BookingFlowAddressDraft): LocationCoordinates | null {
+  if (!hasValidCoordinates(address)) {
+    return null;
+  }
+
+  return {
+    latitude: address.latitude as number,
+    longitude: address.longitude as number,
+  };
+}
+
+export function createFallbackLocationCoordinates(): LocationCoordinates {
+  return {
+    latitude: 25.4358,
+    longitude: 81.8463,
+  };
+}
+
 export function isBookingAddressComplete(address: BookingFlowAddressDraft) {
   return Boolean(
     toTrimmedString(address.state)
@@ -431,4 +470,5 @@ export function buildCreateBookingPayload(input: {
     })),
   };
 }
+
 

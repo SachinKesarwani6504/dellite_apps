@@ -59,8 +59,13 @@ export function useCategoryServicesScreenController(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initialServiceAppliedRef = useRef(false);
+  const selectedServiceIdSetRef = useRef<Set<string>>(new Set());
   const selectedCity = route.params.city ?? resolvedLocation.serviceableCity ?? '';
   const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
+
+  useEffect(() => {
+    selectedServiceIdSetRef.current = new Set(selectedServices.map(line => line.service.id));
+  }, [selectedServices]);
 
   useFocusEffect(
     useCallback(() => {
@@ -136,6 +141,11 @@ export function useCategoryServicesScreenController(
       }
 
       if (seedServiceId && !initialServiceAppliedRef.current) {
+        if (selectedServiceIdSetRef.current.has(seedServiceId)) {
+          initialServiceAppliedRef.current = true;
+          return;
+        }
+
         const initialService = toBookableServices(subcategory).find(service => service.id === seedServiceId);
         if (initialService) {
           toggleService(createBookingFlowService({

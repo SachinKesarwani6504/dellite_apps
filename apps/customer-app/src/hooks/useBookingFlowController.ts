@@ -158,6 +158,13 @@ export function useBookingFlowController(): BookingFlowContextType {
     setDetailsDraft(payload);
   }, []);
 
+  const setBookingAddress = useCallback((address: BookingFlowDetailsDraft['address']) => {
+    setDetailsDraft(current => ({
+      ...current,
+      address,
+    }));
+  }, []);
+
   const createBooking = useCallback(async (city: string) => {
     const payload = buildCreateBookingPayload({
       city,
@@ -214,6 +221,7 @@ export function useBookingFlowController(): BookingFlowContextType {
     setServiceQuantity,
     setServicePriceOption,
     removeService,
+    setBookingAddress,
     setBookingDetails,
     createBooking,
     resetFlow,
@@ -239,6 +247,7 @@ export function useBookingFlowController(): BookingFlowContextType {
     setServiceQuantity,
     setServicePriceOption,
     removeService,
+    setBookingAddress,
     setBookingDetails,
     createBooking,
     resetFlow,

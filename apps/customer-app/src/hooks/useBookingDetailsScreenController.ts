@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
@@ -17,6 +18,7 @@ import {
   buildLocationPrimaryLine,
   buildNextBookingDateChoices,
   buildScheduledStartAt,
+  getRequiredPriceOptions,
   getSelectableDurations,
   getSelectedPriceOption,
   isBookingAddressComplete,
@@ -42,6 +44,10 @@ function nextAddressDraft(
     return { ...current, longitude: toCoordinateValue(value) };
   }
   return { ...current, [field]: value } as BookingFlowAddressDraft;
+}
+
+function logBookingLocationDebug(message: string, payload: unknown) {
+  console.log(`[booking-location] ${message}`, payload);
 }
 
 export function useBookingDetailsScreenController(
@@ -73,6 +79,7 @@ export function useBookingDetailsScreenController(
     setServicePriceOption,
     setServiceQuantity,
     removeService,
+    setBookingAddress,
     setBookingDetails,
   } = useBookingFlowContext();
   const [bookingType, setBookingTypeState] = useState(contextBookingType);
@@ -107,6 +114,10 @@ export function useBookingDetailsScreenController(
     longitude,
   }), [city, country, formattedAddress, latitude, locality, longitude, postalCode, state]);
 
+  useFocusEffect(useCallback(() => {
+    setAddressDraft(contextAddress);
+  }, [contextAddress]));
+
   useEffect(() => {
     if (detectedAddressDraft.addressLine1.trim().length === 0) {
       return;
@@ -135,8 +146,7 @@ export function useBookingDetailsScreenController(
   useEffect(() => {
     selectedServices.forEach((line) => {
       if (line.selectedPriceOptionId) return;
-      if (!Array.isArray(line.service.priceOptions) || line.service.priceOptions.length === 0) return;
-      const [defaultOption] = line.service.priceOptions;
+      const [defaultOption] = getRequiredPriceOptions(line.service.priceOptions);
       if (defaultOption?.id) {
         setServicePriceOption(line.service.id, defaultOption.id);
       }
@@ -173,8 +183,7 @@ export function useBookingDetailsScreenController(
   }, [selectedDurationByService, selectedServices, setServiceQuantity]);
 
   const hasMissingPriceSelection = selectedServices.some(line =>
-    Array.isArray(line.service.priceOptions)
-      && line.service.priceOptions.length > 0
+    getRequiredPriceOptions(line.service.priceOptions).length > 0
       && !line.selectedPriceOptionId,
   );
 
@@ -187,6 +196,8 @@ export function useBookingDetailsScreenController(
 
   const currentLocationSummary = buildAddressSummary(detectedAddressDraft) || APP_TEXT.main.bookingFlow.currentLocationEmptyHint;
   const currentLocationPrimaryLine = buildLocationPrimaryLine(detectedAddressDraft) || resolvedLocation.displayCity || 'Location not ready';
+  const pinnedLocationSummary = buildAddressSummary(addressDraft) || APP_TEXT.main.bookingFlow.pinLocationEmptyHint;
+  const pinnedLocationPrimaryLine = buildLocationPrimaryLine(addressDraft) || APP_TEXT.main.bookingFlow.pinLocationFallbackTitle;
 
   const setBookingType = (next: typeof contextBookingType) => {
     setBookingTypeState(next);
@@ -207,21 +218,48 @@ export function useBookingDetailsScreenController(
     setScheduledTimeState(next);
   };
 
+  const refreshCurrentLocation = async () => {
+    const nextLocation = await refreshLocation();
+    const nextAddressDraft = nextLocation ? buildDetectedAddressDraft(nextLocation) : detectedAddressDraft;
+    logBookingLocationDebug('current-location:resolved', {
+      sourceLocation: nextLocation ?? {
+        city,
+        locality,
+        state,
+        country,
+        postalCode,
+        formattedAddress,
+        latitude,
+        longitude,
+      },
+      storedAddressDraft: {
+        ...nextAddressDraft,
+        mode: 'google',
+      },
+    });
+    const nextDraft = {
+      ...nextAddressDraft,
+      mode: 'google',
+      addressLine2: addressDraft.addressLine2,
+    } satisfies BookingFlowAddressDraft;
+    setAddressDraft(nextDraft);
+    setBookingAddress(nextDraft);
+  };
+
   const setAddressMode = (mode: BookingFlowAddressDraft['mode']) => {
-    setAddressDraft(current => ({ ...current, mode }));
+    if (mode === 'google') {
+      void refreshCurrentLocation();
+      return;
+    }
+
+    const sourceDraft = isBookingAddressComplete(addressDraft) ? addressDraft : detectedAddressDraft;
+    const nextDraft = { ...sourceDraft, mode };
+    setAddressDraft(nextDraft);
+    setBookingAddress(nextDraft);
   };
 
   const setAddressField = (field: keyof BookingFlowAddressDraft, value: string) => {
     setAddressDraft(current => nextAddressDraft(current, field, value));
-  };
-
-  const refreshCurrentLocation = async () => {
-    await refreshLocation();
-    setAddressDraft({
-      ...detectedAddressDraft,
-      mode: 'google',
-      addressLine2: addressDraft.addressLine2,
-    });
   };
 
   const selectServicePriceOption = (serviceId: string, priceOptionId: string) => {
@@ -282,6 +320,8 @@ export function useBookingDetailsScreenController(
     timeOptions,
     currentLocationSummary,
     currentLocationPrimaryLine,
+    pinnedLocationSummary,
+    pinnedLocationPrimaryLine,
     locationRefreshing,
     locationError,
     hasMissingPriceSelection,

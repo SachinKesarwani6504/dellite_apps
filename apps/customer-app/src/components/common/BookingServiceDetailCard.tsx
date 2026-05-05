@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { CardWrapper } from '@/components/common/CardWrapper';
 import { ServicePricingHeaderCard } from '@/components/common/ServicePricingHeaderCard';
 import { ServiceTasksCarousel } from '@/components/common/ServiceTasksCarousel';
 import type { BookingServiceDetailCardProps } from '@/types/component-types';
 import { APP_TEXT } from '@/utils/appText';
-import { formatCurrencyAmount, formatPriceOptionMeta, formatSubtotalMultiplierLabel } from '@/utils';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { formatCurrencyAmount, formatEstimatedDurationLabel, formatPriceOptionDescription, formatPriceOptionPricingLabel, formatSubtotalMultiplierLabel, getOptionalPriceOptions } from '@/utils';
+import { theme, uiColors } from '@/utils/theme';
 
 export function BookingServiceDetailCard({
   service,
@@ -24,28 +25,11 @@ export function BookingServiceDetailCard({
 }: BookingServiceDetailCardProps) {
   const includedTasks = Array.isArray(service.includedTasks) ? service.includedTasks : [];
   const excludedTasks = Array.isArray(service.excludedTasks) ? service.excludedTasks : [];
+  const optionalPriceOptions = getOptionalPriceOptions(service.priceOptions);
+  const estimatedDurationLabel = formatEstimatedDurationLabel(selectedPriceOption?.estimatedMinutes);
 
   return (
-    <View
-      className="rounded-lg border p-4"
-      style={{
-        borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-        backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-      }}
-    >
-      <View className="mb-1 flex-row justify-end">
-        <Pressable
-          onPress={onRemoveService}
-          className="h-9 w-9 items-center justify-center rounded-full border"
-          style={{
-            backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayLight95,
-            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          }}
-        >
-          <Ionicons name="close" size={18} color={theme.colors.primary} />
-        </Pressable>
-      </View>
-
+    <CardWrapper isDark={isDark}>
       <ServicePricingHeaderCard
         serviceName={service.name}
         selectedPriceOption={selectedPriceOption}
@@ -58,12 +42,75 @@ export function BookingServiceDetailCard({
         onSelectDurationMinutes={onSelectDurationMinutes}
         onDecreaseQuantity={onDecreaseQuantity}
         onIncreaseQuantity={onIncreaseQuantity}
+        onRemoveService={onRemoveService}
       />
 
       {selectedPriceOption ? (
-        <Text className="mt-3 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {formatPriceOptionMeta(selectedPriceOption)}
-        </Text>
+        <View className="mt-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="mr-3 flex-1 text-sm font-semibold text-baseDark dark:text-white">
+              {formatPriceOptionPricingLabel(selectedPriceOption)}
+            </Text>
+            {estimatedDurationLabel ? (
+              <View
+                className="flex-row items-center rounded-full border px-2.5 py-1"
+                style={{
+                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFFFFF',
+                }}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={12}
+                  color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
+                />
+                <Text className="ml-1.5 text-[11px] font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                  {`Est. time ${estimatedDurationLabel}`}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {formatPriceOptionDescription(selectedPriceOption) ? (
+            <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              {formatPriceOptionDescription(selectedPriceOption)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {optionalPriceOptions.length > 0 ? (
+        <View
+          className="mt-3 rounded-xl border px-3 py-3"
+          style={{
+            borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+          }}
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="information-circle-outline" size={15} color={theme.colors.primary} />
+            <Text className="ml-1.5 text-xs font-extrabold text-baseDark dark:text-white">
+              {APP_TEXT.main.bookingFlow.optionalChargesTitle}
+            </Text>
+          </View>
+          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            {APP_TEXT.main.bookingFlow.optionalChargesSubtitle}
+          </Text>
+          <View className="mt-2 gap-2">
+            {optionalPriceOptions.map(option => (
+              <View key={option.id} className="flex-row items-start justify-between">
+                <View className="mr-3 flex-1">
+                  <Text className="text-xs font-bold text-baseDark dark:text-white">{option.title}</Text>
+                  {formatPriceOptionDescription(option) ? (
+                    <Text className="mt-0.5 text-[11px]" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                      {formatPriceOptionDescription(option)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text className="text-xs font-extrabold text-primary">{formatPriceOptionPricingLabel(option)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
       ) : null}
 
       <View
@@ -85,11 +132,11 @@ export function BookingServiceDetailCard({
             ) : null}
           </Text>
         </View>
-        <Text className="text-xl font-extrabold text-baseDark dark:text-white">
+        <Text className="text-3xl font-extrabold text-baseDark dark:text-white">
           {lineTotalAmount != null ? formatCurrencyAmount(lineTotalAmount) : '--'}
         </Text>
       </View>
       <ServiceTasksCarousel includedTasks={includedTasks} excludedTasks={excludedTasks} isDark={isDark} />
-    </View>
+    </CardWrapper>
   );
 }

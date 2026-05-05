@@ -69,6 +69,7 @@ export type BookingFlowContextType = {
   setServiceQuantity: (serviceId: string, quantity: number) => void;
   setServicePriceOption: (serviceId: string, priceOptionId: string) => void;
   removeService: (serviceId: string) => void;
+  setBookingAddress: (address: BookingFlowAddressDraft) => void;
   setBookingDetails: (payload: BookingFlowDetailsDraft) => void;
   createBooking: (city: string) => Promise<CustomerBookingCreateResult>;
   resetFlow: () => void;

@@ -2,10 +2,11 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
 import { BookingServiceDetailCard } from '@/components/common/BookingServiceDetailCard';
-import { BookingTypeChip } from '@/components/common/BookingTypeChip';
 import { Button } from '@/components/common/Button';
+import { CardWrapper } from '@/components/common/CardWrapper';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { TwoOptionPillTabs } from '@/components/common/TwoOptionPillTabs';
 import { useBookingDetailsScreenController } from '@/hooks/useBookingDetailsScreenController';
 import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
 import type { BookingDetailsScreenProps } from '@/types/main-screens';
@@ -34,6 +35,8 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     timeOptions,
     currentLocationSummary,
     currentLocationPrimaryLine,
+    pinnedLocationSummary,
+    pinnedLocationPrimaryLine,
     locationRefreshing,
     locationError,
     hasMissingPriceSelection,
@@ -44,7 +47,6 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     setScheduledTime,
     setNotes,
     setAddressMode,
-    setAddressField,
     refreshCurrentLocation,
     selectServicePriceOption,
     selectServiceDuration,
@@ -57,7 +59,9 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
   });
 
   return (
-    <GradientScreen contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28, paddingTop: 12 }}>
+    <GradientScreen
+      keyboardExtraScrollHeight={200}
+    >
       <View className="mb-2 flex-row items-center">
         <BackButton onPress={() => navigation.goBack()} />
       </View>
@@ -69,19 +73,23 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
         wrapHighlight
       />
 
-      <View
-        className="mt-5 flex-row rounded-xl p-1"
-        style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}
-      >
-        <BookingTypeChip
-          label={APP_TEXT.main.bookingFlow.instantBookingLabel}
-          selected={bookingType === CUSTOMER_BOOKING_TYPE.INSTANT}
-          onPress={() => setBookingType(CUSTOMER_BOOKING_TYPE.INSTANT)}
-        />
-        <BookingTypeChip
-          label={APP_TEXT.main.bookingFlow.scheduledBookingLabel}
-          selected={bookingType === CUSTOMER_BOOKING_TYPE.SCHEDULED}
-          onPress={() => setBookingType(CUSTOMER_BOOKING_TYPE.SCHEDULED)}
+      <View className="mt-5">
+        <TwoOptionPillTabs
+          isDark={isDark}
+          value={bookingType}
+          onChange={setBookingType}
+          items={[
+            {
+              label: APP_TEXT.main.bookingFlow.instantBookingLabel,
+              value: CUSTOMER_BOOKING_TYPE.INSTANT,
+              iconName: 'flash-outline',
+            },
+            {
+              label: APP_TEXT.main.bookingFlow.scheduledBookingLabel,
+              value: CUSTOMER_BOOKING_TYPE.SCHEDULED,
+              iconName: 'calendar-outline',
+            },
+          ]}
         />
       </View>
 
@@ -93,7 +101,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 10 }}
+            contentContainerStyle={{ paddingTop: 10, paddingBottom: 10, gap: 10 }}
           >
             {dateChoices.map((choice) => {
               const selected = scheduledDate === choice.value;
@@ -107,6 +115,11 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
                   style={{
                     borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
                     backgroundColor: selected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
+                    shadowColor: selected ? uiColors.shadow.base : 'transparent',
+                    shadowOpacity: selected ? 0.2 : 0,
+                    shadowRadius: selected ? 10 : 0,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: selected ? 4 : 0,
                   }}
                 >
                   <Text className={`text-[10px] font-bold uppercase ${selected ? 'text-primary' : 'text-textPrimary/70 dark:text-white/70'}`}>{choice.topLabel}</Text>
@@ -125,7 +138,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingTop: 10, paddingBottom: 2, gap: 10 }}
+                contentContainerStyle={{ paddingTop: 10, paddingBottom: 10, gap: 10 }}
               >
                 {timeOptions.map((timeOption) => {
                   const selected = scheduledTime === timeOption;
@@ -137,6 +150,11 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
                       style={{
                         borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
                         backgroundColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
+                        shadowColor: selected ? uiColors.shadow.base : 'transparent',
+                        shadowOpacity: selected ? 0.22 : 0,
+                        shadowRadius: selected ? 10 : 0,
+                        shadowOffset: { width: 0, height: 6 },
+                        elevation: selected ? 4 : 0,
                       }}
                     >
                       <Text className={`text-xs font-bold ${selected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
@@ -189,122 +207,111 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       </View>
 
       <Text className="mt-6 text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationTitle}</Text>
-      <View
-        className="mt-3 rounded-lg border p-4"
-        style={{
-          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-        }}
-      >
-        <Pressable
-          onPress={() => {
-            void refreshCurrentLocation();
+      <CardWrapper isDark={isDark} className="mt-3 rounded-lg border p-4" lightBackgroundColor={palette.light.card}>
+        <TwoOptionPillTabs
+          isDark={isDark}
+          value={addressDraft.mode}
+          onChange={(nextMode) => {
+            if (nextMode === 'google') {
+              setAddressMode(nextMode);
+              return;
+            }
+
+            setAddressMode(nextMode);
+            navigation.navigate(HOME_SCREEN.BOOKING_LOCATION_PICKER);
           }}
-        >
-          <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationCurrentTitle}</Text>
-          <View
-            className="mt-3 rounded-md border px-3 py-3"
-            style={{
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <View className="mr-3 flex-1">
-                <Text className="text-[11px] font-semibold uppercase text-primary">{APP_TEXT.main.bookingFlow.currentLocationSummaryTitle}</Text>
-                <Text className="mt-1 text-sm font-bold text-baseDark dark:text-white">{titleCase(currentLocationPrimaryLine)}</Text>
+          items={[
+            {
+              label: APP_TEXT.main.bookingFlow.locationCurrentTitle,
+              value: 'google',
+              iconName: 'locate-outline',
+            },
+            {
+              label: APP_TEXT.main.bookingFlow.locationManualTitle,
+              value: 'pin',
+              iconName: 'location-outline',
+            },
+          ]}
+        />
+
+        {addressDraft.mode === 'google' ? (
+          <View className="mt-3">
+            <View
+              className="rounded-md border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+              }}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="mr-3 flex-1">
+                  <Text className="text-sm font-bold text-baseDark dark:text-white">{titleCase(currentLocationPrimaryLine)}</Text>
+                </View>
               </View>
-              <Text className="text-xs font-bold text-primary">
+              <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                {currentLocationSummary}
+              </Text>
+              {locationError ? (
+                <Text className="mt-2 text-xs" style={{ color: theme.colors.negative }}>
+                  {locationError}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={() => {
+                void refreshCurrentLocation();
+              }}
+              className="mt-3 items-center rounded-full px-4 py-3"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
+              <Text className="text-xs font-extrabold text-white">
                 {locationRefreshing ? APP_TEXT.main.bookingFlow.refreshingLocationLabel : APP_TEXT.main.bookingFlow.useCurrentLocationCta}
               </Text>
-            </View>
-            <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {currentLocationSummary}
-            </Text>
-            {locationError ? (
-              <Text className="mt-2 text-xs" style={{ color: theme.colors.negative }}>
-                {locationError}
-              </Text>
-            ) : null}
-          </View>
-        </Pressable>
-
-        <View className="my-4 flex-row items-center">
-          <View className="h-px flex-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
-          <Text className="mx-3 text-[10px] font-semibold uppercase text-textPrimary/60 dark:text-white/60">OR</Text>
-          <View className="h-px flex-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight }} />
-        </View>
-
-        <Pressable onPress={() => setAddressMode('pin')}>
-          <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.locationManualTitle}</Text>
-          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {APP_TEXT.main.bookingFlow.locationManualSubtitle}
-          </Text>
-        </Pressable>
-
-        {addressDraft.mode === 'pin' ? (
-          <View className="mt-4 gap-3">
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.addressLine1Label}
-              isRequired
-              value={addressDraft.addressLine1}
-              onChangeText={(value) => setAddressField('addressLine1', value)}
-              placeholder={APP_TEXT.main.bookingFlow.addressPlaceholder}
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.addressLine2Label}
-              value={addressDraft.addressLine2}
-              onChangeText={(value) => setAddressField('addressLine2', value)}
-              placeholder={APP_TEXT.main.bookingFlow.addressLine2Placeholder}
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.areaLabel}
-              isRequired
-              value={addressDraft.area}
-              onChangeText={(value) => setAddressField('area', value)}
-              placeholder={APP_TEXT.main.bookingFlow.areaPlaceholder}
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.districtLabel}
-              isRequired
-              value={addressDraft.district}
-              onChangeText={(value) => setAddressField('district', value)}
-              placeholder={APP_TEXT.main.bookingFlow.districtPlaceholder}
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.stateFieldLabel}
-              isRequired
-              value={addressDraft.state}
-              onChangeText={(value) => setAddressField('state', value)}
-              placeholder={APP_TEXT.main.bookingFlow.statePlaceholder}
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.pincodeLabel}
-              isRequired
-              value={addressDraft.pincode}
-              onChangeText={(value) => setAddressField('pincode', value)}
-              placeholder={APP_TEXT.main.bookingFlow.pincodePlaceholder}
-              keyboardType="number-pad"
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.latitudeLabel}
-              isRequired
-              value={addressDraft.latitude == null ? '' : String(addressDraft.latitude)}
-              onChangeText={(value) => setAddressField('latitude', value)}
-              placeholder={APP_TEXT.main.bookingFlow.latitudePlaceholder}
-              keyboardType="decimal-pad"
-            />
-            <AppInput
-              label={APP_TEXT.main.bookingFlow.longitudeLabel}
-              isRequired
-              value={addressDraft.longitude == null ? '' : String(addressDraft.longitude)}
-              onChangeText={(value) => setAddressField('longitude', value)}
-              placeholder={APP_TEXT.main.bookingFlow.longitudePlaceholder}
-              keyboardType="decimal-pad"
-            />
+            </Pressable>
           </View>
         ) : null}
-      </View>
+
+        {addressDraft.mode === 'pin' ? (
+          <View className="mt-3">
+            <View
+              className="rounded-md border px-3 py-3"
+              style={{
+                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+              }}
+            >
+              <Text className="text-sm font-bold text-baseDark dark:text-white">{titleCase(pinnedLocationPrimaryLine)}</Text>
+              <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                {pinnedLocationSummary}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => navigation.navigate(HOME_SCREEN.BOOKING_LOCATION_PICKER)}
+              className="mt-3 items-center rounded-full px-4 py-3"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
+              <Text className="text-xs font-extrabold text-white">
+                {APP_TEXT.main.bookingFlow.changeLocationCta}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {addressDraft.mode !== 'pin' ? (
+          <Pressable
+            onPress={() => {
+              setAddressMode('pin');
+              navigation.navigate(HOME_SCREEN.BOOKING_LOCATION_PICKER);
+            }}
+            className="mt-3 items-center rounded-full px-4 py-3"
+            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.accentSoft20 }}
+          >
+            <Text className="text-xs font-extrabold text-primary dark:text-accent">
+              {APP_TEXT.main.bookingFlow.selectOnMapCta}
+            </Text>
+          </Pressable>
+        ) : null}
+      </CardWrapper>
 
       <View className="mt-5">
         <AppInput

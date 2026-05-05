@@ -1,5 +1,7 @@
 import type { ComponentProps, ElementRef } from 'react';
-import type { Image, ImageBackground, ImageSourcePropType, TextInput } from 'react-native';
+import type { Ionicons } from '@expo/vector-icons';
+import type { Image, ImageBackground, ImageSourcePropType, StyleProp, TextInput, ViewProps, ViewStyle } from 'react-native';
+import type { LocationCoordinates } from '@/modules/location/types/location.types';
 import type { CustomerBookableService, CustomerServicePriceOption, CustomerServiceTask } from '@/types/customer';
 import type { ImageCacheMode } from '@/types/shared';
 
@@ -37,6 +39,15 @@ export type OtpCodeInputProps = {
 
 export type OtpInputRef = TextInput | null;
 
+export type CardWrapperProps = ViewProps & {
+  isDark: boolean;
+  lightBackgroundColor?: string;
+  darkBackgroundColor?: string;
+  borderColor?: string;
+  withShadow?: boolean;
+  style?: StyleProp<ViewStyle>;
+};
+
 export type ServicePricingHeaderCardProps = {
   serviceName: string;
   selectedPriceOption: CustomerServicePriceOption | null;
@@ -49,6 +60,7 @@ export type ServicePricingHeaderCardProps = {
   onSelectDurationMinutes: (minutes: number) => void;
   onDecreaseQuantity: () => void;
   onIncreaseQuantity: () => void;
+  onRemoveService: () => void;
 };
 
 export type BookingTypeChipProps = {
@@ -77,4 +89,29 @@ export type ServiceTasksCarouselProps = {
   includedTasks: CustomerServiceTask[];
   excludedTasks: CustomerServiceTask[];
   isDark: boolean;
+};
+
+export type TwoOptionPillTabItem<T extends string> = {
+  label: string;
+  value: T;
+  iconName: keyof typeof Ionicons.glyphMap;
+};
+
+export type TwoOptionPillTabsProps<T extends string> = {
+  items: [TwoOptionPillTabItem<T>, TwoOptionPillTabItem<T>];
+  value: T;
+  onChange: (next: T) => void;
+  isDark: boolean;
+};
+
+export type PinnedLocationMapPickerProps = {
+  coordinates: LocationCoordinates;
+  addressTitle: string;
+  addressSummary: string;
+  isDark: boolean;
+  isResolving: boolean;
+  error: string | null;
+  mapHeight?: number;
+  showAddressPreview?: boolean;
+  onRegionChangeComplete: (coordinates: LocationCoordinates) => void;
 };

@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { BookingConfirmationScreen } from '@/screens/main/BookingConfirmationScreen';
 import { BookingDetailsScreen } from '@/screens/main/BookingDetailsScreen';
+import { BookingLocationPickerScreen } from '@/screens/main/BookingLocationPickerScreen';
 import { CategoryServicesScreen } from '@/screens/main/CategoryServicesScreen';
 import { HOME_SCREEN } from '@/types/screen-names';
 
@@ -12,6 +13,7 @@ export function BookingFlowNavigator() {
       <Stack.Screen name={HOME_SCREEN.CATEGORY_SUBCATEGORIES} component={CategoryServicesScreen} />
       <Stack.Screen name={HOME_SCREEN.SUBCATEGORY_SERVICES} component={CategoryServicesScreen} />
       <Stack.Screen name={HOME_SCREEN.BOOKING_DETAILS} component={BookingDetailsScreen} />
+      <Stack.Screen name={HOME_SCREEN.BOOKING_LOCATION_PICKER} component={BookingLocationPickerScreen} />
       <Stack.Screen name={HOME_SCREEN.BOOKING_CONFIRMATION} component={BookingConfirmationScreen} />
     </Stack.Navigator>
   );

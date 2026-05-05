@@ -32,6 +32,7 @@ export const HOME_SCREEN = {
   CATEGORY_SUBCATEGORIES: 'CategorySubcategories',
   SUBCATEGORY_SERVICES: 'SubcategoryServices',
   BOOKING_DETAILS: 'BookingDetails',
+  BOOKING_LOCATION_PICKER: 'BookingLocationPicker',
   BOOKING_CONFIRMATION: 'BookingConfirmation',
 } as const;
 

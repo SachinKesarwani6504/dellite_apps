@@ -11,7 +11,7 @@ const DEFAULT_PALETTE = theme.gradients.cta;
 
 export function GradientWord({
   word = '',
-  className = 'text-[34px] font-extrabold leading-[36px]',
+  className = 'text-[21px] font-extrabold leading-[24px]',
   palette = DEFAULT_PALETTE,
 }: GradientWordProps) {
   const letters = String(word).split('');

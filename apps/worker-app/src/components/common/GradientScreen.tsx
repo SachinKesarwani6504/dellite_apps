@@ -1,8 +1,13 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, ScrollViewProps, StyleProp, View, ViewStyle, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, ScrollViewProps, StyleProp, View, ViewStyle, useColorScheme } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, theme, uiColors } from '@/utils/theme';
+
+type GradientScrollHandle = {
+  scrollToEnd: (animated?: boolean) => void;
+};
 
 type GradientScreenProps = PropsWithChildren<{
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -15,6 +20,10 @@ type GradientScreenProps = PropsWithChildren<{
   refreshControl?: ScrollViewProps['refreshControl'];
   floatingBackground?: ReactNode;
   floatingBackgroundTopInset?: number;
+  keyboardAware?: boolean;
+  keyboardVerticalOffset?: number;
+  scrollRef?: (ref: GradientScrollHandle | null) => void;
+  keyboardExtraScrollHeight?: number;
 }>;
 
 export function GradientScreen({
@@ -29,8 +38,32 @@ export function GradientScreen({
   refreshControl,
   floatingBackground,
   floatingBackgroundTopInset = 0,
+  keyboardAware = true,
+  keyboardVerticalOffset = 0,
+  scrollRef,
+  keyboardExtraScrollHeight = 180,
 }: GradientScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
+  const bottomSafeSpacerHeight = stickyFooter ? 0 : Math.max(insets.bottom + 36, 56);
+  const setKeyboardAwareScrollRef = (ref: { scrollToEnd: (animated?: boolean) => void } | null) => {
+    scrollRef?.(ref ? { scrollToEnd: (animated = true) => ref.scrollToEnd(animated) } : null);
+  };
+  const setNativeScrollRef = (ref: ScrollView | null) => {
+    scrollRef?.(ref ? { scrollToEnd: (animated = true) => ref.scrollToEnd({ animated }) } : null);
+  };
+  const sharedScrollProps = {
+    className: 'flex-1',
+    refreshControl,
+    showsVerticalScrollIndicator: false,
+    keyboardShouldPersistTaps: 'handled' as const,
+    keyboardDismissMode: Platform.OS === 'ios' ? 'interactive' as const : 'on-drag' as const,
+    contentContainerStyle: [
+      { padding: 16, paddingBottom: stickyFooter ? 132 : 96 },
+      contentContainerStyle,
+    ],
+  };
+
   const content = (
     <View className="flex-1">
       {floatingBackground ? (
@@ -42,17 +75,25 @@ export function GradientScreen({
           {floatingBackground}
         </View>
       ) : null}
-      <ScrollView
-        className="flex-1"
-        refreshControl={refreshControl}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          { padding: 16, paddingBottom: stickyFooter ? 132 : 32 },
-          contentContainerStyle,
-        ]}
-      >
-        {children}
-      </ScrollView>
+      {keyboardAware ? (
+        <KeyboardAwareScrollView
+          {...sharedScrollProps}
+          innerRef={setKeyboardAwareScrollRef}
+          enableOnAndroid
+          enableAutomaticScroll
+          extraHeight={220}
+          extraScrollHeight={keyboardExtraScrollHeight}
+          keyboardOpeningTime={0}
+        >
+          {children}
+          <View style={{ height: bottomSafeSpacerHeight }} />
+        </KeyboardAwareScrollView>
+      ) : (
+        <ScrollView {...sharedScrollProps} ref={setNativeScrollRef}>
+          {children}
+          <View style={{ height: bottomSafeSpacerHeight }} />
+        </ScrollView>
+      )}
       {stickyFooter ? (
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-accent/30 px-4 pb-5 pt-3 dark:border-white/10"
@@ -66,9 +107,10 @@ export function GradientScreen({
       ) : null}
     </View>
   );
+  void keyboardVerticalOffset;
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
       {useGradient ? (
         <LinearGradient
           colors={gradientColors}

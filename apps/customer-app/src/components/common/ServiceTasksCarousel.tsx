@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { FlatList, NativeScrollEvent, NativeSyntheticEvent, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import type { ServiceTasksCarouselProps } from '@/types/component-types';
 import { APP_TEXT } from '@/utils/appText';
 import { titleCase, uiColors } from '@/utils';
@@ -14,6 +14,8 @@ type TaskPage = {
   iconName: keyof typeof Ionicons.glyphMap;
   items: Array<{ id?: string; title: string }>;
 };
+
+const TASK_PAGE_GAP = 12;
 
 function TaskPageView({ page, isDark }: { page: TaskPage; isDark: boolean }) {
   return (
@@ -70,48 +72,69 @@ export function ServiceTasksCarousel({ includedTasks, excludedTasks, isDark }: S
     setActiveIndex(Math.max(0, Math.min(nextIndex, pages.length - 1)));
   };
 
+  const scrollToIndex = (nextIndex: number) => {
+    const safeIndex = Math.max(0, Math.min(nextIndex, pages.length - 1));
+    listRef.current?.scrollToOffset({ offset: safeIndex * pageWidth, animated: true });
+    setActiveIndex(safeIndex);
+  };
+
   return (
     <View className="mt-4">
-      <FlatList
-        ref={listRef}
-        horizontal
-        pagingEnabled
-        data={pages}
-        keyExtractor={item => item.id}
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onMomentumEnd}
-        renderItem={({ item }) => (
-          <View style={{ width: pageWidth }}>
-            <TaskPageView page={item} isDark={isDark} />
-          </View>
-        )}
-      />
-      <View
-        className="mt-3 flex-row items-center justify-center self-center rounded-full border px-3 py-1.5"
-        style={{
-          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-        }}
-      >
-        {pages.map((item, index) => {
-          const selected = index === activeIndex;
-          return (
-            <View
-              key={item.id}
-              className="mx-1 rounded-full"
-              style={{
-                width: selected ? 18 : 9,
-                height: 9,
-                borderWidth: selected ? 1 : 0,
-                borderColor: selected ? theme.colors.primary : 'transparent',
-                backgroundColor: selected
-                  ? theme.colors.primary
-                  : (isDark ? '#5E6672' : '#C9CFD8'),
-                opacity: selected ? 1 : 0.95,
-              }}
-            />
-          );
-        })}
+      <View style={{ width: pageWidth, overflow: 'hidden' }}>
+        <FlatList
+          ref={listRef}
+          horizontal
+          pagingEnabled
+          data={pages}
+          keyExtractor={item => item.id}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onMomentumEnd}
+          renderItem={({ item }) => (
+            <View style={{ width: pageWidth, paddingRight: TASK_PAGE_GAP }}>
+              <TaskPageView page={item} isDark={isDark} />
+            </View>
+          )}
+        />
+      </View>
+      <View className="mt-3 flex-row items-center justify-center">
+        <Pressable onPress={() => scrollToIndex(activeIndex - 1)} className="h-8 w-8 items-center justify-center rounded-full">
+          <Ionicons
+            name="chevron-back"
+            size={14}
+            color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
+          />
+        </Pressable>
+        <View
+          className="mx-2 flex-row items-center justify-center rounded-full border px-3 py-1.5"
+          style={{
+            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+          }}
+        >
+          {pages.map((item, index) => {
+            const selected = index === activeIndex;
+            return (
+              <View
+                key={item.id}
+                className="mx-1 rounded-full"
+                style={{
+                  width: selected ? 18 : 8,
+                  height: 8,
+                  backgroundColor: selected
+                    ? theme.colors.primary
+                    : (isDark ? '#5E6672' : '#C9CFD8'),
+                }}
+              />
+            );
+          })}
+        </View>
+        <Pressable onPress={() => scrollToIndex(activeIndex + 1)} className="h-8 w-8 items-center justify-center rounded-full">
+          <Ionicons
+            name="chevron-forward"
+            size={14}
+            color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
+          />
+        </Pressable>
       </View>
     </View>
   );

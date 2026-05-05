@@ -11,6 +11,7 @@ import type {
   CustomerImageUsageType,
   CustomerBookingType,
 } from '@/types/customer';
+import type { LocationCoordinates } from '@/modules/location/types/location.types';
 
 export type BaseNavigation = {
   navigate: (screen: string, params?: unknown) => void;
@@ -29,6 +30,10 @@ export type BookingConfirmationNavigation = BackNavigation & {
 
 export type BookingDetailsScreenProps = {
   navigation: BookingDetailsNavigation;
+};
+
+export type BookingLocationPickerScreenProps = {
+  navigation: BackNavigation;
 };
 
 export type BookingConfirmationScreenProps = {
@@ -77,6 +82,8 @@ export type BookingDetailsScreenControllerValue = {
   timeOptions: string[];
   currentLocationSummary: string;
   currentLocationPrimaryLine: string;
+  pinnedLocationSummary: string;
+  pinnedLocationPrimaryLine: string;
   locationRefreshing: boolean;
   locationError: string | null;
   hasMissingPriceSelection: boolean;
@@ -95,6 +102,22 @@ export type BookingDetailsScreenControllerValue = {
   increaseServiceQuantity: (serviceId: string, quantity: number) => void;
   removeSelectedService: (serviceId: string) => void;
   reviewBooking: () => void;
+};
+
+export type BookingLocationPickerScreenControllerArgs = {
+  onSelectLocation: () => void;
+};
+
+export type BookingLocationPickerScreenControllerValue = {
+  isDark: boolean;
+  coordinates: LocationCoordinates;
+  selectedLocationSummary: string;
+  selectedLocationPrimaryLine: string;
+  isResolving: boolean;
+  error: string | null;
+  canSelectLocation: boolean;
+  resolvePinnedLocation: (coordinates: LocationCoordinates) => Promise<void>;
+  selectLocation: () => void;
 };
 
 export type CategoryServicesScreenControllerArgs = {

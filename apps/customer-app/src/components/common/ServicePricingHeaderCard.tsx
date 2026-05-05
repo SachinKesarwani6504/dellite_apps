@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { ServicePricingHeaderCardProps } from '@/types/component-types';
 import { PRICE_TYPE } from '@/types/customer';
-import { formatDurationChip, getSelectableDurations, titleCase } from '@/utils';
+import { formatDurationChip, getRequiredPriceOptions, getSelectableDurations, titleCase } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 export function ServicePricingHeaderCard({
@@ -17,7 +17,9 @@ export function ServicePricingHeaderCard({
   onSelectDurationMinutes,
   onDecreaseQuantity,
   onIncreaseQuantity,
+  onRemoveService,
 }: ServicePricingHeaderCardProps) {
+  const selectablePriceOptions = getRequiredPriceOptions(priceOptions);
   const selectableDurations = getSelectableDurations(selectedPriceOption);
   const selectedPriceType = selectedPriceOption?.priceType;
   const canSelectDuration = selectableDurations.length > 0;
@@ -25,36 +27,47 @@ export function ServicePricingHeaderCard({
 
   return (
     <View
-      className="rounded-2xl"
+      className="rounded-2xl px-1"
       style={{
         borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-        backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
       }}
     >
       <View className="flex-row items-start">
-        <View
-          className="mr-3 h-10 w-10 items-center justify-center rounded-xl"
-          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF1E6' }}
+        <View className="mr-3 flex-1 flex-row items-start">
+          <View
+            className="mr-3 h-10 w-10 items-center justify-center rounded-xl"
+            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF3EA' }}
+          >
+            <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-lg font-extrabold text-baseDark dark:text-white">{titleCase(serviceName)}</Text>
+            {selectedPriceOption ? (
+              <Text className="mt-1 text-sm font-bold text-primary">
+                {selectedPriceOption.title}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        <Pressable
+          onPress={onRemoveService}
+          className="h-7 w-7 items-center justify-center rounded-full border"
+          style={{
+            backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#FFF8F2',
+            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+          }}
         >
-          <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
-        </View>
-        <View className="flex-1">
-          <Text className="text-base font-extrabold text-baseDark dark:text-white">{titleCase(serviceName)}</Text>
-          {selectedPriceOption ? (
-            <Text className="mt-1 text-xs font-semibold text-primary">
-              {selectedPriceOption.title}
-            </Text>
-          ) : null}
-        </View>
+          <Ionicons name="close" size={13} color={theme.colors.primary} />
+        </Pressable>
       </View>
 
-      {priceOptions.length > 1 ? (
+      {selectablePriceOptions.length > 1 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingLeft: 12, paddingTop: 10, paddingBottom: 2, gap: 8 }}
         >
-          {priceOptions.map((option) => {
+          {selectablePriceOptions.map((option) => {
             const isSelected = option.id === selectedPriceOptionId;
             return (
               <Pressable
@@ -77,7 +90,7 @@ export function ServicePricingHeaderCard({
 
       {canSelectDuration && selectedPriceOption ? (
         <View className="mt-3">
-          <Text className="text-xs font-bold uppercase text-textPrimary/70 dark:text-white/70">Select duration</Text>
+          <Text className="px-2 text-xs font-bold uppercase tracking-wide text-textPrimary/70 dark:text-white/70">Select duration</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -89,10 +102,10 @@ export function ServicePricingHeaderCard({
                 <Pressable
                   key={`${selectedPriceOption.id}-${minutes}`}
                   onPress={() => onSelectDurationMinutes(minutes)}
-                  className="rounded-full border px-3 py-2"
+                  className="rounded-full border px-4 py-2"
                   style={{
                     borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                    backgroundColor: isSelected ? theme.colors.primary : 'transparent',
+                    backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : '#FFFFFF'),
                   }}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
