@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { customerActions } from '@/actions';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import type { BookingFlowAddressDraft } from '@/types/booking-flow-context';
 import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
+import type { CustomerHomeCategory } from '@/types/customer';
 import type {
+  CategoryCatalogUsageTypes,
   BookingDetailsScreenControllerArgs,
   BookingDetailsScreenControllerValue,
 } from '@/types/main-screens';
@@ -18,14 +21,21 @@ import {
   buildLocationPrimaryLine,
   buildNextBookingDateChoices,
   buildScheduledStartAt,
+  getDefaultBookingDateValue,
+  getErrorMessage,
+  getNextBookingTimeValue,
   getRequiredPriceOptions,
   getSelectableDurations,
   getSelectedPriceOption,
   isBookingTimeOptionAvailable,
   isBookingAddressComplete,
+  refreshSelectedServiceLinesFromSubcategory,
   shouldAllowDurationControl,
   shouldAllowQuantityControl,
+  showApiErrorToast,
 } from '@/utils';
+
+const CATALOG_USAGE_TYPES: CategoryCatalogUsageTypes = ['MAIN', 'ICON'];
 
 function toCoordinateValue(raw: string): number | null {
   if (!raw.trim()) return null;
@@ -72,11 +82,16 @@ export function useBookingDetailsScreenController(
   const {
     categoryName,
     selectedServices,
+    subcategoryId,
     bookingType: contextBookingType,
     scheduledDate: contextScheduledDate,
     scheduledTime: contextScheduledTime,
     address: contextAddress,
     notes: contextNotes,
+    updateBookingDraft,
+    setBookingQuote,
+    setCategory,
+    setSubcategory,
     setServicePriceOption,
     setServiceQuantity,
     setServiceDuration,
@@ -91,9 +106,14 @@ export function useBookingDetailsScreenController(
   const [scheduledTime, setScheduledTimeState] = useState(contextScheduledTime);
   const [addressDraft, setAddressDraft] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
+  const [bookingDetailsRefreshing, setBookingDetailsRefreshing] = useState(false);
+  const [timeOptionsGeneratedAt, setTimeOptionsGeneratedAt] = useState(() => Date.now());
 
   const dateChoices = useMemo(buildNextBookingDateChoices, []);
-  const timeOptions = useMemo(() => buildBookingTimeOptions(scheduledDate), [scheduledDate]);
+  const timeOptions = useMemo(
+    () => buildBookingTimeOptions(scheduledDate, new Date(timeOptionsGeneratedAt)),
+    [scheduledDate, timeOptionsGeneratedAt],
+  );
   const selectedDurationByService = useMemo(
     () => selectedServices.reduce<Record<string, number>>((accumulator, line) => {
       if (typeof line.selectedDurationMinutes === 'number') {
@@ -112,6 +132,7 @@ export function useBookingDetailsScreenController(
     latitude,
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
+  const selectedCity = resolvedLocation.serviceableCity ?? '';
 
   const detectedAddressDraft = useMemo(() => buildDetectedAddressDraft({
     city,
@@ -126,6 +147,7 @@ export function useBookingDetailsScreenController(
 
   useFocusEffect(useCallback(() => {
     setAddressDraft(contextAddress);
+    setTimeOptionsGeneratedAt(Date.now());
   }, [contextAddress]));
 
   useEffect(() => {
@@ -152,6 +174,23 @@ export function useBookingDetailsScreenController(
       setScheduledTimeState('');
     }
   }, [dateChoices, scheduledDate]);
+
+  useEffect(() => {
+    if (
+      bookingType !== CUSTOMER_BOOKING_TYPE.SCHEDULED
+      || scheduledDate !== getDefaultBookingDateValue()
+    ) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      setTimeOptionsGeneratedAt(Date.now());
+    }, 60_000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [bookingType, scheduledDate]);
 
   useEffect(() => {
     if (!scheduledDate) {
@@ -217,14 +256,20 @@ export function useBookingDetailsScreenController(
   const pinnedLocationPrimaryLine = buildLocationPrimaryLine(addressDraft) || APP_TEXT.main.bookingFlow.pinLocationFallbackTitle;
 
   const setBookingType = (next: typeof contextBookingType) => {
+    setTimeOptionsGeneratedAt(Date.now());
     setBookingTypeState(next);
     if (next === CUSTOMER_BOOKING_TYPE.INSTANT) {
       setScheduledDateState('');
       setScheduledTimeState('');
+      return;
     }
+
+    setScheduledDateState(getDefaultBookingDateValue());
+    setScheduledTimeState('');
   };
 
   const setScheduledDate = (next: string) => {
+    setTimeOptionsGeneratedAt(Date.now());
     setScheduledDateState(next);
     setScheduledTimeState('');
   };
@@ -259,6 +304,67 @@ export function useBookingDetailsScreenController(
     } satisfies BookingFlowAddressDraft;
     setAddressDraft(nextDraft);
     setBookingAddress(nextDraft);
+  };
+
+  const refreshBookingDetails = async () => {
+    const resolvedSubcategoryId = (subcategoryId ?? selectedServices[0]?.service.subCategory?.id ?? '').trim();
+    if (!resolvedSubcategoryId || !selectedCity) {
+      return;
+    }
+
+    setBookingDetailsRefreshing(true);
+    try {
+      const subcategory = await customerActions.getCustomerSubcategoryById(resolvedSubcategoryId, {
+        city: selectedCity,
+        includeCategory: true,
+        includeServices: true,
+        includePriceOptions: true,
+        includeTask: true,
+        includeImage: true,
+        usageType: CATALOG_USAGE_TYPES,
+      });
+      const maybeCategory = (subcategory as unknown as { category?: CustomerHomeCategory }).category;
+      const refreshedSelectedServicesById = refreshSelectedServiceLinesFromSubcategory(
+        selectedServices,
+        subcategory,
+        maybeCategory,
+      );
+      const nextDefaultDate = getDefaultBookingDateValue();
+      const nextDefaultTime = getNextBookingTimeValue();
+      const nextAddressDraft = {
+        ...detectedAddressDraft,
+        mode: 'google',
+        addressLine2: '',
+      } satisfies BookingFlowAddressDraft;
+
+      if (maybeCategory) {
+        setCategory({ id: maybeCategory.id, name: maybeCategory.name });
+      }
+      setSubcategory({ id: subcategory.id, name: subcategory.name });
+      updateBookingDraft('selectedServicesById', refreshedSelectedServicesById);
+      setBookingQuote(null);
+      setTimeOptionsGeneratedAt(Date.now());
+      setBookingTypeState(CUSTOMER_BOOKING_TYPE.INSTANT);
+      setScheduledDateState('');
+      setScheduledTimeState('');
+      setAddressDraft(nextAddressDraft);
+      setNotes('');
+      setBookingDetails({
+        bookingType: CUSTOMER_BOOKING_TYPE.INSTANT,
+        scheduledDate: nextDefaultDate,
+        scheduledTime: nextDefaultTime,
+        address: nextAddressDraft,
+        notes: '',
+      });
+
+      if (Object.keys(refreshedSelectedServicesById).length === 0) {
+        args.onNavigateBackToServices();
+      }
+    } catch (refreshError) {
+      showApiErrorToast(getErrorMessage(refreshError, APP_TEXT.main.bookingFlow.loadingError));
+    } finally {
+      setBookingDetailsRefreshing(false);
+    }
   };
 
   const setAddressMode = (mode: BookingFlowAddressDraft['mode']) => {
@@ -307,7 +413,12 @@ export function useBookingDetailsScreenController(
   };
 
   const removeSelectedService = (serviceId: string) => {
+    const willRemoveLastService = selectedServices.length <= 1
+      && selectedServices.some(line => line.service.id === serviceId);
     removeService(serviceId);
+    if (willRemoveLastService) {
+      args.onNavigateBackToServices();
+    }
   };
 
   const reviewBooking = () => {
@@ -340,6 +451,7 @@ export function useBookingDetailsScreenController(
     pinnedLocationPrimaryLine,
     locationRefreshing,
     locationError,
+    bookingDetailsRefreshing,
     hasMissingPriceSelection,
     hasValidSchedule,
     canReview,
@@ -350,6 +462,7 @@ export function useBookingDetailsScreenController(
     setAddressMode,
     setAddressField,
     refreshCurrentLocation,
+    refreshBookingDetails,
     selectServicePriceOption,
     selectServiceDuration,
     decreaseServiceQuantity,

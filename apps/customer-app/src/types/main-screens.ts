@@ -66,6 +66,7 @@ export type CategoryServicesScreenProps = {
 
 export type BookingDetailsScreenControllerArgs = {
   onNavigateToConfirmation: () => void;
+  onNavigateBackToServices: () => void;
 };
 
 export type BookingDetailsScreenControllerValue = {
@@ -86,6 +87,7 @@ export type BookingDetailsScreenControllerValue = {
   pinnedLocationPrimaryLine: string;
   locationRefreshing: boolean;
   locationError: string | null;
+  bookingDetailsRefreshing: boolean;
   hasMissingPriceSelection: boolean;
   hasValidSchedule: boolean;
   canReview: boolean;
@@ -96,6 +98,7 @@ export type BookingDetailsScreenControllerValue = {
   setAddressMode: (mode: BookingFlowAddressMode) => void;
   setAddressField: (field: keyof BookingFlowAddressDraft, value: string) => void;
   refreshCurrentLocation: () => Promise<void>;
+  refreshBookingDetails: () => Promise<void>;
   selectServicePriceOption: (serviceId: string, priceOptionId: string) => void;
   selectServiceDuration: (service: CustomerBookableService, selectedPriceOptionId: string | null, minutes: number) => void;
   decreaseServiceQuantity: (serviceId: string, quantity: number) => void;

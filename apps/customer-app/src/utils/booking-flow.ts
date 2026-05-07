@@ -3,6 +3,8 @@
   CustomerBookableService,
   CustomerBookingAddressInput,
   CustomerBookingType,
+  CustomerCatalogSubcategory,
+  CustomerHomeCategory,
   CustomerServicePriceOption,
   CustomerServiceTask,
 } from '@/types/customer';
@@ -73,6 +75,31 @@ export function createSelectedServiceLine(service: CustomerBookableService): Boo
     selectedPriceOptionId: getDefaultSelectedPriceOptionId(service.priceOptions),
     selectedDurationMinutes: null,
   };
+}
+
+export function refreshSelectedServiceLinesFromSubcategory(
+  currentLines: BookingFlowSelectedServiceLine[],
+  subcategory: CustomerCatalogSubcategory,
+  category?: CustomerHomeCategory | null,
+) {
+  const refreshedServicesById = new Map(
+    (Array.isArray(subcategory.services) ? subcategory.services : [])
+      .map(service => [service.id, service]),
+  );
+
+  return currentLines.reduce<Record<string, BookingFlowSelectedServiceLine>>((accumulator, line) => {
+    const refreshedService = refreshedServicesById.get(line.service.id);
+    if (!refreshedService) {
+      return accumulator;
+    }
+
+    accumulator[line.service.id] = createSelectedServiceLine({
+      ...refreshedService,
+      category: category ?? line.service.category,
+      subCategory: subcategory,
+    });
+    return accumulator;
+  }, {});
 }
 
 export function formatPriceOptionAmount(option: CustomerServicePriceOption) {
@@ -507,10 +534,10 @@ function getBookingTimeValue(date: Date) {
 function roundUpToNextHalfHour(date: Date) {
   const next = new Date(date);
   const minutes = next.getMinutes();
-  const hasElapsedSlot = minutes > 0 || next.getSeconds() > 0 || next.getMilliseconds() > 0;
-  const roundedMinutes = !hasElapsedSlot
-    ? 0
-    : (minutes <= 30 ? 30 : 60);
+  const hasElapsedCurrentSlot = minutes > 0 || next.getSeconds() > 0 || next.getMilliseconds() > 0;
+  const roundedMinutes = !hasElapsedCurrentSlot
+    ? 30
+    : (minutes < 30 ? 30 : 60);
   next.setMinutes(roundedMinutes, 0, 0);
   return next;
 }

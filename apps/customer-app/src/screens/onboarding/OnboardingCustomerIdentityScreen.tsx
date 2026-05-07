@@ -86,6 +86,7 @@ export function OnboardingCustomerIdentityScreen() {
 
   return (
     <GradientScreen
+      keyboardAware
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>

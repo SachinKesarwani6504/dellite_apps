@@ -61,44 +61,45 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         : null;
       const trimmedNotes = notes.trim();
       const subcategoryLabel = subcategoryName ? titleCase(subcategoryName) : null;
-      const serviceValue = selectedServices.length === 1
-        ? titleCase(selectedServices[0]?.service.name ?? APP_TEXT.main.bookingFlow.summaryService)
-        : `${selectedServices.length} ${APP_TEXT.main.bookingFlow.selectedServicesCountSuffix}`;
+      const fallbackServiceValue = selectedServices[0]?.service.name
+        ? titleCase(selectedServices[0].service.name)
+        : APP_TEXT.main.bookingFlow.summaryService;
 
       return {
-        service: {
-          value: serviceValue,
-          helper: subcategoryLabel,
-        },
-        chips: [
+        subtitle: subcategoryLabel ?? fallbackServiceValue,
+        cards: [
+          {
+            key: 'subcategory',
+            value: subcategoryLabel ?? fallbackServiceValue,
+            iconName: 'layers-outline' as const,
+            isWide: true,
+          },
           {
             key: 'bookingType',
-            label: APP_TEXT.main.bookingFlow.summaryBookingType,
             value: bookingType === CUSTOMER_BOOKING_TYPE.INSTANT
               ? APP_TEXT.main.bookingFlow.instantSummaryLabel
               : APP_TEXT.main.bookingFlow.scheduledSummaryLabel,
             iconName: bookingType === CUSTOMER_BOOKING_TYPE.INSTANT ? 'flash-outline' as const : 'calendar-outline' as const,
+            isWide: !scheduleSummary,
           },
           ...(scheduleSummary
             ? [{
               key: 'schedule',
-              label: APP_TEXT.main.bookingFlow.summarySlot,
               value: scheduleSummary,
               iconName: 'alarm-outline' as const,
+              isWide: false,
             }]
             : []),
         ],
         rows: [
           {
             key: 'address',
-            label: APP_TEXT.main.bookingFlow.summaryAddress,
             value: buildAddressSummary(address) || '-',
             iconName: 'location-outline' as const,
           },
           ...(trimmedNotes
             ? [{
               key: 'notes',
-              label: APP_TEXT.main.bookingFlow.summaryNotes,
               value: trimmedNotes,
               iconName: 'document-text-outline' as const,
             }]
@@ -115,6 +116,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   const selectedServiceCountLabel = selectedServices.length === 1
     ? APP_TEXT.main.bookingFlow.selectedServicesCountSingular
     : APP_TEXT.main.bookingFlow.selectedServicesCountSuffix;
+  const selectedServicesItemLabel = `${selectedServices.length} ${selectedServices.length === 1 ? 'item' : 'items'}`;
 
   useEffect(() => {
     let active = true;
@@ -164,24 +166,30 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
       </View>
 
       <View
-        className="mt-1 rounded-2xl border p-4"
+        className="mt-1 overflow-hidden rounded-2xl border"
         style={{
           borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
           backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
           shadowColor: uiColors.shadow.base,
-          shadowOpacity: isDark ? 0 : 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: 2,
+          shadowOpacity: isDark ? 0 : 0.08,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 3,
         }}
       >
-        <View className="flex-row items-center justify-between">
+        <View
+          className="flex-row items-center justify-between border-b px-4 py-4"
+          style={{
+            borderBottomColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft40,
+          }}
+        >
           <View className="mr-3 flex-1 flex-row items-center">
             <View
               className="h-11 w-11 items-center justify-center rounded-full border"
               style={{
                 borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
               }}
             >
               <Ionicons name="receipt-outline" size={20} color={theme.colors.primary} />
@@ -191,135 +199,69 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                 {APP_TEXT.main.bookingFlow.confirmTitle}
               </Text>
               <Text className="mt-0.5 text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                {selectedServices.length} {selectedServiceCountLabel}
+                {bookingOverview.subtitle}
               </Text>
             </View>
           </View>
           {confirmTotalLabel ? (
             <View
-              className="rounded-full border px-3 py-1.5"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-              }}
-            >
-              <Text className="text-sm font-extrabold text-baseDark dark:text-white">{confirmTotalLabel}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-
-      <View
-        className="mt-3 rounded-2xl border p-3"
-        style={{
-          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-        }}
-      >
-        <View className="mb-3 flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <View
-              className="h-8 w-8 items-center justify-center rounded-full border"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-              }}
-            >
-              <Ionicons name="list-outline" size={15} color={theme.colors.primary} />
-            </View>
-            <Text className="ml-2 text-sm font-extrabold text-baseDark dark:text-white">
-              {APP_TEXT.main.bookingFlow.bookingOverviewTitle}
-            </Text>
-          </View>
-          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {selectedServices.length} {selectedServiceCountLabel}
-          </Text>
-        </View>
-
-        <View
-          className="rounded-xl border p-3"
-          style={{
-            borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-          }}
-        >
-          <View className="flex-row items-center">
-            <View
-              className="h-10 w-10 items-center justify-center rounded-xl border"
+              className="rounded-full border px-3.5 py-2"
               style={{
                 borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
                 backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
               }}
             >
-              <Ionicons name="briefcase-outline" size={18} color={theme.colors.primary} />
+              <Text className="text-base font-extrabold text-baseDark dark:text-white">{confirmTotalLabel}</Text>
             </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-[11px] font-bold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                {APP_TEXT.main.bookingFlow.summaryService}
-              </Text>
-              <Text className="mt-0.5 text-sm font-extrabold leading-5 text-baseDark dark:text-white">
-                {bookingOverview.service.value}
-              </Text>
-              {bookingOverview.service.helper ? (
-                <Text className="mt-0.5 text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {bookingOverview.service.helper}
-                </Text>
-              ) : null}
-            </View>
-          </View>
+          ) : null}
         </View>
 
-        <View className="mt-2 flex-row flex-wrap justify-between" style={{ gap: 8 }}>
-          {bookingOverview.chips.map(row => (
-            <View
-              key={row.key}
-              className="flex-row items-center border px-3 py-2.5"
-              style={{
-                width: bookingOverview.chips.length === 1 ? '100%' : '48.5%',
-                borderRadius: 12,
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-              }}
-            >
-              <Ionicons name={row.iconName} size={15} color={theme.colors.primary} />
-              <View className="ml-2 flex-1">
-                <Text className="text-[10px] font-bold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {row.label}
-                </Text>
-                <Text className="mt-0.5 text-xs font-extrabold text-baseDark dark:text-white">{row.value}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <View className="mt-2 gap-2">
-          {bookingOverview.rows.map(row => (
-            <View
-              key={row.key}
-              className="flex-row items-start border px-3 py-3"
-              style={{
-                borderRadius: 12,
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-              }}
-            >
+        <View className="p-3">
+          <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
+            {bookingOverview.cards.map(row => (
               <View
-                className="h-8 w-8 items-center justify-center rounded-full border"
+                key={row.key}
+                className="flex-row items-center border px-3 py-3"
                 style={{
+                  width: row.isWide ? '100%' : '48.5%',
+                  borderRadius: 12,
                   borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
                 }}
               >
-                <Ionicons name={row.iconName} size={14} color={theme.colors.primary} />
+                <Ionicons name={row.iconName} size={15} color={theme.colors.primary} />
+                <View className="ml-2 flex-1">
+                  <Text className="text-sm font-extrabold leading-5 text-baseDark dark:text-white">{row.value}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View className="mt-2 gap-2">
+            {bookingOverview.rows.map(row => (
+              <View
+                key={row.key}
+                className="flex-row items-start border px-3 py-3"
+                style={{
+                  borderRadius: 12,
+                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+                }}
+              >
+                <View
+                  className="h-8 w-8 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
+                  }}
+                >
+                  <Ionicons name={row.iconName} size={14} color={theme.colors.primary} />
               </View>
               <View className="ml-2 flex-1">
-                <Text className="text-[10px] font-bold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                  {row.label}
-                </Text>
-                <Text className="mt-0.5 text-xs font-bold leading-4 text-baseDark dark:text-white">{row.value}</Text>
+                <Text className="mt-0.5 text-sm font-bold leading-5 text-baseDark dark:text-white">{row.value}</Text>
               </View>
             </View>
-          ))}
+            ))}
+          </View>
         </View>
       </View>
 
@@ -327,9 +269,9 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         <Text className="text-xs font-extrabold uppercase text-baseDark dark:text-white">
           {APP_TEXT.main.bookingFlow.selectedServicesTitle}
         </Text>
-        <View className="min-w-[26px] items-center rounded-full px-2 py-1" style={{ backgroundColor: theme.colors.baseDark }}>
-          <Text className="text-[10px] font-extrabold text-white">{selectedServices.length}</Text>
-        </View>
+        <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+          {selectedServicesItemLabel}
+        </Text>
       </View>
 
       <View className="mt-3 gap-3">
@@ -384,9 +326,9 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
               <View className="flex-row items-center justify-between">
                 <View className="mr-3 flex-1 flex-row items-center">
                   <View
-                    className="mr-3 h-10 w-10 items-center justify-center rounded-xl border"
+                    className="mr-3 h-11 w-11 items-center justify-center rounded-xl border"
                     style={{
-                      backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                      backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF7EF',
                       borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
                     }}
                   >
@@ -397,18 +339,18 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                     )}
                   </View>
                   <View className="flex-1">
-                    <Text className="text-[15px] font-extrabold leading-5 text-baseDark dark:text-white">{titleCase(line.service.name)}</Text>
+                    <Text className="text-lg font-extrabold leading-6 text-baseDark dark:text-white">{titleCase(line.service.name)}</Text>
                   </View>
                 </View>
                 <Pressable
                   onPress={() => removeService(line.service.id)}
-                  className="h-7 w-7 items-center justify-center rounded-full border"
+                  className="h-8 w-8 items-center justify-center rounded-full border"
                   style={{
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF8F2',
                     borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
                   }}
                 >
-                  <Ionicons name="close" size={14} color={theme.colors.primary} />
+                  <Ionicons name="close" size={15} color={theme.colors.primary} />
                 </Pressable>
               </View>
 
@@ -515,10 +457,13 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
           }}
         >
           <View className="flex-row items-center">
-            <View className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: theme.colors.primary }}>
+            <View
+              className="h-11 w-11 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
               <Ionicons name="pricetag-outline" size={20} color={theme.colors.onPrimary} />
             </View>
-            <View className="ml-3">
+            <View className="ml-3 flex-1">
               <Text className="text-sm font-extrabold text-baseDark dark:text-white">{bookingQuote.couponCode}</Text>
               <Text className="mt-0.5 text-[10px]" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                 {APP_TEXT.main.bookingFlow.quoteCouponAppliedSubtitle}

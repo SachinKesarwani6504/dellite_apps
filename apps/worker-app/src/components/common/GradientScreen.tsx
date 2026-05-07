@@ -38,7 +38,7 @@ export function GradientScreen({
   refreshControl,
   floatingBackground,
   floatingBackgroundTopInset = 0,
-  keyboardAware = true,
+  keyboardAware = false,
   keyboardVerticalOffset = 0,
   scrollRef,
   keyboardExtraScrollHeight = 180,

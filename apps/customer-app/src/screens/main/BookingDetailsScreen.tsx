@@ -1,6 +1,7 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
 import { BackButton } from '@/components/common/BackButton';
+import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { BookingServiceDetailCard } from '@/components/common/BookingServiceDetailCard';
 import { Button } from '@/components/common/Button';
 import { CardWrapper } from '@/components/common/CardWrapper';
@@ -39,6 +40,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     pinnedLocationPrimaryLine,
     locationRefreshing,
     locationError,
+    bookingDetailsRefreshing,
     hasMissingPriceSelection,
     hasValidSchedule,
     canReview,
@@ -48,6 +50,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     setNotes,
     setAddressMode,
     refreshCurrentLocation,
+    refreshBookingDetails,
     selectServicePriceOption,
     selectServiceDuration,
     decreaseServiceQuantity,
@@ -56,18 +59,26 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
     reviewBooking,
   } = useBookingDetailsScreenController({
     onNavigateToConfirmation: () => navigation.navigate(HOME_SCREEN.BOOKING_CONFIRMATION),
+    onNavigateBackToServices: () => navigation.goBack(),
   });
+  const refreshControlProps = useBrandRefreshControl(refreshBookingDetails);
 
   return (
     <GradientScreen
+      keyboardAware
       keyboardExtraScrollHeight={200}
+      refreshControl={(
+        <RefreshControl
+          {...refreshControlProps}
+          refreshing={refreshControlProps.refreshing || bookingDetailsRefreshing}
+        />
+      )}
     >
       <View className="mb-2 flex-row items-center">
         <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <SplitGradientTitle
-        eyebrow={APP_TEXT.main.bookingFlow.detailsEyebrow}
         prefix="Book your"
         highlight={categoryName ? titleCase(categoryName) : ''}
         wrapHighlight
@@ -166,7 +177,9 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
 
       <View className="mt-6 flex-row items-center justify-between">
         <Text className="text-sm font-bold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.selectedServicesTitle}</Text>
-        <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">{selectedServices.length} item</Text>
+        <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">
+          {selectedServices.length} {selectedServices.length === 1 ? 'item' : 'items'}
+        </Text>
       </View>
       <View className="mt-3 gap-3">
         {selectedServices.map((line) => {
