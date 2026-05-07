@@ -14,6 +14,7 @@ import {
 import {
   applyFirebaseCustomToken,
 } from '@/utils/firebase-session';
+import { sanitizeErrorMessage } from '@/utils/error-message';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 
@@ -39,17 +40,17 @@ function normalizePath(path: string) {
 }
 
 function extractApiMessage(payload: unknown, fallback: string) {
-  if (typeof payload === 'string' && payload.trim()) return payload;
+  if (typeof payload === 'string') return sanitizeErrorMessage(payload, fallback);
   if (!payload || typeof payload !== 'object') return fallback;
 
   const obj = payload as { message?: unknown; error?: unknown; data?: unknown };
-  if (typeof obj.message === 'string' && obj.message.trim()) return obj.message;
-  if (typeof obj.error === 'string' && obj.error.trim()) return obj.error;
+  if (typeof obj.message === 'string') return sanitizeErrorMessage(obj.message, fallback);
+  if (typeof obj.error === 'string') return sanitizeErrorMessage(obj.error, fallback);
 
   if (obj.data && typeof obj.data === 'object') {
     const nested = obj.data as { message?: unknown; error?: unknown };
-    if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
-    if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
+    if (typeof nested.message === 'string') return sanitizeErrorMessage(nested.message, fallback);
+    if (typeof nested.error === 'string') return sanitizeErrorMessage(nested.error, fallback);
   }
   return fallback;
 }

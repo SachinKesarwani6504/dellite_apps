@@ -1,6 +1,11 @@
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiError, type ApiEnvelope } from '@/types/api';
 import type {
+  BookingFlowDraft,
+  BookingFlowQuoteRequest,
+  BookingFlowQuoteResponse,
+} from '@/types/booking-flow-context';
+import type {
   CustomerCategoryDetailQuery,
   CustomerCatalogQuery,
   CustomerCatalogService,
@@ -32,6 +37,8 @@ import {
   ROUNDING_MODE,
   SERVICE_TASK_TYPE,
 } from '@/types/customer';
+import { buildBookingQuoteRequestDraft } from '@/utils/booking-flow';
+import { sanitizeErrorMessage } from '@/utils/error-message';
 import { toFormData } from '@/utils/form-data';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
@@ -462,7 +469,7 @@ export async function getCustomerHome(city: string): Promise<CustomerHomePayload
     const envelope = response as ApiEnvelope<CustomerHomePayload>;
     const statusCode = typeof envelope.statusCode === 'number' ? envelope.statusCode : 200;
     if (statusCode >= 400) {
-      throw new ApiError(envelope.message ?? 'Unable to load customer home.', statusCode, envelope.data);
+      throw new ApiError(sanitizeErrorMessage(envelope.message, 'Unable to load customer home.'), statusCode, envelope.data);
     }
   }
 
@@ -650,7 +657,7 @@ export async function getCustomerServices(query: CustomerServicesListQuery): Pro
     const envelope = response as ApiEnvelope<RawCustomerServiceListItem[]>;
     const statusCode = typeof envelope.statusCode === 'number' ? envelope.statusCode : 200;
     if (statusCode >= 400) {
-      throw new ApiError(envelope.message ?? 'Unable to load services.', statusCode, envelope.data);
+      throw new ApiError(sanitizeErrorMessage(envelope.message, 'Unable to load services.'), statusCode, envelope.data);
     }
   }
 
@@ -767,6 +774,28 @@ export async function createCustomerBooking(payload: CreateCustomerBookingPayloa
     payload,
     {
       auth: true,
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function getCustomerBookingQuote(payload: { bookingDraft: BookingFlowDraft }): Promise<BookingFlowQuoteResponse> {
+  const response = await apiPost<ApiEnvelope<BookingFlowQuoteResponse> | BookingFlowQuoteResponse, BookingFlowQuoteRequest>(
+    '/bookings/quote',
+    {
+      bookingDraft: buildBookingQuoteRequestDraft(payload.bookingDraft),
+    },
+    {
+      auth: true,
+      tokenType: 'access',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      toast: {
+        showSuccess: false,
+        showError: false,
+      },
     },
   );
 

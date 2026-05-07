@@ -90,3 +90,12 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 
 - [x] Worker + Customer: auth flows now exchange backend `firebaseCustomToken` into Firebase Auth session after OTP/profile completion.
 - [x] Worker + Customer: token refresh flow now applies `firebaseCustomToken` from `/auth/refresh` and falls back to `/auth/firebase/custom-token` when Firebase session is missing.
+
+## In Progress: Customer Pricing + Booking Flow
+
+- [x] Customer app: primary price options now exclude optional/additional rules from main selection.
+- [x] Customer app: fixed-duration base options render as selectable duration cards and suppress manual duration controls.
+- [x] Customer app: booking payload keeps fixed-duration services ID-based through `selectedPriceOptionId` without sending a custom duration.
+- [x] Customer app: optional/additional price options remain visible as possible add-ons and support FLAT, PER_BLOCK, and PER_MINUTE labels.
+- [x] Customer app: quote loading falls back to a local estimate for compatibility while booking creation remains backend-owned.
+- [ ] Backend/admin panel: not present in this monorepo workspace; implement quote/final-charge calculation and admin price-option CRUD in the backend/admin repository.

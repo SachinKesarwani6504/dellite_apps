@@ -21,6 +21,7 @@ import {
   getRequiredPriceOptions,
   getSelectableDurations,
   getSelectedPriceOption,
+  isBookingTimeOptionAvailable,
   isBookingAddressComplete,
   shouldAllowDurationControl,
   shouldAllowQuantityControl,
@@ -78,6 +79,7 @@ export function useBookingDetailsScreenController(
     notes: contextNotes,
     setServicePriceOption,
     setServiceQuantity,
+    setServiceDuration,
     removeService,
     setBookingAddress,
     setBookingDetails,
@@ -89,10 +91,18 @@ export function useBookingDetailsScreenController(
   const [scheduledTime, setScheduledTimeState] = useState(contextScheduledTime);
   const [addressDraft, setAddressDraft] = useState(contextAddress);
   const [notes, setNotes] = useState(contextNotes);
-  const [selectedDurationByService, setSelectedDurationByService] = useState<Record<string, number>>({});
 
   const dateChoices = useMemo(buildNextBookingDateChoices, []);
-  const timeOptions = useMemo(buildBookingTimeOptions, []);
+  const timeOptions = useMemo(() => buildBookingTimeOptions(scheduledDate), [scheduledDate]);
+  const selectedDurationByService = useMemo(
+    () => selectedServices.reduce<Record<string, number>>((accumulator, line) => {
+      if (typeof line.selectedDurationMinutes === 'number') {
+        accumulator[line.service.id] = line.selectedDurationMinutes;
+      }
+      return accumulator;
+    }, {}),
+    [selectedServices],
+  );
 
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
@@ -144,6 +154,18 @@ export function useBookingDetailsScreenController(
   }, [dateChoices, scheduledDate]);
 
   useEffect(() => {
+    if (!scheduledDate) {
+      return;
+    }
+
+    if (!scheduledTime || timeOptions.includes(scheduledTime)) {
+      return;
+    }
+
+    setScheduledTimeState('');
+  }, [scheduledDate, scheduledTime, timeOptions]);
+
+  useEffect(() => {
     selectedServices.forEach((line) => {
       if (line.selectedPriceOptionId) return;
       const [defaultOption] = getRequiredPriceOptions(line.service.priceOptions);
@@ -166,21 +188,13 @@ export function useBookingDetailsScreenController(
       if (allowedDurations.length === 0) {
         return;
       }
-      const existingSelection = selectedDurationByService[line.service.id];
+      const existingSelection = line.selectedDurationMinutes;
       const defaultDuration = typeof existingSelection === 'number' ? existingSelection : allowedDurations[0];
       if (existingSelection !== defaultDuration) {
-        setSelectedDurationByService(prev => ({ ...prev, [line.service.id]: defaultDuration }));
-      }
-      const billingUnit = selectedPriceOption?.billingUnitMinutes && selectedPriceOption.billingUnitMinutes > 0
-        ? selectedPriceOption.billingUnitMinutes
-        : null;
-      if (!billingUnit) return;
-      const nextQuantity = Math.max(1, Math.ceil(defaultDuration / billingUnit));
-      if (nextQuantity !== line.quantity) {
-        setServiceQuantity(line.service.id, nextQuantity);
+        setServiceDuration(line.service.id, defaultDuration);
       }
     });
-  }, [selectedDurationByService, selectedServices, setServiceQuantity]);
+  }, [selectedServices, setServiceDuration, setServiceQuantity]);
 
   const hasMissingPriceSelection = selectedServices.some(line =>
     getRequiredPriceOptions(line.service.priceOptions).length > 0
@@ -188,7 +202,10 @@ export function useBookingDetailsScreenController(
   );
 
   const hasValidSchedule = bookingType === CUSTOMER_BOOKING_TYPE.INSTANT
-    || Boolean(buildScheduledStartAt(scheduledDate, scheduledTime));
+    || (
+      Boolean(buildScheduledStartAt(scheduledDate, scheduledTime))
+      && isBookingTimeOptionAvailable(scheduledDate, scheduledTime)
+    );
   const canReview = selectedServices.length > 0
     && !hasMissingPriceSelection
     && isBookingAddressComplete(addressDraft)
@@ -209,9 +226,7 @@ export function useBookingDetailsScreenController(
 
   const setScheduledDate = (next: string) => {
     setScheduledDateState(next);
-    if (next && !scheduledTime) {
-      setScheduledTimeState('06:00');
-    }
+    setScheduledTimeState('');
   };
 
   const setScheduledTime = (next: string) => {
@@ -248,6 +263,13 @@ export function useBookingDetailsScreenController(
 
   const setAddressMode = (mode: BookingFlowAddressDraft['mode']) => {
     if (mode === 'google') {
+      const nextDraft = {
+        ...detectedAddressDraft,
+        mode: 'google',
+        addressLine2: addressDraft.addressLine2,
+      } satisfies BookingFlowAddressDraft;
+      setAddressDraft(nextDraft);
+      setBookingAddress(nextDraft);
       void refreshCurrentLocation();
       return;
     }
@@ -271,15 +293,9 @@ export function useBookingDetailsScreenController(
     selectedPriceOptionId: string | null,
     minutes: number,
   ) => {
-    setSelectedDurationByService(prev => ({ ...prev, [service.id]: minutes }));
     const priceOption = service.priceOptions?.find(option => option.id === selectedPriceOptionId);
     if (!shouldAllowDurationControl(priceOption ?? null)) return;
-    const billingUnit = priceOption?.billingUnitMinutes && priceOption.billingUnitMinutes > 0
-      ? priceOption.billingUnitMinutes
-      : 30;
-    if (!billingUnit) return;
-    const nextQuantity = Math.max(1, Math.ceil(minutes / billingUnit));
-    setServiceQuantity(service.id, nextQuantity);
+    setServiceDuration(service.id, minutes);
   };
 
   const decreaseServiceQuantity = (serviceId: string, quantity: number) => {

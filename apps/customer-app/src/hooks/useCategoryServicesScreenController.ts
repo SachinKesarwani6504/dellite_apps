@@ -17,7 +17,7 @@ import type {
 } from '@/types/customer';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { createBookingFlowService, safeImageUrl, titleCase } from '@/utils';
+import { createBookingFlowService, getErrorMessage, safeImageUrl, titleCase } from '@/utils';
 
 const CATALOG_USAGE_TYPES: CategoryCatalogUsageTypes = ['MAIN', 'ICON'];
 
@@ -157,11 +157,7 @@ export function useCategoryServicesScreenController(
         }
       }
     } catch (loadError) {
-      if (loadError instanceof Error && loadError.message.trim()) {
-        setError(loadError.message);
-      } else {
-        setError(APP_TEXT.main.bookingFlow.loadingError);
-      }
+      setError(getErrorMessage(loadError, APP_TEXT.main.bookingFlow.loadingError));
     } finally {
       setLoading(false);
     }

@@ -22,6 +22,7 @@ import type {
   LocationSnapshot,
   NormalizedLocation,
 } from '@/modules/location/types/location.types';
+import { getErrorMessage } from '@/utils/error-message';
 
 const initialSnapshot: LocationSnapshot = {
   location: null,
@@ -34,11 +35,7 @@ const initialSnapshot: LocationSnapshot = {
 };
 
 function resolveErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
+  return getErrorMessage(error, fallback);
 }
 
 function logLocationController(message: string, payload?: unknown) {

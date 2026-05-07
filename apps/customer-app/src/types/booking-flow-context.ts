@@ -2,6 +2,7 @@ import type {
   CustomerBookableService,
   CustomerBookingCreateResult,
   CustomerBookingType,
+  CustomerServicePriceOption,
 } from '@/types/customer';
 import type { ReactNode } from 'react';
 
@@ -26,6 +27,7 @@ export type BookingFlowSelectedServiceLine = {
   service: CustomerBookableService;
   quantity: number;
   selectedPriceOptionId: string | null;
+  selectedDurationMinutes: number | null;
 };
 
 export type BookingFlowStartPayload = {
@@ -47,7 +49,85 @@ export type BookingFlowDetailsDraft = {
   notes: string;
 };
 
+export type BookingFlowQuote = {
+  currency: 'INR';
+  subtotal: number;
+  platformFee: number;
+  discountTotal: number;
+  total: number;
+  couponCode: string | null;
+  couponDiscount: number;
+  isEstimated?: boolean;
+  baseSubtotal?: number;
+  optionalChargeTotal?: number;
+  serviceLines?: BookingFlowQuoteServiceLine[];
+};
+
+export type BookingFlowQuoteOptionalChargeLine = {
+  id?: string | null;
+  title: string;
+  price?: number | null;
+  priceComputationMode?: CustomerServicePriceOption['priceComputationMode'];
+  billingUnitMinutes?: number | null;
+  roundingMode?: CustomerServicePriceOption['roundingMode'];
+  minutes?: number | null;
+  quantity?: number | null;
+  amount: number;
+};
+
+export type BookingFlowQuoteServiceLine = {
+  serviceId: string;
+  serviceName: string;
+  selectedPriceOptionId: string | null;
+  title?: string | null;
+  basePrice: number;
+  quantity: number;
+  selectedDurationMinutes?: number | null;
+  estimatedMinutes?: number | null;
+  baseDurationMinutes?: number | null;
+  subtotal: number;
+  optionalCharges?: BookingFlowQuoteOptionalChargeLine[];
+};
+
+export type BookingFlowDraft = {
+  sourceType: BookingFlowSourceType | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  selectedServicesById: Record<string, BookingFlowSelectedServiceLine>;
+  details: BookingFlowDetailsDraft;
+};
+
+export type BookingFlowQuoteSelectedServiceLine = {
+  service: Pick<CustomerBookableService, 'id' | 'name'>;
+  quantity: number;
+  billableQuantity: number;
+  selectedPriceOptionId: string | null;
+  selectedDurationMinutes: number | null;
+};
+
+export type BookingFlowQuoteDraft = {
+  sourceType: BookingFlowSourceType | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  selectedServicesById: Record<string, BookingFlowQuoteSelectedServiceLine>;
+  details: BookingFlowDetailsDraft;
+};
+
+export type BookingFlowQuoteRequest = {
+  bookingDraft: BookingFlowQuoteDraft;
+};
+
+export type BookingFlowQuoteResponse = {
+  bookingQuote: BookingFlowQuote;
+};
+
 export type BookingFlowContextType = {
+  bookingDraft: BookingFlowDraft;
+  bookingQuote: BookingFlowQuote | null;
   sourceType: BookingFlowSourceType | null;
   categoryId: string | null;
   categoryName: string | null;
@@ -55,11 +135,15 @@ export type BookingFlowContextType = {
   subcategoryName: string | null;
   selectedServices: BookingFlowSelectedServiceLine[];
   selectedServiceIds: Record<string, true>;
+  selectedServicesById: Record<string, BookingFlowSelectedServiceLine>;
   bookingType: CustomerBookingType;
   scheduledDate: string;
   scheduledTime: string;
   address: BookingFlowAddressDraft;
   notes: string;
+  updateBookingDraft: <Key extends keyof BookingFlowDraft>(key: Key, value: BookingFlowDraft[Key]) => void;
+  setBookingQuote: (quote: BookingFlowQuote | null) => void;
+  fetchBookingQuote: () => Promise<BookingFlowQuote>;
   beginFlow: (payload: BookingFlowStartPayload) => void;
   setCategory: (payload: BookingFlowEntityPayload) => void;
   setSubcategory: (payload: BookingFlowEntityPayload) => void;
@@ -68,6 +152,7 @@ export type BookingFlowContextType = {
   clearSubcategorySelection: () => void;
   setServiceQuantity: (serviceId: string, quantity: number) => void;
   setServicePriceOption: (serviceId: string, priceOptionId: string) => void;
+  setServiceDuration: (serviceId: string, minutes: number | null) => void;
   removeService: (serviceId: string) => void;
   setBookingAddress: (address: BookingFlowAddressDraft) => void;
   setBookingDetails: (payload: BookingFlowDetailsDraft) => void;

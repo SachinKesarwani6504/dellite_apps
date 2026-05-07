@@ -23,6 +23,28 @@ export function formatDurationChip(minutes: number) {
   return `${remainingMinutes}m`;
 }
 
+export function formatDurationSummaryLabel(minutes?: number | null) {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) {
+    return null;
+  }
+
+  const roundedMinutes = Math.round(minutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const remainingMinutes = roundedMinutes % 60;
+  const hourLabel = hours === 1 ? '1 hr' : `${hours} hrs`;
+  const minuteLabel = remainingMinutes === 1 ? '1 min' : `${remainingMinutes} min`;
+
+  if (hours > 0 && remainingMinutes > 0) {
+    return `${hourLabel} ${minuteLabel}`;
+  }
+
+  if (hours > 0) {
+    return hourLabel;
+  }
+
+  return minuteLabel;
+}
+
 export function formatEstimatedDurationLabel(minutes?: number | null) {
   if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) {
     return null;

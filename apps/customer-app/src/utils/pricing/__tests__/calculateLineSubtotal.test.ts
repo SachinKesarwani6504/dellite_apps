@@ -75,6 +75,21 @@ function expectPricingError(fn: () => unknown, expectedCode: PricingValidationEr
   assertEqual(result.subtotal, 120, 'PER_BLOCK floor subtotal mismatch');
 }
 
+// PER_BLOCK + nearest rounding
+{
+  const result = calculateLineSubtotal({
+    price: 150,
+    priceType: 'HOURLY',
+    priceComputationMode: 'PER_BLOCK',
+    quantity: 1,
+    durationMinutes: 89,
+    billingUnitMinutes: 60,
+    roundingMode: 'NEAREST',
+  });
+  assertEqual(result.multiplier, 1, 'PER_BLOCK nearest multiplier mismatch');
+  assertEqual(result.subtotal, 150, 'PER_BLOCK nearest subtotal mismatch');
+}
+
 // min/max clamp behavior
 {
   const result = calculateLineSubtotal({

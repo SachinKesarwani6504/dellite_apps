@@ -251,6 +251,8 @@ export type CreateCustomerBookingServiceLineInput = {
   serviceName?: string;
   selectedPriceOptionId?: string;
   quantity: number;
+  selectedDurationMinutes?: number | null;
+  billableQuantity?: number;
 };
 
 export type CreateCustomerBookingPayload = {

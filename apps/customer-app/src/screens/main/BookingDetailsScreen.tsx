@@ -114,17 +114,12 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
                   className="min-w-[88px] rounded-lg border px-3 py-3"
                   style={{
                     borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                    backgroundColor: selected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
-                    shadowColor: selected ? uiColors.shadow.base : 'transparent',
-                    shadowOpacity: selected ? 0.2 : 0,
-                    shadowRadius: selected ? 10 : 0,
-                    shadowOffset: { width: 0, height: 6 },
-                    elevation: selected ? 4 : 0,
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
                   }}
                 >
-                  <Text className={`text-[10px] font-bold uppercase ${selected ? 'text-primary' : 'text-textPrimary/70 dark:text-white/70'}`}>{choice.topLabel}</Text>
-                  <Text className="mt-1 text-2xl font-extrabold text-baseDark dark:text-white">{choice.dayOfMonth}</Text>
-                  <Text className="text-xs text-textPrimary/70 dark:text-white/70">{choice.monthLabel}</Text>
+                  <Text className={`text-[10px] font-bold uppercase ${selected ? 'text-primary dark:text-accent' : 'text-textPrimary/70 dark:text-white/70'}`}>{choice.topLabel}</Text>
+                  <Text className={`mt-1 text-2xl font-extrabold ${selected ? 'text-primary dark:text-accent' : 'text-baseDark dark:text-white'}`}>{choice.dayOfMonth}</Text>
+                  <Text className={`text-xs font-semibold ${selected ? 'text-primary dark:text-accent' : 'text-textPrimary/70 dark:text-white/70'}`}>{choice.monthLabel}</Text>
                 </Pressable>
               );
             })}
@@ -176,7 +171,7 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
       <View className="mt-3 gap-3">
         {selectedServices.map((line) => {
           const selectedPriceOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
-          const lineTotalAmount = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity);
+          const lineTotalAmount = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity, line.selectedDurationMinutes);
           const unitPriceAmount = typeof selectedPriceOption?.price === 'number'
             ? selectedPriceOption.price
             : null;
@@ -297,20 +292,6 @@ export function BookingDetailsScreen({ navigation }: BookingDetailsScreenProps) 
           </View>
         ) : null}
 
-        {addressDraft.mode !== 'pin' ? (
-          <Pressable
-            onPress={() => {
-              setAddressMode('pin');
-              navigation.navigate(HOME_SCREEN.BOOKING_LOCATION_PICKER);
-            }}
-            className="mt-3 items-center rounded-full px-4 py-3"
-            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.accentSoft20 }}
-          >
-            <Text className="text-xs font-extrabold text-primary dark:text-accent">
-              {APP_TEXT.main.bookingFlow.selectOnMapCta}
-            </Text>
-          </Pressable>
-        ) : null}
       </CardWrapper>
 
       <View className="mt-5">

@@ -13,6 +13,7 @@ import {
   buildDetectedAddressDraft,
   buildLocationPrimaryLine,
   createFallbackLocationCoordinates,
+  getErrorMessage,
   getAddressDraftCoordinates,
   isBookingAddressComplete,
 } from '@/utils';
@@ -68,7 +69,7 @@ export function useBookingLocationPickerScreenController(
         return;
       }
 
-      setError(resolveError instanceof Error ? resolveError.message : APP_TEXT.main.bookingFlow.pinLocationResolveError);
+      setError(getErrorMessage(resolveError, APP_TEXT.main.bookingFlow.pinLocationResolveError));
     } finally {
       if (requestRef.current === requestId) {
         setIsResolving(false);

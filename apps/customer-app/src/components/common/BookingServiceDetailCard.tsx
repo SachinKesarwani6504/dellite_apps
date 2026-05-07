@@ -27,11 +27,18 @@ export function BookingServiceDetailCard({
   const excludedTasks = Array.isArray(service.excludedTasks) ? service.excludedTasks : [];
   const optionalPriceOptions = getOptionalPriceOptions(service.priceOptions);
   const estimatedDurationLabel = formatEstimatedDurationLabel(selectedPriceOption?.estimatedMinutes);
+  const subtotalMultiplierLabel = formatSubtotalMultiplierLabel({
+    unitPriceAmount,
+    quantity,
+    priceType: selectedPriceOption?.priceType,
+    selectedDurationMinutes,
+  });
 
   return (
     <CardWrapper isDark={isDark}>
       <ServicePricingHeaderCard
         serviceName={service.name}
+        serviceIconText={service.iconText}
         selectedPriceOption={selectedPriceOption}
         priceOptions={Array.isArray(service.priceOptions) ? service.priceOptions : []}
         selectedPriceOptionId={selectedPriceOptionId}
@@ -113,6 +120,7 @@ export function BookingServiceDetailCard({
         </View>
       ) : null}
 
+      <ServiceTasksCarousel includedTasks={includedTasks} excludedTasks={excludedTasks} isDark={isDark} />
       <View
         className="mt-4 flex-row items-center justify-between border-t pt-4"
         style={{ borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }}
@@ -120,14 +128,9 @@ export function BookingServiceDetailCard({
         <View className="mr-3 flex-1">
           <Text className="text-base font-bold text-baseDark dark:text-white">
             {APP_TEXT.main.bookingFlow.subtotalLabel}
-            {unitPriceAmount != null ? (
+            {subtotalMultiplierLabel ? (
               <Text className="text-xs font-semibold text-textPrimary/60 dark:text-white/60">
-                {` (${formatSubtotalMultiplierLabel({
-                  unitPriceAmount,
-                  quantity,
-                  priceType: selectedPriceOption?.priceType,
-                  selectedDurationMinutes,
-                })})`}
+                {` (${subtotalMultiplierLabel})`}
               </Text>
             ) : null}
           </Text>
@@ -136,7 +139,6 @@ export function BookingServiceDetailCard({
           {lineTotalAmount != null ? formatCurrencyAmount(lineTotalAmount) : '--'}
         </Text>
       </View>
-      <ServiceTasksCarousel includedTasks={includedTasks} excludedTasks={excludedTasks} isDark={isDark} />
     </CardWrapper>
   );
 }

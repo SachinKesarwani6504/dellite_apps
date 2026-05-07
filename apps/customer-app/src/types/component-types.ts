@@ -50,6 +50,7 @@ export type CardWrapperProps = ViewProps & {
 
 export type ServicePricingHeaderCardProps = {
   serviceName: string;
+  serviceIconText?: string | null;
   selectedPriceOption: CustomerServicePriceOption | null;
   priceOptions: CustomerServicePriceOption[];
   selectedPriceOptionId: string | null;

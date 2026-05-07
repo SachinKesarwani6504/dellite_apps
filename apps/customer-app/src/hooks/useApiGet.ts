@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '@/actions/http/httpClient';
 import type { ApiEnvelope } from '@/types/api';
+import { getErrorMessage } from '@/utils';
 
 function unwrapResponse<T>(payload: T | ApiEnvelope<T>): T {
   if (typeof payload === 'object' && payload !== null && 'data' in payload) {
@@ -33,8 +34,7 @@ export function useApiGet<T>(url: string) {
       });
       setData(unwrapResponse<T>(response));
     } catch (err: unknown) {
-      const message = err instanceof Error && err.message.trim() ? err.message : 'Failed to fetch data';
-      setError(message);
+      setError(getErrorMessage(err, 'Failed to fetch data'));
     } finally {
       setLoading(false);
     }
@@ -55,8 +55,7 @@ export function useApiGet<T>(url: string) {
         setData(unwrapResponse<T>(response));
       } catch (err: unknown) {
         if (!mounted) return;
-        const message = err instanceof Error && err.message.trim() ? err.message : 'Failed to fetch data';
-        setError(message);
+        setError(getErrorMessage(err, 'Failed to fetch data'));
       } finally {
         if (mounted) {
           setLoading(false);

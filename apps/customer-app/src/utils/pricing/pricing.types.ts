@@ -2,7 +2,7 @@ export type PricingPriceType = 'VISIT' | 'HOURLY' | 'DAILY' | 'PER_UNIT';
 
 export type PricingComputationMode = 'FLAT' | 'PER_MINUTE' | 'PER_BLOCK';
 
-export type PricingRoundingMode = 'CEIL' | 'FLOOR' | 'ROUND';
+export type PricingRoundingMode = 'CEIL' | 'FLOOR' | 'NEAREST';
 
 export type CalculateLineSubtotalInput = {
   price: number;

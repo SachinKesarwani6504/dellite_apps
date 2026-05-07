@@ -20,16 +20,9 @@ export * from '@/utils/image-cache';
 export * from '@/utils/otp';
 export * from '@/utils/validation';
 export * from '@/utils/firebase-session';
+export * from '@/utils/error-message';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';
-
-// Keep reusable helpers here (avoid defining helpers inside screens/components).
-export function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && typeof error.message === 'string' && error.message.trim().length > 0) {
-    return error.message.trim();
-  }
-  return fallback;
-}
 
 export function extractImageUrl(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null;

@@ -9,7 +9,7 @@ export const PRICING_COMPUTATION_MODE: Record<PricingComputationMode, PricingCom
 export const PRICING_ROUNDING_MODE: Record<PricingRoundingMode, PricingRoundingMode> = {
   CEIL: 'CEIL',
   FLOOR: 'FLOOR',
-  ROUND: 'ROUND',
+  NEAREST: 'NEAREST',
 };
 
 export const DEFAULT_BILLING_UNIT_MINUTES = 60;

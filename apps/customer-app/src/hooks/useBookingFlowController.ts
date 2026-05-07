@@ -1,38 +1,44 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { customerActions } from '@/actions';
 import type {
+  BookingFlowDraft,
+  BookingFlowQuote,
   BookingFlowContextType,
   BookingFlowDetailsDraft,
   BookingFlowEntityPayload,
   BookingFlowSelectedServiceLine,
-  BookingFlowSourceType,
   BookingFlowStartPayload,
 } from '@/types/booking-flow-context';
 import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
 import type { CustomerBookableService } from '@/types/customer';
 import {
   buildCreateBookingPayload,
+  buildLocalBookingQuote,
   createEmptyAddressDraft,
   createSelectedServiceLine,
+  getDefaultBookingDateValue,
+  getNextBookingTimeValue,
 } from '@/utils/booking-flow';
-
-function getTodayDateValue() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getNextHourTimeValue() {
-  const now = new Date();
-  const hour = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
-  return `${hour}:00`;
-}
 
 function createDefaultDetailsDraft(): BookingFlowDetailsDraft {
   return {
     bookingType: CUSTOMER_BOOKING_TYPE.INSTANT,
-    scheduledDate: getTodayDateValue(),
-    scheduledTime: getNextHourTimeValue(),
+    scheduledDate: getDefaultBookingDateValue(),
+    scheduledTime: getNextBookingTimeValue(),
     address: createEmptyAddressDraft(),
     notes: '',
+  };
+}
+
+function createDefaultBookingDraft(): BookingFlowDraft {
+  return {
+    sourceType: null,
+    categoryId: null,
+    categoryName: null,
+    subcategoryId: null,
+    subcategoryName: null,
+    selectedServicesById: {},
+    details: createDefaultDetailsDraft(),
   };
 }
 
@@ -51,38 +57,46 @@ function upsertSelectedServiceLine(
 }
 
 export function useBookingFlowController(): BookingFlowContextType {
-  const [sourceType, setSourceType] = useState<BookingFlowSourceType | null>(null);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [categoryName, setCategoryName] = useState<string | null>(null);
-  const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
-  const [subcategoryName, setSubcategoryName] = useState<string | null>(null);
-  const [selectedServicesById, setSelectedServicesById] = useState<Record<string, BookingFlowSelectedServiceLine>>({});
-  const [detailsDraft, setDetailsDraft] = useState<BookingFlowDetailsDraft>(createDefaultDetailsDraft);
+  const [bookingDraft, setBookingDraft] = useState<BookingFlowDraft>(createDefaultBookingDraft);
+  const [bookingQuote, setBookingQuote] = useState<BookingFlowQuote | null>(null);
   const lastToggleRef = useRef<{ serviceId: string; timestamp: number } | null>(null);
 
+  const updateBookingDraft = useCallback(<Key extends keyof BookingFlowDraft>(key: Key, value: BookingFlowDraft[Key]) => {
+    setBookingDraft(current => ({
+      ...current,
+      [key]: value,
+    }));
+  }, []);
+
   const beginFlow = useCallback((payload: BookingFlowStartPayload) => {
-    setSourceType(payload.sourceType);
-    setCategoryId(payload.categoryId ?? null);
-    setCategoryName(null);
-    setSubcategoryId(null);
-    setSubcategoryName(null);
-    setSelectedServicesById(payload.service ? { [payload.service.id]: createSelectedServiceLine(payload.service) } : {});
-    setDetailsDraft(createDefaultDetailsDraft());
+    setBookingDraft({
+      ...createDefaultBookingDraft(),
+      sourceType: payload.sourceType,
+      categoryId: payload.categoryId ?? null,
+      selectedServicesById: payload.service ? { [payload.service.id]: createSelectedServiceLine(payload.service) } : {},
+    });
+    setBookingQuote(null);
   }, []);
 
   const setCategory = useCallback((payload: BookingFlowEntityPayload) => {
-    setCategoryId(payload.id);
-    setCategoryName(payload.name ?? null);
+    setBookingDraft(current => ({
+      ...current,
+      categoryId: payload.id,
+      categoryName: payload.name ?? null,
+    }));
+    setBookingQuote(null);
   }, []);
 
   const setSubcategory = useCallback((payload: BookingFlowEntityPayload) => {
-    setSubcategoryId((currentId) => {
-      if (currentId && currentId !== payload.id) {
-        setSelectedServicesById({});
-      }
-      return payload.id;
-    });
-    setSubcategoryName(payload.name ?? null);
+    setBookingDraft(current => ({
+      ...current,
+      subcategoryId: payload.id,
+      subcategoryName: payload.name ?? null,
+      selectedServicesById: current.subcategoryId && current.subcategoryId !== payload.id
+        ? {}
+        : current.selectedServicesById,
+    }));
+    setBookingQuote(null);
   }, []);
 
   const toggleService = useCallback((service: CustomerBookableService) => {
@@ -99,119 +113,182 @@ export function useBookingFlowController(): BookingFlowContextType {
     }
     lastToggleRef.current = { serviceId: normalizedServiceId, timestamp: now };
 
-    setSelectedServicesById(prev =>
-      upsertSelectedServiceLine(prev, {
+    setBookingDraft(current => ({
+      ...current,
+      selectedServicesById: upsertSelectedServiceLine(current.selectedServicesById, {
         ...service,
         id: normalizedServiceId,
       }),
-    );
+    }));
+    setBookingQuote(null);
   }, []);
 
   const resetSelectedServices = useCallback(() => {
-    setSelectedServicesById({});
+    setBookingDraft(current => ({
+      ...current,
+      selectedServicesById: {},
+    }));
+    setBookingQuote(null);
   }, []);
 
   const clearSubcategorySelection = useCallback(() => {
-    setSubcategoryId(null);
-    setSubcategoryName(null);
-    setSelectedServicesById({});
+    setBookingDraft(current => ({
+      ...current,
+      subcategoryId: null,
+      subcategoryName: null,
+      selectedServicesById: {},
+    }));
+    setBookingQuote(null);
   }, []);
 
   const setServiceQuantity = useCallback((serviceId: string, quantity: number) => {
-    setSelectedServicesById((prev) => {
-      const current = prev[serviceId];
-      if (!current) return prev;
+    setBookingDraft((current) => {
+      const currentLine = current.selectedServicesById[serviceId];
+      if (!currentLine) return current;
       return {
-        ...prev,
-        [serviceId]: {
-          ...current,
-          quantity: Math.max(1, Math.min(quantity, 20)),
+        ...current,
+        selectedServicesById: {
+          ...current.selectedServicesById,
+          [serviceId]: {
+            ...currentLine,
+            quantity: Math.max(1, Math.min(quantity, 20)),
+          },
         },
       };
     });
+    setBookingQuote(null);
   }, []);
 
   const setServicePriceOption = useCallback((serviceId: string, priceOptionId: string) => {
-    setSelectedServicesById((prev) => {
-      const current = prev[serviceId];
-      if (!current) return prev;
+    setBookingDraft((current) => {
+      const currentLine = current.selectedServicesById[serviceId];
+      if (!currentLine) return current;
       return {
-        ...prev,
-        [serviceId]: {
-          ...current,
-          selectedPriceOptionId: priceOptionId,
+        ...current,
+        selectedServicesById: {
+          ...current.selectedServicesById,
+          [serviceId]: {
+            ...currentLine,
+            selectedPriceOptionId: priceOptionId,
+            selectedDurationMinutes: null,
+          },
         },
       };
     });
+    setBookingQuote(null);
+  }, []);
+
+  const setServiceDuration = useCallback((serviceId: string, minutes: number | null) => {
+    setBookingDraft((current) => {
+      const currentLine = current.selectedServicesById[serviceId];
+      if (!currentLine) return current;
+      return {
+        ...current,
+        selectedServicesById: {
+          ...current.selectedServicesById,
+          [serviceId]: {
+            ...currentLine,
+            selectedDurationMinutes: minutes,
+          },
+        },
+      };
+    });
+    setBookingQuote(null);
   }, []);
 
   const removeService = useCallback((serviceId: string) => {
-    setSelectedServicesById((prev) => {
-      if (!prev[serviceId]) return prev;
-      const next = { ...prev };
+    setBookingDraft((current) => {
+      if (!current.selectedServicesById[serviceId]) return current;
+      const next = { ...current.selectedServicesById };
       delete next[serviceId];
-      return next;
+      return {
+        ...current,
+        selectedServicesById: next,
+      };
     });
+    setBookingQuote(null);
   }, []);
 
   const setBookingDetails = useCallback((payload: BookingFlowDetailsDraft) => {
-    setDetailsDraft(payload);
+    setBookingDraft(current => ({
+      ...current,
+      details: payload,
+    }));
+    setBookingQuote(null);
   }, []);
 
   const setBookingAddress = useCallback((address: BookingFlowDetailsDraft['address']) => {
-    setDetailsDraft(current => ({
+    setBookingDraft(current => ({
       ...current,
-      address,
+      details: {
+        ...current.details,
+        address,
+      },
     }));
+    setBookingQuote(null);
   }, []);
 
   const createBooking = useCallback(async (city: string) => {
     const payload = buildCreateBookingPayload({
       city,
-      bookingType: detailsDraft.bookingType,
-      scheduledDate: detailsDraft.scheduledDate,
-      scheduledTime: detailsDraft.scheduledTime,
-      notes: detailsDraft.notes,
-      address: detailsDraft.address,
-      selectedServices: Object.values(selectedServicesById),
+      bookingDraft,
     });
 
     return customerActions.createCustomerBooking(payload);
-  }, [detailsDraft, selectedServicesById]);
+  }, [bookingDraft]);
+
+  const fetchBookingQuote = useCallback(async () => {
+    try {
+      const response = await customerActions.getCustomerBookingQuote({
+        bookingDraft,
+      });
+      const nextQuote = {
+        ...response.bookingQuote,
+        isEstimated: response.bookingQuote.isEstimated ?? false,
+      };
+      setBookingQuote(nextQuote);
+      return nextQuote;
+    } catch {
+      const fallbackQuote = buildLocalBookingQuote(bookingDraft);
+      setBookingQuote(fallbackQuote);
+      return fallbackQuote;
+    }
+  }, [bookingDraft]);
 
   const resetFlow = useCallback(() => {
-    setSourceType(null);
-    setCategoryId(null);
-    setCategoryName(null);
-    setSubcategoryId(null);
-    setSubcategoryName(null);
-    setSelectedServicesById({});
-    setDetailsDraft(createDefaultDetailsDraft());
+    setBookingDraft(createDefaultBookingDraft());
+    setBookingQuote(null);
   }, []);
 
-  const selectedServices = useMemo(() => Object.values(selectedServicesById), [selectedServicesById]);
+  const selectedServices = useMemo(() => Object.values(bookingDraft.selectedServicesById), [bookingDraft.selectedServicesById]);
   const selectedServiceIds = useMemo(
     () =>
-      Object.keys(selectedServicesById).reduce<Record<string, true>>((accumulator, id) => {
+      Object.keys(bookingDraft.selectedServicesById).reduce<Record<string, true>>((accumulator, id) => {
         accumulator[id] = true;
         return accumulator;
       }, {}),
-    [selectedServicesById],
+    [bookingDraft.selectedServicesById],
   );
 
   return useMemo(() => ({
-    sourceType,
-    categoryId,
-    categoryName,
-    subcategoryId,
-    subcategoryName,
+    bookingDraft,
+    bookingQuote,
+    sourceType: bookingDraft.sourceType,
+    categoryId: bookingDraft.categoryId,
+    categoryName: bookingDraft.categoryName,
+    subcategoryId: bookingDraft.subcategoryId,
+    subcategoryName: bookingDraft.subcategoryName,
     selectedServices,
     selectedServiceIds,
-    bookingType: detailsDraft.bookingType,
-    scheduledDate: detailsDraft.scheduledDate,
-    scheduledTime: detailsDraft.scheduledTime,
-    address: detailsDraft.address,
-    notes: detailsDraft.notes,
+    selectedServicesById: bookingDraft.selectedServicesById,
+    bookingType: bookingDraft.details.bookingType,
+    scheduledDate: bookingDraft.details.scheduledDate,
+    scheduledTime: bookingDraft.details.scheduledTime,
+    address: bookingDraft.details.address,
+    notes: bookingDraft.details.notes,
+    updateBookingDraft,
+    setBookingQuote,
+    fetchBookingQuote,
     beginFlow,
     setCategory,
     setSubcategory,
@@ -220,24 +297,18 @@ export function useBookingFlowController(): BookingFlowContextType {
     clearSubcategorySelection,
     setServiceQuantity,
     setServicePriceOption,
+    setServiceDuration,
     removeService,
     setBookingAddress,
     setBookingDetails,
     createBooking,
     resetFlow,
   }), [
-    sourceType,
-    categoryId,
-    categoryName,
-    subcategoryId,
-    subcategoryName,
+    bookingDraft,
+    bookingQuote,
     selectedServices,
     selectedServiceIds,
-    detailsDraft.bookingType,
-    detailsDraft.scheduledDate,
-    detailsDraft.scheduledTime,
-    detailsDraft.address,
-    detailsDraft.notes,
+    updateBookingDraft,
     beginFlow,
     setCategory,
     setSubcategory,
@@ -246,10 +317,12 @@ export function useBookingFlowController(): BookingFlowContextType {
     clearSubcategorySelection,
     setServiceQuantity,
     setServicePriceOption,
+    setServiceDuration,
     removeService,
     setBookingAddress,
     setBookingDetails,
     createBooking,
+    fetchBookingQuote,
     resetFlow,
   ]);
 }

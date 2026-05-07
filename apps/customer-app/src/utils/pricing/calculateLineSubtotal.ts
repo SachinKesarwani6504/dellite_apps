@@ -59,7 +59,7 @@ function resolveMinutesForTimeMode(input: CalculateLineSubtotalInput, effectiveM
 function resolveRounding(value: number, roundingMode?: PricingRoundingMode | null) {
   const mode = roundingMode ?? 'CEIL';
   if (mode === 'FLOOR') return Math.floor(value);
-  if (mode === 'ROUND') return Math.round(value);
+  if (mode === 'NEAREST') return Math.round(value);
   return Math.ceil(value);
 }
 
