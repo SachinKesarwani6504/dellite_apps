@@ -10,8 +10,8 @@ import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
 import type { CustomerHomeCategory } from '@/types/customer';
 import type {
   CategoryCatalogUsageTypes,
-  BookingDetailsScreenControllerArgs,
-  BookingDetailsScreenControllerValue,
+  BookingDraftDetailsScreenControllerArgs,
+  BookingDraftDetailsScreenControllerValue,
 } from '@/types/main-screens';
 import { APP_TEXT } from '@/utils/appText';
 import {
@@ -61,9 +61,9 @@ function logBookingLocationDebug(message: string, payload: unknown) {
   console.log(`[booking-location] ${message}`, payload);
 }
 
-export function useBookingDetailsScreenController(
-  args: BookingDetailsScreenControllerArgs,
-): BookingDetailsScreenControllerValue {
+export function useBookingDraftDetailsScreenController(
+  args: BookingDraftDetailsScreenControllerArgs,
+): BookingDraftDetailsScreenControllerValue {
   const isDark = useColorScheme() === 'dark';
   const { locationState } = useAuthContext();
   const {
@@ -395,7 +395,7 @@ export function useBookingDetailsScreenController(
   };
 
   const selectServiceDuration = (
-    service: BookingDetailsScreenControllerValue['selectedServices'][number]['service'],
+    service: BookingDraftDetailsScreenControllerValue['selectedServices'][number]['service'],
     selectedPriceOptionId: string | null,
     minutes: number,
   ) => {

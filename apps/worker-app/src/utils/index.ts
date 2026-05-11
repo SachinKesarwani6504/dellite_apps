@@ -1,3 +1,5 @@
+export { normalizeCityName } from '@dellite/app-core';
+
 export function toBearerToken(value: string): string {
   const trimmed = value.trim();
   return trimmed.toLowerCase().startsWith('bearer ') ? trimmed : `Bearer ${trimmed}`;

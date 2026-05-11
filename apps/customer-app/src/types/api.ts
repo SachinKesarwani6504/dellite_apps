@@ -46,3 +46,23 @@ export class ApiError extends Error {
     this.payload = payload;
   }
 }
+
+export type BookingStatus =
+  | 'CREATED'
+  | 'SEARCHING'
+  | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export interface Booking {
+  id: string;
+  bookingStatus: BookingStatus;
+  services: string[];
+  totalAmount: number;
+  customerInfo?: {
+    id: string;
+    user?: any;
+  };
+}

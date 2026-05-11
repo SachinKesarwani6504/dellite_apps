@@ -1,3 +1,4 @@
+import { normalizeCityName } from '@dellite/app-core';
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope, ApiError } from '@/types/api';
 import {
@@ -34,7 +35,7 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
 const workerHomeCacheByCity = new Map<string, WorkerHomeData>();
 
 function normalizeCity(city: string) {
-  return city.trim().toUpperCase();
+  return normalizeCityName(city).toUpperCase();
 }
 
 type RawServiceSubcategory = Omit<ServiceSubcategory, 'services'> & {
@@ -298,7 +299,7 @@ export async function listWorkers<T = unknown>() {
 
 function toQueryString(query: CategoriesQuery) {
   const params = new URLSearchParams();
-  params.set('city', query.city);
+  params.set('city', normalizeCity(query.city));
   if (typeof query.includeSubcategory === 'boolean') {
     params.set('includeSubcategory', String(query.includeSubcategory));
   }
@@ -559,7 +560,7 @@ export async function createWorkerServices(
     ? payload.skills
     : (Array.isArray(payload.services) ? payload.services : []);
   const requestPayload = {
-    city: payload.city,
+    city: normalizeCity(payload.city),
     skills: normalizedSkills,
     services: Array.isArray(payload.services) ? payload.services : normalizedSkills,
   };

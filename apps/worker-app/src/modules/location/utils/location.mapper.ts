@@ -1,3 +1,4 @@
+import { normalizeCityName } from '@dellite/app-core';
 import { LocationCoordinates, NormalizedLocation, ShouldRefreshLocationArgs } from '@/modules/location/types/location.types';
 
 function isFiniteNumber(value: unknown): value is number {
@@ -11,6 +12,23 @@ function normalizeText(value: unknown) {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeCityText(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = normalizeCityName(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function logReverseGeocodeCity(rawCity: string | null, normalizedCity: string | null) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log('Raw reverse geocode city:', rawCity);
+  // eslint-disable-next-line no-console
+  console.log('Normalized city:', normalizedCity);
 }
 
 type GoogleAddressComponent = {
@@ -65,7 +83,7 @@ export function mapToNormalizedLocation(payload: unknown): NormalizedLocation | 
   const source = payload as Record<string, unknown>;
   return {
     ...coordinates,
-    city: normalizeText(source.city),
+    city: normalizeCityText(source.city),
     locality: normalizeText(source.locality),
     state: normalizeText(source.state),
     country: normalizeText(source.country),
@@ -86,13 +104,12 @@ export function mapGoogleGeocodeToNormalizedLocation(
   const firstResult = Array.isArray(source.results) ? source.results[0] : undefined;
   const components = Array.isArray(firstResult?.address_components) ? firstResult.address_components : [];
 
-  // Prefer district-level component for "city" to avoid village names becoming display city.
-  const district = getComponentValue(components, [
-    'administrative_area_level_2',
-    'administrative_area_level_3',
-  ]);
   const city = getComponentValue(components, [
     'locality',
+    'administrative_area_level_3',
+  ]);
+  const district = getComponentValue(components, [
+    'administrative_area_level_2',
     'administrative_area_level_3',
   ]);
   const locality = getComponentValue(components, [
@@ -102,12 +119,15 @@ export function mapGoogleGeocodeToNormalizedLocation(
     'route',
   ]);
   const state = getComponentValue(components, ['administrative_area_level_1']);
-  const bestCity = district ?? city ?? locality ?? state;
+  const rawCity = district ?? city;
+  const bestCity = normalizeCityText(rawCity);
+
+  logReverseGeocodeCity(rawCity, bestCity);
 
   return {
     ...coordinates,
     city: bestCity,
-    locality: locality ?? city,
+    locality: normalizeText(locality) ?? normalizeText(city) ?? bestCity,
     state,
     country: getComponentValue(components, ['country']),
     postalCode: getComponentValue(components, ['postal_code']),

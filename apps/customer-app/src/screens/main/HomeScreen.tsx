@@ -337,10 +337,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const isHomePayloadEmpty = !homeData || (!shouldShowBanner && !shouldShowContent && !homeData.footer);
 
   if ((loading || isLocationPending) && isHomePayloadEmpty) {
+    const loadingMessage = isLocationPending ? APP_TEXT.main.loadingLocation : APP_TEXT.main.loadingHome;
     return (
       <GradientScreen>
         <View className="px-4 pt-6">
-          <LoadingState minHeight={520} message={APP_TEXT.main.loadingHome} />
+          <LoadingState minHeight={520} message={loadingMessage} />
         </View>
       </GradientScreen>
     );

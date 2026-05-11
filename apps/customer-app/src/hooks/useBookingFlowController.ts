@@ -13,7 +13,6 @@ import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
 import type { CustomerBookableService } from '@/types/customer';
 import {
   buildCreateBookingPayload,
-  buildLocalBookingQuote,
   createEmptyAddressDraft,
   createSelectedServiceLine,
   getDefaultBookingDateValue,
@@ -228,31 +227,25 @@ export function useBookingFlowController(): BookingFlowContextType {
     setBookingQuote(null);
   }, []);
 
-  const createBooking = useCallback(async (city: string) => {
+  const createBooking = useCallback(async (city: string, idempotencyKey: string) => {
     const payload = buildCreateBookingPayload({
       city,
       bookingDraft,
     });
 
-    return customerActions.createCustomerBooking(payload);
+    return customerActions.createCustomerBooking(payload, idempotencyKey);
   }, [bookingDraft]);
 
   const fetchBookingQuote = useCallback(async () => {
-    try {
-      const response = await customerActions.getCustomerBookingQuote({
-        bookingDraft,
-      });
-      const nextQuote = {
-        ...response.bookingQuote,
-        isEstimated: response.bookingQuote.isEstimated ?? false,
-      };
-      setBookingQuote(nextQuote);
-      return nextQuote;
-    } catch {
-      const fallbackQuote = buildLocalBookingQuote(bookingDraft);
-      setBookingQuote(fallbackQuote);
-      return fallbackQuote;
-    }
+    const response = await customerActions.getCustomerBookingQuote({
+      bookingDraft,
+    });
+    const nextQuote = {
+      ...response.bookingQuote,
+      isEstimated: response.bookingQuote.isEstimated ?? false,
+    };
+    setBookingQuote(nextQuote);
+    return nextQuote;
   }, [bookingDraft]);
 
   const resetFlow = useCallback(() => {

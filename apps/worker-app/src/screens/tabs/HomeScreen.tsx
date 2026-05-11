@@ -199,10 +199,11 @@ export function HomeScreen() {
   ]);
 
   if ((loading || isLocationPending) && !homeData) {
+    const loadingMessage = isLocationPending ? APP_TEXT.home.loadingLocation : APP_TEXT.home.nearbyJobsLoading;
     return (
       <GradientScreen>
         <View className="px-4 pt-6">
-          <LoadingState minHeight={520} message={APP_TEXT.home.nearbyJobsLoading} />
+          <LoadingState minHeight={520} message={loadingMessage} />
         </View>
       </GradientScreen>
     );

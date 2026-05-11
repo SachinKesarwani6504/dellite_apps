@@ -1,9 +1,6 @@
-export type CityCode = 'PRAYAGRAJ' | 'CHITRAKOOT' | 'LUCKNOW' | 'KANPUR';
+export type CityCode = string;
 
 export type LocationSource =
-  | 'city_alias'
-  | 'locality_alias'
-  | 'address_alias'
   | 'raw_city'
   | 'raw_locality'
   | 'unknown';

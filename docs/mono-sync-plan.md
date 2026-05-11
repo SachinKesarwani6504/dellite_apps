@@ -74,10 +74,11 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Worker + Customer: added global location state inside `AuthContext` (`locationState`) powered by `useLocationController` and consumed via `useLocation`.
 - [x] Worker + Customer: wired app root providers and home city resolution from live location with safe fallback.
 - [x] Customer app: booking details screen now demonstrates location auto-fill + manual location refresh action.
-- [x] Worker + Customer: added persisted location cache (SecureStore) for last successful coordinates/city and fallback reuse on reopen/fetch failure.
+- [x] Worker + Customer: removed persisted location cache (SecureStore) to ensure real-time location accuracy.
 - [x] Worker + Customer: switched home city resolution to geo-derived city only (no hardcoded city mapping) and added city-unavailable UI when city cannot be resolved.
 - [x] Worker + Customer: added scalable `location-intelligence` resolver module (city alias mapping + normalized product city resolution).
 - [x] Customer app: added booking-time locality launch gating via `resolveBookingServiceability` (city may be visible, booking blocked for non-launched localities).
+- [x] Worker + Customer: removed `CITY_MASTER` city validation from location resolution and normalize reverse-geocoded city names through shared `packages/app-core` helper.
 
 ## In Progress: Worker Live Location (Firebase RTDB)
 

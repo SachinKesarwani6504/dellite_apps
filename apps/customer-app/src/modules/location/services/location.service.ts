@@ -1,4 +1,5 @@
 import * as ExpoLocation from 'expo-location';
+import { normalizeCityName } from '@dellite/app-core';
 import {
   CURRENT_POSITION_OPTIONS,
   GOOGLE_GEOCODE_ENDPOINT,
@@ -11,10 +12,34 @@ import type {
   LocationPermissionStatus,
   NormalizedLocation,
 } from '@/modules/location/types/location.types';
+import { ENV } from '@/utils/env';
 
 function logLocationDebug(message: string, payload?: unknown) {
-  void message;
-  void payload;
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  if (payload === undefined) {
+    console.log(`[location.service] ${message}`);
+  } else {
+    console.log(`[location.service] ${message}`, payload);
+  }
+}
+
+function normalizeNullableText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeNullableCity(value: string | null | undefined) {
+  const normalized = normalizeCityName(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function logReverseGeocodeCity(rawCity: string | null, normalizedCity: string | null) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log('Raw reverse geocode city:', rawCity);
+  // eslint-disable-next-line no-console
+  console.log('Normalized city:', normalizedCity);
 }
 
 function toPermissionStatus(status: ExpoLocation.PermissionStatus): LocationPermissionStatus {
@@ -68,14 +93,17 @@ export async function getCurrentCoordinates(): Promise<LocationCoordinates> {
 async function resolveWithExpoReverseGeocode(nextCoordinates: LocationCoordinates): Promise<NormalizedLocation> {
   const reverse = await ExpoLocation.reverseGeocodeAsync(nextCoordinates);
   const first = Array.isArray(reverse) ? reverse[0] : null;
-  const district = first?.subregion?.trim() || first?.district?.trim() || null;
-  const city = district || first?.city?.trim() || first?.region?.trim() || null;
-  const locality = first?.city?.trim() || first?.name?.trim() || null;
-  const state = first?.region?.trim() || null;
-  const country = first?.country?.trim() || null;
-  const postalCode = first?.postalCode?.trim() || null;
+  const rawCity = normalizeNullableText(first?.city) ?? normalizeNullableText(first?.district) ?? normalizeNullableText(first?.subregion);
+  const city = normalizeNullableCity(rawCity);
+  const rawLocality = normalizeNullableText(first?.city) ?? normalizeNullableText(first?.name);
+  const locality = rawLocality === rawCity ? city : rawLocality;
+  const state = normalizeNullableText(first?.region);
+  const country = normalizeNullableText(first?.country);
+  const postalCode = normalizeNullableText(first?.postalCode);
   const street = [first?.street, first?.name].filter(Boolean).join(', ').trim();
   const formattedAddress = street || city || state || null;
+
+  logReverseGeocodeCity(rawCity, city);
 
   const normalized: NormalizedLocation = {
     ...nextCoordinates,
@@ -95,11 +123,7 @@ export async function getCurrentLocationDetails(
   coordinates?: LocationCoordinates,
 ): Promise<NormalizedLocation> {
   const nextCoordinates = coordinates ?? await getCurrentCoordinates();
-  const runtimeGlobal = globalThis as {
-    process?: { env?: Record<string, string | undefined> };
-  };
-  const apiKey = runtimeGlobal.process?.env?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-    ?? runtimeGlobal.process?.env?.EXPO_PUBLIC_EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = ENV.GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
     logLocationDebug('reverseGeocode:google:missingApiKey -> fallback expo');
@@ -120,7 +144,16 @@ export async function getCurrentLocationDetails(
     }
 
     const payload = await response.json();
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[Google Maps API] Raw Geocode Payload:', JSON.stringify(payload, null, 2));
+    }
+
     const normalized = mapGoogleGeocodeToNormalizedLocation(payload, nextCoordinates);
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[Google Maps API] Normalized Location:', JSON.stringify(normalized, null, 2));
+    }
 
     if (!normalized) {
       throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);

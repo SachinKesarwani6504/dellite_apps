@@ -1,3 +1,4 @@
+import { normalizeCityName } from '@dellite/app-core';
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiError, type ApiEnvelope } from '@/types/api';
 import type {
@@ -52,7 +53,7 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
 const customerHomeCacheByCity = new Map<string, CustomerHomePayload>();
 
 function normalizeCity(city: string) {
-  return city.trim().toUpperCase();
+  return normalizeCityName(city).toUpperCase();
 }
 
 function requireCity(city: string, endpointLabel: string) {
@@ -152,7 +153,7 @@ type RawCustomerCategory = Omit<CustomerHomeCategory, 'subcategories' | 'service
 };
 
 function normalizeCityQuery(city: string) {
-  return city.trim().toUpperCase();
+  return normalizeCity(city);
 }
 
 function normalizePage(value?: number) {
@@ -768,12 +769,20 @@ export async function markOnboardingWelcomeSeen(): Promise<void> {
   );
 }
 
-export async function createCustomerBooking(payload: CreateCustomerBookingPayload): Promise<CustomerBookingCreateResult> {
+export async function createCustomerBooking(
+  payload: CreateCustomerBookingPayload,
+  idempotencyKey: string,
+): Promise<CustomerBookingCreateResult> {
   const response = await apiPost<ApiEnvelope<CustomerBookingCreateResult> | CustomerBookingCreateResult, CreateCustomerBookingPayload>(
     '/booking',
     payload,
     {
       auth: true,
+      tokenType: 'access',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
     },
   );
 
@@ -782,7 +791,7 @@ export async function createCustomerBooking(payload: CreateCustomerBookingPayloa
 
 export async function getCustomerBookingQuote(payload: { bookingDraft: BookingFlowDraft }): Promise<BookingFlowQuoteResponse> {
   const response = await apiPost<ApiEnvelope<BookingFlowQuoteResponse> | BookingFlowQuoteResponse, BookingFlowQuoteRequest>(
-    '/bookings/quote',
+    '/booking/quote',
     {
       bookingDraft: buildBookingQuoteRequestDraft(payload.bookingDraft),
     },

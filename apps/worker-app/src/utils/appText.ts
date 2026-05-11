@@ -107,6 +107,7 @@ export const APP_TEXT = {
     reviewsSuffix: 'reviews',
     jobFallback: 'Job',
     loadError: 'Unable to load home data right now.',
+    loadingLocation: 'Fetching location...',
     todayJobsLabel: "Today's Jobs",
     earningsLabel: 'Earnings',
     growthLabel: 'Growth',

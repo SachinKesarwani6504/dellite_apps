@@ -11,13 +11,12 @@
 import { CUSTOMER_BOOKING_TYPE, PRICE_COMPUTATION_MODE, PRICE_TYPE } from '@/types/customer';
 import { HOURLY_DURATION_CHIP_STEP_MINUTES } from '@/utils/pricing/pricing.constants';
 import { calculateLineSubtotal } from '@/utils/pricing/calculateLineSubtotal';
+import { normalizeCityName } from '@dellite/app-core';
 import type {
   BookingFlowDraft,
   BookingFlowAddressDraft,
   BookingFlowAddressMode,
-  BookingFlowQuote,
   BookingFlowQuoteDraft,
-  BookingFlowQuoteSelectedServiceLine,
   BookingFlowSelectedServiceLine,
 } from '@/types/booking-flow-context';
 import type { LocationCoordinates } from '@/modules/location/types/location.types';
@@ -33,6 +32,14 @@ function toTitleCase(value: string) {
     .filter(Boolean)
     .map(part => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(' ');
+}
+
+function requireSelectedPriceOptionId(line: BookingFlowSelectedServiceLine) {
+  const selectedPriceOptionId = toTrimmedString(line.selectedPriceOptionId);
+  if (!selectedPriceOptionId) {
+    throw new Error('Selected price option is required.');
+  }
+  return selectedPriceOptionId;
 }
 
 export function getDefaultSelectedPriceOptionId(priceOptions?: CustomerServicePriceOption[]) {
@@ -392,7 +399,7 @@ export function buildDetectedAddressDraft(input: {
   latitude?: number | null;
   longitude?: number | null;
 }): BookingFlowAddressDraft {
-  const district = toTrimmedString(input.city) || 'Prayagraj';
+  const district = normalizeCityName(input.city) || 'Prayagraj';
   const area = toTrimmedString(input.locality) || district;
 
   return {
@@ -425,16 +432,27 @@ export function createEmptyAddressDraft(): BookingFlowAddressDraft {
 }
 
 export function toBookingAddressInput(address: BookingFlowAddressDraft): CustomerBookingAddressInput {
+  const latitude = address.latitude;
+  const longitude = address.longitude;
+  if (
+    typeof latitude !== 'number'
+    || !Number.isFinite(latitude)
+    || typeof longitude !== 'number'
+    || !Number.isFinite(longitude)
+  ) {
+    throw new Error('Booking address coordinates are required.');
+  }
+
   return {
     country: toTrimmedString(address.country) || 'India',
     state: toTrimmedString(address.state),
-    district: toTrimmedString(address.district),
+    district: normalizeCityName(address.district),
     area: toTrimmedString(address.area),
     addressLine1: toTrimmedString(address.addressLine1),
     addressLine2: toTrimmedString(address.addressLine2) || undefined,
     pincode: toTrimmedString(address.pincode),
-    latitude: address.latitude ?? 0,
-    longitude: address.longitude ?? 0,
+    latitude,
+    longitude,
   };
 }
 
@@ -602,25 +620,27 @@ export function buildCreateBookingPayload(input: {
     ? buildScheduledStartAt(details.scheduledDate, details.scheduledTime) ?? undefined
     : undefined;
 
+  const serviceLines = selectedServices.map((line) => ({
+    serviceId: line.service.id,
+    serviceName: line.service.name,
+    selectedPriceOptionId: requireSelectedPriceOptionId(line),
+    quantity: line.quantity,
+    selectedDurationMinutes: getServiceLinePayloadDurationMinutes(line),
+    billableQuantity: getServiceLineBillableQuantity(line),
+  }));
+
   return {
-    city: toTrimmedString(input.city).toUpperCase(),
+    city: normalizeCityName(input.city).toUpperCase(),
     bookingType: details.bookingType,
     scheduledStartAt,
     notes: toTrimmedString(details.notes) || undefined,
     address: toBookingAddressInput(details.address),
-    serviceLines: selectedServices.map((line) => ({
-      serviceId: line.service.id,
-      serviceName: line.service.name,
-      selectedPriceOptionId: line.selectedPriceOptionId ?? undefined,
-      quantity: line.quantity,
-      selectedDurationMinutes: getServiceLinePayloadDurationMinutes(line),
-      billableQuantity: getServiceLineBillableQuantity(line),
-    })),
+    serviceLines,
   };
 }
 
 export function buildBookingQuoteRequestDraft(bookingDraft: BookingFlowDraft): BookingFlowQuoteDraft {
-  const selectedServicesById = Object.entries(bookingDraft.selectedServicesById).reduce<Record<string, BookingFlowQuoteSelectedServiceLine>>(
+  const selectedServicesById = Object.entries(bookingDraft.selectedServicesById).reduce<BookingFlowQuoteDraft['selectedServicesById']>(
     (accumulator, [serviceId, line]) => {
       accumulator[serviceId] = {
         service: {
@@ -628,8 +648,7 @@ export function buildBookingQuoteRequestDraft(bookingDraft: BookingFlowDraft): B
           name: line.service.name,
         },
         quantity: line.quantity,
-        billableQuantity: getServiceLineBillableQuantity(line),
-        selectedPriceOptionId: line.selectedPriceOptionId,
+        selectedPriceOptionId: requireSelectedPriceOptionId(line),
         selectedDurationMinutes: getServiceLinePayloadDurationMinutes(line) ?? null,
       };
       return accumulator;
@@ -645,50 +664,6 @@ export function buildBookingQuoteRequestDraft(bookingDraft: BookingFlowDraft): B
     subcategoryName: bookingDraft.subcategoryName,
     selectedServicesById,
     details: bookingDraft.details,
-  };
-}
-
-export function buildLocalBookingQuote(bookingDraft: BookingFlowDraft): BookingFlowQuote {
-  const selectedServices = Object.values(bookingDraft.selectedServicesById);
-  const serviceLines = selectedServices.map((line) => {
-    const selectedPriceOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
-    const subtotal = getServiceLineTotalAmount(
-      line.service,
-      line.selectedPriceOptionId,
-      line.quantity,
-      line.selectedDurationMinutes,
-    ) ?? 0;
-
-    return {
-      serviceId: line.service.id,
-      serviceName: line.service.name,
-      selectedPriceOptionId: line.selectedPriceOptionId,
-      title: selectedPriceOption?.title ?? null,
-      basePrice: typeof selectedPriceOption?.price === 'number' && Number.isFinite(selectedPriceOption.price)
-        ? selectedPriceOption.price
-        : 0,
-      quantity: line.quantity,
-      selectedDurationMinutes: getServiceLineDisplayDurationMinutes(line),
-      estimatedMinutes: selectedPriceOption?.estimatedMinutes ?? null,
-      baseDurationMinutes: getFixedDurationMinutes(selectedPriceOption) ?? selectedPriceOption?.minMinutes ?? null,
-      subtotal,
-      optionalCharges: [],
-    };
-  });
-  const subtotal = serviceLines.reduce((total, line) => total + line.subtotal, 0);
-
-  return {
-    currency: 'INR',
-    subtotal,
-    platformFee: 0,
-    discountTotal: 0,
-    total: subtotal,
-    couponCode: null,
-    couponDiscount: 0,
-    isEstimated: true,
-    baseSubtotal: subtotal,
-    optionalChargeTotal: 0,
-    serviceLines,
   };
 }
 

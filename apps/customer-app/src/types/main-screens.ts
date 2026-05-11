@@ -21,6 +21,8 @@ export type BackNavigation = BaseNavigation & {
   goBack: () => void;
 };
 
+export type BookingDraftDetailsNavigation = BackNavigation;
+
 export type BookingDetailsNavigation = BackNavigation;
 
 export type BookingConfirmationNavigation = BackNavigation & {
@@ -28,8 +30,17 @@ export type BookingConfirmationNavigation = BackNavigation & {
   getParent: () => { navigate: (screen: string, params?: unknown) => void } | undefined;
 };
 
+export type BookingDraftDetailsScreenProps = {
+  navigation: BookingDraftDetailsNavigation;
+};
+
 export type BookingDetailsScreenProps = {
   navigation: BookingDetailsNavigation;
+  route: {
+    params: {
+      bookingId: string;
+    };
+  };
 };
 
 export type BookingLocationPickerScreenProps = {
@@ -64,12 +75,12 @@ export type CategoryServicesScreenProps = {
   };
 };
 
-export type BookingDetailsScreenControllerArgs = {
+export type BookingDraftDetailsScreenControllerArgs = {
   onNavigateToConfirmation: () => void;
   onNavigateBackToServices: () => void;
 };
 
-export type BookingDetailsScreenControllerValue = {
+export type BookingDraftDetailsScreenControllerValue = {
   isDark: boolean;
   categoryName: string | null;
   selectedServices: BookingFlowSelectedServiceLine[];

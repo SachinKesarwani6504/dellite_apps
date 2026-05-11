@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, useColorScheme } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
+import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -10,9 +11,14 @@ import { CUSTOMER_BOOKING_TYPE, PRICE_TYPE } from '@/types/customer';
 import type { BookingConfirmationScreenProps } from '@/types/main-screens';
 import { MAIN_TAB_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
+import { apiPost } from '@/actions/http/httpClient';
 import { palette, theme, uiColors } from '@/utils/theme';
 import {
   buildAddressSummary,
+  buildCreateBookingPayload,
+  buildScheduledStartAt,
+  createBookingIdempotencyKey,
+  formatBookingScheduleLabel,
   formatCurrencyAmount,
   formatDurationChip,
   formatPriceOptionDescription,
@@ -22,14 +28,18 @@ import {
   getSelectedPriceOption,
   getServiceLineDisplayDurationMinutes,
   getServiceLineTotalAmount,
+  hasValidCoordinates,
+  normalizeCityName,
   shouldAllowQuantityControl,
   titleCase,
 } from '@/utils';
+import { getPriceRowTitle } from '@/utils/pricing.utils';
 
 export function BookingConfirmationScreen({ navigation }: BookingConfirmationScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const { locationState } = useAuthContext();
   const {
+    bookingDraft,
     subcategoryName,
     selectedServices,
     bookingType,
@@ -38,8 +48,8 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     address,
     notes,
     bookingQuote,
+    setBookingQuote,
     fetchBookingQuote,
-    createBooking,
     removeService,
     resetFlow,
   } = useBookingFlowContext();
@@ -49,15 +59,30 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const createAttemptIdempotencyKeyRef = useRef<string | null>(null);
 
   const selectedCity = useMemo(() => {
-    return locationState.city?.trim() || address.district.trim();
+    return normalizeCityName(locationState.city || address.district);
   }, [address.district, locationState.city]);
+  const canRequestQuote = selectedServices.length > 0 && hasValidCoordinates(address);
+  const hasValidSubmitSchedule = bookingType === CUSTOMER_BOOKING_TYPE.INSTANT
+    || Boolean(buildScheduledStartAt(scheduledDate, scheduledTime));
+  const canSubmitBooking = Boolean(
+    selectedCity
+    && canRequestQuote
+    && hasValidSubmitSchedule
+    && !quoteLoading
+    && !quoteError
+    && bookingQuote
+    && !confirming
+    && !bookingCode,
+  );
+  const appliedOfferCode = bookingQuote?.couponCode ?? bookingQuote?.discountCodes?.find(Boolean) ?? null;
 
   const bookingOverview = useMemo(
     () => {
       const scheduleSummary = bookingType === CUSTOMER_BOOKING_TYPE.SCHEDULED && scheduledDate && scheduledTime
-        ? `${scheduledDate} at ${scheduledTime}`
+        ? formatBookingScheduleLabel(scheduledDate, scheduledTime)
         : null;
       const trimmedNotes = notes.trim();
       const subcategoryLabel = subcategoryName ? titleCase(subcategoryName) : null;
@@ -118,10 +143,37 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     : APP_TEXT.main.bookingFlow.selectedServicesCountSuffix;
   const selectedServicesItemLabel = `${selectedServices.length} ${selectedServices.length === 1 ? 'item' : 'items'}`;
 
+  const refreshQuote = useCallback(async () => {
+    if (!canRequestQuote) {
+      setBookingQuote(null);
+      setQuoteError(null);
+      return;
+    }
+
+    setQuoteError(null);
+    try {
+      await fetchBookingQuote();
+    } catch (error) {
+      setQuoteError(getErrorMessage(error, APP_TEXT.main.bookingFlow.quoteError));
+    }
+  }, [canRequestQuote, fetchBookingQuote, setBookingQuote]);
+  const refreshControlProps = useBrandRefreshControl(refreshQuote);
+
+  useEffect(() => {
+    createAttemptIdempotencyKeyRef.current = null;
+  }, [bookingDraft, selectedCity]);
+
   useEffect(() => {
     let active = true;
 
     const loadQuote = async () => {
+      if (!canRequestQuote) {
+        setBookingQuote(null);
+        setQuoteError(null);
+        setQuoteLoading(false);
+        return;
+      }
+
       setQuoteLoading(true);
       setQuoteError(null);
       try {
@@ -142,16 +194,31 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     return () => {
       active = false;
     };
-  }, [fetchBookingQuote]);
+  }, [canRequestQuote, fetchBookingQuote, setBookingQuote]);
 
   const onConfirm = async () => {
-    if (confirming || bookingCode || !selectedCity || quoteLoading || !bookingQuote) return;
+    if (!canSubmitBooking) return;
     setConfirming(true);
     try {
-      const result = await createBooking(selectedCity);
-      setBookingCode(result.booking?.bookingCode ?? null);
-      setBookingId(result.booking?.id ?? null);
-      setBookingStatus(result.booking?.bookingStatus ?? null);
+      const idempotencyKey = createAttemptIdempotencyKeyRef.current ?? createBookingIdempotencyKey();
+      createAttemptIdempotencyKeyRef.current = idempotencyKey;
+
+      const payload = buildCreateBookingPayload({
+        city: selectedCity,
+        bookingDraft,
+      });
+
+      const response = await apiPost<{ data: { booking: { id: string; bookingCode: string; bookingStatus: string } } }>('/booking', payload, {
+        auth: true,
+        headers: { 'Idempotency-Key': idempotencyKey },
+      });
+
+      setBookingCode(response.data?.booking?.bookingCode ?? null);
+      setBookingId(response.data?.booking?.id ?? null);
+      setBookingStatus(response.data?.booking?.bookingStatus ?? null);
+      createAttemptIdempotencyKeyRef.current = null;
+    } catch {
+      // The HTTP client shows the API error toast; keep the key for retrying this submit.
     } finally {
       setConfirming(false);
     }
@@ -160,6 +227,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
+      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing || quoteLoading} />}
     >
       <View className="mb-2 flex-row items-center">
         <BackButton onPress={() => navigation.goBack()} visible={!bookingCode} />
@@ -279,17 +347,20 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
           const selectedOption = getSelectedPriceOption(line.service, line.selectedPriceOptionId);
           const optionalPriceOptions = getOptionalPriceOptions(line.service.priceOptions);
           const displayDurationMinutes = getServiceLineDisplayDurationMinutes(line);
-          const lineTotalAmount = getServiceLineTotalAmount(
-            line.service,
-            line.selectedPriceOptionId,
-            line.quantity,
-            line.selectedDurationMinutes,
+          const quotedServiceLine = bookingQuote?.serviceLines?.find(quoteLine =>
+            quoteLine.serviceId === line.service.id
+            && quoteLine.selectedPriceOptionId === line.selectedPriceOptionId,
           );
-          const lineTotalLabel = formatCurrencyAmount(lineTotalAmount) ?? '--';
+          
+          const rawQuoteTotal = quotedServiceLine?.lineTotalAmount ?? quotedServiceLine?.subtotal;
+          const localLineTotal = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity, line.selectedDurationMinutes);
+          const resolvedLineTotal = rawQuoteTotal != null ? Number(rawQuoteTotal) : localLineTotal;
+          const lineTotalLabel = resolvedLineTotal != null && !Number.isNaN(resolvedLineTotal) ? formatCurrencyAmount(resolvedLineTotal) : '--';
+
           const selectedValueRow = selectedOption?.priceType === PRICE_TYPE.HOURLY
             ? (displayDurationMinutes
               ? {
-                label: APP_TEXT.main.bookingFlow.durationLabel,
+                label: 'Duration',
                 value: formatDurationChip(displayDurationMinutes),
                 iconName: 'time-outline' as const,
               }
@@ -303,8 +374,8 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
               : null);
           const pricingRow = selectedOption
             ? {
-              label: APP_TEXT.main.bookingFlow.priceOptionsTitle,
-              value: formatPriceOptionPricingLabel(selectedOption),
+              label: getPriceRowTitle(selectedOption.priceType, selectedOption.priceComputationMode),
+              value: typeof selectedOption.price === 'number' ? formatCurrencyAmount(selectedOption.price) : '--',
               iconName: 'pricetag-outline' as const,
             }
             : null;
@@ -373,7 +444,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                         >
                           <Ionicons name={selectedValueRow.iconName} size={14} color={theme.colors.primary} />
                         </View>
-                        <Text className="ml-2 text-[11px] font-extrabold uppercase" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                        <Text className="ml-2 text-[11px] font-extrabold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                           {selectedValueRow.label}
                         </Text>
                       </View>
@@ -393,7 +464,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                         >
                           <Ionicons name={pricingRow.iconName} size={14} color={theme.colors.primary} />
                         </View>
-                        <Text className="ml-2 text-[11px] font-extrabold uppercase" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                        <Text className="ml-2 text-[11px] font-extrabold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                           {pricingRow.label}
                         </Text>
                       </View>
@@ -447,30 +518,30 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         })}
       </View>
 
-      {bookingQuote?.couponCode ? (
+      {appliedOfferCode ? (
         <View
-          className="mt-4 flex-row items-center justify-between rounded-2xl border px-4 py-3"
+          className="mt-4 flex-row items-center rounded-2xl border px-4 py-3"
           style={{
             borderColor: theme.colors.primary,
             backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
             borderStyle: 'dashed',
           }}
         >
-          <View className="flex-row items-center">
+          <View className="mr-3 flex-1 flex-row items-center">
             <View
               className="h-11 w-11 items-center justify-center rounded-full"
               style={{ backgroundColor: theme.colors.primary }}
             >
               <Ionicons name="pricetag-outline" size={20} color={theme.colors.onPrimary} />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-sm font-extrabold text-baseDark dark:text-white">{bookingQuote.couponCode}</Text>
+            <View className="ml-3 min-w-0 flex-1">
+              <Text className="text-sm font-extrabold text-baseDark dark:text-white" numberOfLines={1}>{appliedOfferCode}</Text>
               <Text className="mt-0.5 text-[10px]" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
                 {APP_TEXT.main.bookingFlow.quoteCouponAppliedSubtitle}
               </Text>
             </View>
           </View>
-          <View className="px-2 py-1">
+          <View className="shrink-0 rounded-full px-2.5 py-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}>
             <Text className="text-xs font-extrabold" style={{ color: theme.colors.positive }}>
               {APP_TEXT.main.bookingFlow.quoteApplied}
             </Text>
@@ -514,10 +585,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                   onPress={() => {
                     setQuoteLoading(true);
                     setQuoteError(null);
-                    void fetchBookingQuote()
-                      .catch((error) => {
-                        setQuoteError(getErrorMessage(error, APP_TEXT.main.bookingFlow.quoteError));
-                      })
+                    void refreshQuote()
                       .finally(() => setQuoteLoading(false));
                   }}
                 />
@@ -545,7 +613,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
               {bookingQuote.discountTotal > 0 ? (
                 <View className="mt-4 flex-row items-center justify-between">
                   <Text className="text-sm text-baseDark dark:text-white">
-                    {APP_TEXT.main.bookingFlow.quoteDiscount}{bookingQuote.couponCode ? ` (${bookingQuote.couponCode})` : ''}
+                    {APP_TEXT.main.bookingFlow.quoteDiscount}{appliedOfferCode ? ` (${appliedOfferCode})` : ''}
                   </Text>
                   <Text className="text-base font-extrabold" style={{ color: theme.colors.positive }}>
                     - {formatCurrencyAmount(bookingQuote.discountTotal)}
@@ -608,7 +676,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
             label={confirmButtonLabel}
             onPress={() => void onConfirm()}
             loading={confirming}
-            disabled={quoteLoading || Boolean(quoteError) || !bookingQuote}
+            disabled={!canSubmitBooking}
           />
         ) : (
           <>

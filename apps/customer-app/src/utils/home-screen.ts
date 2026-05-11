@@ -1,3 +1,4 @@
+import { normalizeCityName } from '@dellite/app-core';
 import type { CustomerHomeCategory, CustomerHomePayload, CustomerHomeService } from '@/types/customer';
 
 export function normalizeForCompare(value?: string | null) {
@@ -33,8 +34,7 @@ export function extractFooterOnlyHomePayload(payload: unknown): Pick<CustomerHom
 }
 
 export function normalizeHomeQueryCity(value: string | null | undefined): string {
-  if (!value) return '';
-  const trimmed = value.trim();
+  const trimmed = normalizeCityName(value);
   if (!trimmed) return '';
   if (trimmed.toLowerCase() === 'your area') return '';
   return trimmed.toUpperCase();

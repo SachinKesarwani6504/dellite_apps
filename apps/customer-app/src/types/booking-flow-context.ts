@@ -52,15 +52,20 @@ export type BookingFlowDetailsDraft = {
 export type BookingFlowQuote = {
   currency: 'INR';
   subtotal: number;
+  optionalChargeTotal?: number;
   platformFee: number;
+  discountAmount?: number;
   discountTotal: number;
   total: number;
   couponCode: string | null;
   couponDiscount: number;
+  discountCodes?: string[];
+  discounts?: Array<Record<string, unknown>>;
   isEstimated?: boolean;
   baseSubtotal?: number;
-  optionalChargeTotal?: number;
   serviceLines?: BookingFlowQuoteServiceLine[];
+  appliedOptionalCharges?: BookingFlowQuoteOptionalChargeLine[];
+  possibleOptionalCharges?: BookingFlowQuoteOptionalChargeLine[];
 };
 
 export type BookingFlowQuoteOptionalChargeLine = {
@@ -102,8 +107,7 @@ export type BookingFlowDraft = {
 export type BookingFlowQuoteSelectedServiceLine = {
   service: Pick<CustomerBookableService, 'id' | 'name'>;
   quantity: number;
-  billableQuantity: number;
-  selectedPriceOptionId: string | null;
+  selectedPriceOptionId: string;
   selectedDurationMinutes: number | null;
 };
 
@@ -156,7 +160,7 @@ export type BookingFlowContextType = {
   removeService: (serviceId: string) => void;
   setBookingAddress: (address: BookingFlowAddressDraft) => void;
   setBookingDetails: (payload: BookingFlowDetailsDraft) => void;
-  createBooking: (city: string) => Promise<CustomerBookingCreateResult>;
+  createBooking: (city: string, idempotencyKey: string) => Promise<CustomerBookingCreateResult>;
   resetFlow: () => void;
 };
 

@@ -177,7 +177,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
               label={APP_TEXT.main.bookingFlow.continueCta}
               disabled={selectedServices.length === 0}
               onPress={() => {
-                navigation.navigate(HOME_SCREEN.BOOKING_DETAILS);
+                navigation.navigate(HOME_SCREEN.BOOKING_DRAFT_DETAILS);
               }}
             />
           </View>

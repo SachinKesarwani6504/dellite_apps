@@ -106,6 +106,7 @@ export function GradientScreen({
           style={[
             {
               backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95,
+              paddingBottom: Math.max(insets.bottom + 8, 20),
             },
             stickyFooterContainerStyle,
           ]}
@@ -118,7 +119,7 @@ export function GradientScreen({
   void keyboardVerticalOffset;
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
       {resolvedUseGradient ? (
         <LinearGradient
           colors={resolvedGradientColors}

@@ -41,7 +41,7 @@ export type HomeStackParamList = {
     subcategoryId?: string;
     serviceId?: string;
   };
-  [HOME_SCREEN.BOOKING_DETAILS]: undefined;
+  [HOME_SCREEN.BOOKING_DRAFT_DETAILS]: undefined;
   [HOME_SCREEN.BOOKING_LOCATION_PICKER]: undefined;
   [HOME_SCREEN.BOOKING_CONFIRMATION]: undefined;
 };

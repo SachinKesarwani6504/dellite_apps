@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { normalizeCityName } from '@dellite/app-core';
 import type { LocationPermissionStatus, NormalizedLocation } from '@/modules/location/types/location.types';
 
 const LOCATION_CACHE_KEY = 'location_cache_v1';
@@ -19,6 +20,12 @@ function normalizeText(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeCityText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = normalizeCityName(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
 function toNormalizedLocation(value: unknown): NormalizedLocation | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Record<string, unknown>;
@@ -27,7 +34,7 @@ function toNormalizedLocation(value: unknown): NormalizedLocation | null {
   return {
     latitude: source.latitude,
     longitude: source.longitude,
-    city: normalizeText(source.city),
+    city: normalizeCityText(source.city),
     locality: normalizeText(source.locality),
     state: normalizeText(source.state),
     country: normalizeText(source.country),

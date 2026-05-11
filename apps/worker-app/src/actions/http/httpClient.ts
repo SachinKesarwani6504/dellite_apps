@@ -18,15 +18,12 @@ import {
 } from '@/utils/firebase-session';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
+import { ENV } from '@/utils/env';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type TokenType = NonNullable<RequestOptions['tokenType']>;
 
-const runtimeGlobal = globalThis as {
-  process?: { env?: Record<string, string | undefined> };
-};
-
-const API_BASE_URL = runtimeGlobal.process?.env?.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
+const API_BASE_URL = ENV.API_BASE_URL ?? 'http://localhost:3000';
 
 const client = axios.create({
   baseURL: API_BASE_URL,

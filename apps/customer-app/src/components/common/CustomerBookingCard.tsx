@@ -1,36 +1,46 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 
-import { StatusBadge } from '@/components/common/StatusBadge';
-import type { CustomerBookingCardItem } from '@/utils/options';
+import { BookingStatusBadge } from '@/components/common/BookingStatusBadge';
+import type { Booking } from '@/types/api';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type CustomerBookingCardProps = {
-  item: CustomerBookingCardItem;
+  item: Booking;
   onPress: (bookingId: string) => void;
 };
 
 export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps) {
   const isDark = useColorScheme() === 'dark';
-  const workerInitial = item.workerName.trim().charAt(0).toUpperCase();
+
+  // Fallbacks for lightweight API payload (these fields might be added later, or we show pending states)
+  const slotLabel = 'Schedule pending';
+  const addressLabel = 'Address not provided';
+  const workerName = 'Pending Worker';
+  const workerInitial = 'P';
 
   return (
     <View
-      className="mb-4 overflow-hidden rounded-3xl"
+      className="mb-4 overflow-hidden rounded-3xl border"
       style={{
         backgroundColor: isDark ? palette.dark.card : '#FFFFFF',
-        borderWidth: 1,
         borderColor: isDark ? uiColors.surface.overlayDark14 : '#D1D5DB',
       }}
     >
-      <View className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: item.accentColor }} />
+      {/* Accent Line */}
+      <View className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: theme.colors.primary }} />
+
       <Pressable onPress={() => onPress(item.id)} className="p-4 pl-5">
         <View className="flex-row items-start justify-between">
           <View className="mr-3 flex-1">
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{item.serviceTitle}</Text>
-            <Text className="mt-1 text-sm text-baseDark/55 dark:text-white/70">{item.category}</Text>
+            <Text className="text-lg font-bold text-baseDark dark:text-white">
+              {item.services?.length ? item.services.join(', ') : 'Service Booking'}
+            </Text>
+            <Text className="mt-1 text-sm text-baseDark/55 dark:text-white/70">
+              ID: {item.id.slice(0, 8).toUpperCase()}
+            </Text>
           </View>
-          <StatusBadge status={item.status} label={item.statusLabel} dotColor={item.accentColor} />
+          <BookingStatusBadge status={item.bookingStatus} />
         </View>
 
         <View
@@ -39,7 +49,7 @@ export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps)
         >
           <View className="flex-row items-center">
             <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{item.slotLabel}</Text>
+            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{slotLabel}</Text>
           </View>
         </View>
 
@@ -49,7 +59,7 @@ export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps)
         >
           <View className="flex-row items-center">
             <Ionicons name="location-outline" size={16} color={theme.colors.primary} />
-            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{item.address}</Text>
+            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{addressLabel}</Text>
           </View>
         </View>
 
@@ -64,12 +74,12 @@ export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps)
               <Text className="text-sm font-bold text-primary">{workerInitial}</Text>
             </View>
             <View className="ml-2.5">
-              <Text className="text-base font-semibold text-baseDark dark:text-white">{item.workerName}</Text>
+              <Text className="text-base font-semibold text-baseDark dark:text-white">{workerName}</Text>
               <Text className="text-xs text-baseDark/55 dark:text-white/70">Worker</Text>
             </View>
           </View>
           <View className="flex-row items-center">
-            {item.amountLabel ? <Text className="text-xl font-extrabold text-primary">{item.amountLabel}</Text> : null}
+            <Text className="text-xl font-extrabold text-primary">₹{item.totalAmount}</Text>
             <View
               className="ml-2 h-8 w-8 items-center justify-center rounded-full"
               style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : '#F6EFEA' }}
@@ -79,13 +89,12 @@ export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps)
           </View>
         </View>
 
-        <Pressable
-          onPress={() => onPress(item.id)}
+        <View
           className="mt-4 items-center justify-center rounded-2xl py-3.5"
           style={{ backgroundColor: theme.colors.primary }}
         >
           <Text className="text-base font-bold text-white">View Booking</Text>
-        </Pressable>
+        </View>
       </Pressable>
     </View>
   );

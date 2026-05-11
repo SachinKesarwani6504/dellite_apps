@@ -247,9 +247,9 @@ export type CustomerBookingAddressInput = {
 };
 
 export type CreateCustomerBookingServiceLineInput = {
-  serviceId?: string;
-  serviceName?: string;
-  selectedPriceOptionId?: string;
+  serviceId: string;
+  serviceName: string;
+  selectedPriceOptionId: string;
   quantity: number;
   selectedDurationMinutes?: number | null;
   billableQuantity?: number;
@@ -270,8 +270,10 @@ export type CustomerBookingCreateResult = {
     bookingCode?: string;
     bookingStatus?: string;
   };
-  addressSnapshot?: Record<string, unknown>;
+  address?: Record<string, unknown>;
   serviceLines?: Array<Record<string, unknown>>;
+  extraCharges?: Array<Record<string, unknown>>;
+  discounts?: Array<Record<string, unknown>>;
   workerInvites?: Array<Record<string, unknown>>;
   assignments?: Array<Record<string, unknown>>;
   history?: Array<Record<string, unknown>>;
