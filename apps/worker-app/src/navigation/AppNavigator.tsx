@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useMemo } from 'react';
+import { View } from 'react-native';
 import { useColorScheme } from 'react-native';
-import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
@@ -34,10 +34,10 @@ export function AppNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       {status === AuthStatus.BOOTSTRAPPING || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT) ? (
-        <AnimatedLogoSplash />
+        <View style={{ flex: 1, backgroundColor: isDark ? palette.dark.background : palette.light.background }} />
       ) : status === AuthStatus.LOGGED_OUT || status === AuthStatus.OTP_SENT ? (
         <AuthNavigator key={status} />
-      ) : status === AuthStatus.PHONE_VERIFIED || (status === AuthStatus.AUTHENTICATED && isOnboardingActive) ? (
+      ) : status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED || (status === AuthStatus.AUTHENTICATED && isOnboardingActive) ? (
         <OnboardingNavigator />
       ) : (
         <MainTabsNavigator />

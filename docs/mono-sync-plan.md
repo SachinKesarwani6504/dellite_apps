@@ -23,6 +23,7 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Align `types/api.ts` contracts
 - [x] Align `types/http.ts` request option naming
 - [x] Align key-chain storage module split and naming
+- [x] Align worker/customer key-chain storage implementations byte-for-byte except app-specific service keys.
 - [x] Verify `toast.tsx` stays equivalent
 
 ## Phase 3: Shared Core Extraction
@@ -91,6 +92,7 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 
 - [x] Worker + Customer: auth flows now exchange backend `firebaseCustomToken` into Firebase Auth session after OTP/profile completion.
 - [x] Worker + Customer: token refresh flow now applies `firebaseCustomToken` from `/auth/refresh` and falls back to `/auth/firebase/custom-token` when Firebase session is missing.
+- [x] Worker app: realigned OTP/profile token lifecycle with customer flow (`phoneToken` only for onboarding profile creation, access/refresh only for authenticated sessions).
 
 ## In Progress: Customer Pricing + Booking Flow
 

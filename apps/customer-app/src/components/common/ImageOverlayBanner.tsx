@@ -36,7 +36,7 @@ export function ImageOverlayBanner({
         className="h-full w-full"
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
+          colors={[uiColors.map.overlayGradientStart, uiColors.map.overlayGradientEnd]}
           start={{ x: 0.2, y: 0 }}
           end={{ x: 0.8, y: 1 }}
           className="h-full w-full justify-end px-4 py-4"

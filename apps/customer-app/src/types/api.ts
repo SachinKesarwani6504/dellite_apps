@@ -58,11 +58,38 @@ export type BookingStatus =
 
 export interface Booking {
   id: string;
+  bookingCode?: string | null;
+  bookingType?: 'INSTANT' | 'SCHEDULED' | string | null;
   bookingStatus: BookingStatus;
-  services: string[];
-  totalAmount: number;
-  customerInfo?: {
-    id: string;
-    user?: any;
-  };
+  paymentStatus?: string | null;
+  scheduledStartAt?: string | null;
+  totalAmount?: string | number | null;
+  currency?: 'INR' | string | null;
+  services?: BookingListServiceLine[];
+  addressSummary?: BookingListAddressSummary | null;
+  customerInfo?: BookingListPersonInfo | null;
+  workerInfo?: BookingListPersonInfo | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
+
+export type BookingListServiceLine = {
+  id?: string | null;
+  serviceName?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
+};
+
+export type BookingListAddressSummary = {
+  area?: string | null;
+  addressLine1?: string | null;
+  city?: string | null;
+};
+
+export type BookingListPersonInfo = {
+  id?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  profileImageUrl?: string | null;
+};

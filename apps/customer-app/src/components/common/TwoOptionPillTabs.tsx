@@ -16,7 +16,7 @@ export function TwoOptionPillTabs<T extends string>({
     >
       {items.map((item) => {
         const selected = item.value === value;
-        const contentColor = selected ? '#FFFFFF' : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight);
+        const contentColor = selected ? theme.colors.onPrimary : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight);
 
         return (
           <Pressable

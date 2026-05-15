@@ -1,9 +1,12 @@
 import type { ComponentProps, ElementRef } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 import type { Image, ImageBackground, ImageSourcePropType, StyleProp, TextInput, ViewProps, ViewStyle } from 'react-native';
+import type { LiveRouteResult } from '@/types/live-route';
 import type { LocationCoordinates } from '@/modules/location/types/location.types';
+import type { Booking } from '@/types/api';
 import type { CustomerBookableService, CustomerServicePriceOption, CustomerServiceTask } from '@/types/customer';
 import type { ImageCacheMode } from '@/types/shared';
+import type { WorkerLiveLocationRecord, WorkerRouteCoordinates } from '@/types/worker-live-location';
 
 export type AppImageProps = Omit<ComponentProps<typeof Image>, 'source'> & {
   source?: ImageSourcePropType;
@@ -86,6 +89,11 @@ export type BookingServiceDetailCardProps = {
   onRemoveService: () => void;
 };
 
+export type CustomerBookingCardProps = {
+  item: Booking;
+  onPress: (bookingId: string) => void;
+};
+
 export type ServiceTasksCarouselProps = {
   includedTasks: CustomerServiceTask[];
   excludedTasks: CustomerServiceTask[];
@@ -115,4 +123,69 @@ export type PinnedLocationMapPickerProps = {
   mapHeight?: number;
   showAddressPreview?: boolean;
   onRegionChangeComplete: (coordinates: LocationCoordinates) => void;
+};
+
+export type WorkerLiveRouteMapProps = {
+  workerLocation: WorkerLiveLocationRecord | null;
+  destinationCoordinates: WorkerRouteCoordinates;
+  route: LiveRouteResult | null;
+  isDark: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+export type WorkerLiveMarkerProps = {
+  headingDegrees: number;
+};
+
+export type ScrollablePillTabItem<T extends string> = {
+  label: string;
+  value: T;
+  iconName?: keyof typeof Ionicons.glyphMap;
+};
+
+export type ScrollablePillTabsProps<T extends string> = {
+  items: ScrollablePillTabItem<T>[];
+  value: T;
+  onChange: (next: T) => void;
+};
+
+export type DetailsTopBarProps = {
+  onBack: () => void;
+  onEdit: () => void;
+  editLabel?: string;
+  editDisabled?: boolean;
+};
+
+export type BookingDetailsSectionProps = {
+  isDark: boolean;
+};
+
+export const BOOKING_SERVICE_SUMMARY_CARD_MODE = {
+  VIEW: 'VIEW',
+  EDIT: 'EDIT',
+} as const;
+
+export type BookingServiceSummaryCardMode =
+  (typeof BOOKING_SERVICE_SUMMARY_CARD_MODE)[keyof typeof BOOKING_SERVICE_SUMMARY_CARD_MODE];
+
+export type BookingServiceSummaryCardAddon = {
+  id: string;
+  title: string;
+  description?: string | null;
+  pricingLabel: string;
+};
+
+export type BookingServiceSummaryCardProps = {
+  mode: BookingServiceSummaryCardMode;
+  title: string;
+  subtitle?: string | null;
+  iconText?: string | null;
+  selectedValueLabel: string;
+  selectedValue: string;
+  pricingTitle: string;
+  pricingValue: string;
+  totalLabel: string;
+  addons?: BookingServiceSummaryCardAddon[];
+  onRemove?: () => void;
 };

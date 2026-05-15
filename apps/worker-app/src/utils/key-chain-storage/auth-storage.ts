@@ -6,6 +6,12 @@ import {
   saveSecureValue,
 } from '@/utils/key-chain-storage/key-chain-service';
 
+function logAuthStorage(step: string, payload?: unknown) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log(`[worker-auth-storage] ${step}`, payload);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
@@ -28,40 +34,52 @@ function normalizeAuthTokens(raw: unknown): AuthTokens | null {
 
   const accessToken = directAccess ?? nestedAccess;
   const refreshToken = directRefresh ?? nestedRefresh;
-  const firebaseCustomToken = asToken(raw.firebaseCustomToken)
-    ?? asToken(raw.firebase_custom_token)
-    ?? (nestedTokens
-      ? (asToken(nestedTokens.firebaseCustomToken) ?? asToken(nestedTokens.firebase_custom_token))
-      : undefined);
 
   if (!accessToken || !refreshToken) return null;
-  return {
-    accessToken,
-    refreshToken,
-    ...(firebaseCustomToken ? { firebaseCustomToken } : {}),
-  };
+  return { accessToken, refreshToken };
 }
 
 export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
+  logAuthStorage('save:start', {
+    service: keyChainValues.authService,
+    username: keyChainValues.authUsername,
+    tokens,
+  });
   await saveSecureValue(
     keyChainValues.authService,
     keyChainValues.authUsername,
     JSON.stringify(tokens),
   );
+  const readBack = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  logAuthStorage('save:done', { readBack });
 }
 
 export async function getAuthTokens(): Promise<AuthTokens | null> {
   const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  logAuthStorage('get:raw', {
+    service: keyChainValues.authService,
+    username: keyChainValues.authUsername,
+    value,
+  });
   if (!value) return null;
 
   try {
     const parsed = JSON.parse(value);
-    return normalizeAuthTokens(parsed);
+    const normalized = normalizeAuthTokens(parsed);
+    logAuthStorage('get:normalized', { normalized });
+    return normalized;
   } catch {
+    logAuthStorage('get:parse-failed');
     return null;
   }
 }
 
 export async function clearAuthTokens(): Promise<void> {
+  logAuthStorage('clear:start', {
+    service: keyChainValues.authService,
+    username: keyChainValues.authUsername,
+  });
   await removeSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  const readBack = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  logAuthStorage('clear:done', { readBack });
 }

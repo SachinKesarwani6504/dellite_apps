@@ -60,6 +60,7 @@ Token rules for worker flow:
 - `refreshToken` only for refresh endpoint payload, never as auth header.
 - Retry once after successful refresh.
 - On refresh failure, clear tokens and force re-auth flow.
+- Worker/customer OTP onboarding must stay parallel: OTP responses with `phoneToken` enter onboarding state, save `phoneToken` in secure onboarding storage, keep it in auth state for the profile-create screen, and call profile creation with `tokenType: 'phone'` only. Do not use access tokens for profile creation unless the backend contract explicitly changes.
 
 ## 4) Storage Rules
 

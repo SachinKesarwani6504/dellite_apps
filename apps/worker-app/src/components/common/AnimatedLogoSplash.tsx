@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import { palette } from '@/utils/theme';
 
 type AnimatedLogoSplashProps = {
   logoSource?: ImageSourcePropType;
@@ -97,7 +98,7 @@ export const AnimatedLogoSplash = memo(AnimatedLogoSplashComponent);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.light.background,
     alignItems: 'center',
     justifyContent: 'center',
   },

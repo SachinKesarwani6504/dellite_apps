@@ -1,46 +1,146 @@
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, View } from 'react-native';
+import { apiGet } from '@/actions/http/httpClient';
 import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
+import { LoadingState } from '@/components/common/LoadingState';
+import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
-import { JobStackParamList } from '@/types/navigation';
+import type { JobStackParamList } from '@/types/navigation';
 import { JOB_STACK_SCREENS } from '@/types/screen-names';
+import type { WorkerJobListItem, WorkerJobListTab } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
-import { workerJobStatusTabs, workerMockJobs, WorkerJobStatus } from '@/utils/options';
+import { buildWorkerJobsListPath, getErrorMessage } from '@/utils';
+
+const LIMIT = 10;
 
 export function JobsScreen() {
-  const [activeStatus, setActiveStatus] = useState<WorkerJobStatus>('ONGOING');
   const navigation = useNavigation<NativeStackNavigationProp<JobStackParamList>>();
+  const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
+  const [items, setItems] = useState<WorkerJobListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  const jobs = useMemo(() => workerMockJobs[activeStatus], [activeStatus]);
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: WorkerJobListTab; refresh?: boolean }) => {
+    const { nextPage, append, tab, refresh } = options;
+
+    try {
+      setError(null);
+      if (append) setLoadingMore(true);
+      else if (refresh) setRefreshing(true);
+      else setLoading(true);
+
+      const url = buildWorkerJobsListPath({ page: nextPage, limit: LIMIT, tab });
+      const response = await apiGet<{ data?: WorkerJobListItem[] } | WorkerJobListItem[]>(url, { auth: true });
+      const fetchedJobs = Array.isArray(response)
+        ? response
+        : (Array.isArray(response.data) ? response.data : []);
+
+      setItems(prev => (append ? [...prev, ...fetchedJobs] : fetchedJobs));
+      setPage(nextPage);
+      setHasMore(fetchedJobs.length >= LIMIT);
+    } catch (fetchError) {
+      setError(getErrorMessage(fetchError, 'Unable to load jobs.'));
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setHasMore(true);
+    await runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true });
+  }, [activeTab, runFetch]);
+
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
+
+  useEffect(() => {
+    setHasMore(true);
+    void runFetch({ nextPage: 1, append: false, tab: activeTab });
+  }, [activeTab, runFetch]);
+
+  const listEmpty = !loading && !error && items.length === 0;
+  const listContent = loading && items.length === 0 ? (
+    <LoadingState minHeight={300} message="Loading jobs..." />
+  ) : error && items.length === 0 ? (
+    <ListErrorState
+      title={error}
+      description="Pull to refresh and try again."
+      actionLabel="Retry"
+      onAction={() => void onRefresh()}
+    />
+  ) : items.length > 0 ? (
+    <View>
+      {items.map(item => (
+        <WorkerJobCard
+          key={item.booking.id}
+          item={item}
+          onPress={(jobId) => navigation.navigate(JOB_STACK_SCREENS.details, { jobId })}
+        />
+      ))}
+
+      {hasMore ? (
+        <View className="my-4">
+          <LoadMoreButton
+            label={loadingMore ? 'Loading more...' : 'Load more'}
+            loading={loadingMore}
+            disabled={loading || refreshing}
+            onPress={() => {
+              if (loadingMore || loading || refreshing) return;
+              void runFetch({ nextPage: page + 1, append: true, tab: activeTab });
+            }}
+          />
+        </View>
+      ) : null}
+    </View>
+  ) : listEmpty ? (
+    <ListEmptyState
+      title="No jobs found"
+      description="No jobs are available in this category right now."
+      icon="briefcase-outline"
+    />
+  ) : null;
 
   return (
-    <GradientScreen>
-      <ScrollView className="flex-1 pt-1" contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-        <SplitGradientTitle
-          prefix={APP_TEXT.jobs.titlePrefix}
-          highlight={APP_TEXT.jobs.titleHighlight}
-          subtitle={APP_TEXT.jobs.subtitle}
-          inline
-          prefixClassName="text-[34px] font-extrabold leading-[38px] text-baseDark dark:text-white"
-          highlightClassName="text-[38px] font-extrabold leading-[41px]"
-        />
+    <GradientScreen
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
+      refreshControl={<RefreshControl key={modeKey} refreshing={refreshing} onRefresh={() => void onRefresh()} {...refreshProps} />}
+    >
+      <SplitGradientTitle
+        prefix={APP_TEXT.jobs.titlePrefix}
+        highlight={APP_TEXT.jobs.titleHighlight}
+        subtitle={APP_TEXT.jobs.subtitle}
+        inline
+        prefixClassName="text-[34px] font-extrabold leading-[38px] text-baseDark dark:text-white"
+        highlightClassName="text-[38px] font-extrabold leading-[41px]"
+      />
 
-        <AnimatedSegmentTabs items={workerJobStatusTabs} value={activeStatus} onChange={setActiveStatus} />
+      <AnimatedSegmentTabs
+        value={activeTab}
+        onChange={(value) => setActiveTab(value as WorkerJobListTab)}
+        items={[
+          { label: APP_TEXT.jobs.tabs.all || 'All', value: 'ALL' },
+          { label: APP_TEXT.jobs.tabs.newJobs || 'New Jobs', value: 'NEW_JOBS' },
+          { label: APP_TEXT.jobs.tabs.ongoing || 'Ongoing', value: 'ONGOING' },
+          { label: APP_TEXT.jobs.tabs.completed || 'Completed', value: 'COMPLETED' },
+        ]}
+      />
 
-        <View className="mt-4">
-          {jobs.map(item => (
-            <WorkerJobCard
-              key={item.id}
-              item={item}
-              onPress={(jobId) => navigation.navigate(JOB_STACK_SCREENS.details, { jobId })}
-            />
-          ))}
-        </View>
-      </ScrollView>
+      <View className="mt-4">
+        {listContent}
+      </View>
     </GradientScreen>
   );
 }

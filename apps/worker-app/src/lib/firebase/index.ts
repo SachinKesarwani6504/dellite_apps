@@ -10,11 +10,18 @@ import {
 } from '@/lib/firebase/constants';
 import { getFirebaseApp } from '@/lib/firebase/firebaseApp';
 import {
+  LIVE_LOCATION_NAMESPACE,
+  LiveLocationNamespace,
   WorkerLiveAppState,
   WorkerLiveLocationRecord,
   WorkerLiveUpdatePayload,
+  WorkerVehicleMode,
+  getCustomerLivePath,
+  getCustomerLiveRef,
   getFirebaseDatabase,
+  getLiveLocationPath,
   getRealtimeServerTimestamp,
+  getWorkerLivePath,
   getWorkerLiveRef,
   registerWorkerLiveOnDisconnect,
   removeWorkerLive,
@@ -83,10 +90,15 @@ export {
   assertFirebaseConfig,
   firebaseConfig,
   getFirebaseApp,
+  getCustomerLivePath,
+  getCustomerLiveRef,
   getFirebaseDatabase,
+  getLiveLocationPath,
   getRealtimeServerTimestamp,
+  getWorkerLivePath,
   getWorkerLiveRef,
   isFirebaseConfigured,
+  LIVE_LOCATION_NAMESPACE,
   missingFirebaseConfigKeys,
   registerWorkerLiveOnDisconnect,
   removeWorkerLive,
@@ -94,4 +106,10 @@ export {
   updateWorkerLive,
 };
 
-export type { WorkerLiveAppState, WorkerLiveLocationRecord, WorkerLiveUpdatePayload };
+export type {
+  LiveLocationNamespace,
+  WorkerLiveAppState,
+  WorkerLiveLocationRecord,
+  WorkerLiveUpdatePayload,
+  WorkerVehicleMode,
+};

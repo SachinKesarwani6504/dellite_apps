@@ -1,3 +1,6 @@
+import type { Booking, BookingStatus } from '@/types/api';
+import { theme, uiColors } from '@/utils/theme';
+
 export type CustomerBookingStatus = 'ONGOING' | 'COMPLETED';
 
 export type CustomerBookingListItem = {
@@ -30,7 +33,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B9250/hr',
       status: 'ONGOING',
       statusLabel: 'On the Way',
-      accentColor: '#F59E0B',
+      accentColor: theme.colors.caution,
     },
     {
       id: 'booking_ongoing_102',
@@ -42,7 +45,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B9650',
       status: 'ONGOING',
       statusLabel: 'In Progress',
-      accentColor: '#22C55E',
+      accentColor: theme.colors.positive,
     },
     {
       id: 'booking_ongoing_103',
@@ -54,7 +57,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B91,200',
       status: 'ONGOING',
       statusLabel: 'Assigned',
-      accentColor: '#3B82F6',
+      accentColor: uiColors.status.infoText,
     },
   ],
   COMPLETED: [
@@ -68,7 +71,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B9700',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
     {
       id: 'booking_done_202',
@@ -80,7 +83,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B9800',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
     {
       id: 'booking_done_203',
@@ -92,7 +95,7 @@ export const customerBookingsByStatus: Record<CustomerBookingStatus, CustomerBoo
       amountLabel: '\u20B91,000',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
   ],
 };
@@ -101,4 +104,124 @@ export function findCustomerBookingById(bookingId: string) {
   return Object.values(customerBookingsByStatus)
     .flat()
     .find(booking => booking.id === bookingId) ?? null;
+}
+
+function normalizeText(value: string | null | undefined) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function titleCaseBookingText(value: string | null | undefined) {
+  const normalized = normalizeText(value);
+  if (!normalized) return null;
+  return normalized
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function toBookingAmount(value: string | number | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+export function buildCustomerBookingsListPath(params: {
+  page: number;
+  limit: number;
+  tab: 'ALL' | 'ONGOING' | 'COMPLETED';
+}) {
+  const query = new URLSearchParams();
+  query.set('page', String(params.page));
+  query.set('limit', String(params.limit));
+
+  const includedStatuses: BookingStatus[] = params.tab === 'ONGOING'
+    ? ['CREATED', 'SEARCHING', 'CONFIRMED', 'IN_PROGRESS']
+    : params.tab === 'COMPLETED'
+      ? ['COMPLETED']
+      : [];
+
+  includedStatuses.forEach(status => {
+    query.append('includeBookingStatus', status);
+  });
+
+  return `/bookings?${query.toString()}`;
+}
+
+export function getCustomerBookingServiceTitle(booking: Booking) {
+  const serviceNames = (booking.services ?? [])
+    .map(service => titleCaseBookingText(service.serviceName))
+    .filter((value): value is string => Boolean(value));
+  if (serviceNames.length === 0) return 'Service Booking';
+  if (serviceNames.length === 1) return serviceNames[0];
+  return `${serviceNames[0]} +${serviceNames.length - 1}`;
+}
+
+export function getCustomerBookingCategoryLabel(booking: Booking) {
+  const firstService = booking.services?.[0];
+  const category = titleCaseBookingText(firstService?.category);
+  const subCategory = titleCaseBookingText(firstService?.subCategory);
+  return [category, subCategory].filter(Boolean).join(' / ') || 'Service';
+}
+
+export function getCustomerBookingReferenceLabel(booking: Booking) {
+  return booking.bookingCode ?? booking.id.slice(0, 8).toUpperCase();
+}
+
+export function getCustomerBookingScheduleLabel(booking: Booking) {
+  const scheduledStartAt = normalizeText(booking.scheduledStartAt);
+  if (!scheduledStartAt) {
+    return booking.bookingType === 'INSTANT' ? 'Instant booking' : 'Schedule pending';
+  }
+
+  const parsed = new Date(scheduledStartAt);
+  if (Number.isNaN(parsed.getTime())) return scheduledStartAt;
+  return parsed.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function getCustomerBookingAddressLabel(booking: Booking) {
+  const address = booking.addressSummary;
+  if (!address) return 'Address not provided';
+  return [address.addressLine1, address.area, address.city]
+    .map(value => normalizeText(value))
+    .filter((value): value is string => Boolean(value))
+    .join(', ') || 'Address not provided';
+}
+
+export function getCustomerBookingWorkerName(booking: Booking) {
+  const worker = booking.workerInfo;
+  const fullName = [worker?.firstName, worker?.lastName]
+    .map(value => normalizeText(value))
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+  return fullName || 'Pending Worker';
+}
+
+export function getCustomerBookingWorkerInitial(booking: Booking) {
+  return getCustomerBookingWorkerName(booking).charAt(0).toUpperCase() || 'P';
+}
+
+export function getCustomerBookingWorkerSubtitle(booking: Booking) {
+  return normalizeText(booking.workerInfo?.phone) ?? 'Worker';
+}
+
+export function getCustomerBookingAmountLabel(booking: Booking) {
+  const amount = toBookingAmount(booking.totalAmount);
+  if (amount == null) return '--';
+  if (booking.currency && booking.currency !== 'INR') {
+    return `${booking.currency} ${amount.toLocaleString('en-IN')}`;
+  }
+  return `\u20B9${amount.toLocaleString('en-IN', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+  })}`;
 }

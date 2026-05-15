@@ -1,4 +1,5 @@
 import { Gender } from '@/types/auth';
+import { theme, uiColors } from '@/utils/theme';
 
 export const GENDER_OPTIONS: Array<{ label: string; value: Gender; icon: string }> = [
   { label: 'Male', value: 'MALE', icon: '👨' },
@@ -40,7 +41,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B9250/hr',
       status: 'ONGOING',
       statusLabel: 'On the Way',
-      accentColor: '#F59E0B',
+      accentColor: theme.colors.caution,
     },
     {
       id: 'job_ongoing_102',
@@ -52,7 +53,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B91,500',
       status: 'ONGOING',
       statusLabel: 'In Progress',
-      accentColor: '#22C55E',
+      accentColor: theme.colors.positive,
     },
     {
       id: 'job_ongoing_103',
@@ -64,7 +65,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B9650',
       status: 'ONGOING',
       statusLabel: 'Assigned',
-      accentColor: '#3B82F6',
+      accentColor: uiColors.status.infoText,
     },
   ],
   COMPLETED: [
@@ -78,7 +79,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B9700',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
     {
       id: 'job_done_202',
@@ -90,7 +91,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B9500',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
     {
       id: 'job_done_203',
@@ -102,7 +103,7 @@ export const workerMockJobs: Record<WorkerJobStatus, WorkerJobCardItem[]> = {
       amountLabel: '\u20B91,100',
       status: 'COMPLETED',
       statusLabel: 'Completed',
-      accentColor: '#6366F1',
+      accentColor: uiColors.status.infoText,
     },
   ],
 };

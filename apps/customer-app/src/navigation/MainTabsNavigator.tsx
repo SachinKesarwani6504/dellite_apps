@@ -13,12 +13,21 @@ import type { MainTabsParamList } from '@/types/navigation';
 import { MAIN_TAB_SCREEN, palette, theme } from '@/utils';
 const Tab = createBottomTabNavigator();
 
+let hasShownMainTabsSplash = false;
+
 export function MainTabsNavigator() {
   const isDark = useColorScheme() === 'dark';
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => !hasShownMainTabsSplash);
 
   if (showSplash) {
-    return <AnimatedLogoSplash onAnimationEnd={() => setShowSplash(false)} />;
+    return (
+      <AnimatedLogoSplash
+        onAnimationEnd={() => {
+          hasShownMainTabsSplash = true;
+          setShowSplash(false);
+        }}
+      />
+    );
   }
 
   return (

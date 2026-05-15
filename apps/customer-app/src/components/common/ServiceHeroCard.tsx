@@ -45,7 +45,7 @@ export function ServiceHeroCard({
         onError={onImageError}
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.74)']}
+          colors={[uiColors.map.heroGradientStart, uiColors.map.heroGradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12, paddingVertical: 12 }}

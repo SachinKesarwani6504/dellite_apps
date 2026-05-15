@@ -49,7 +49,7 @@ export function ServicePricingHeaderCard({
           <View
             className="mr-3 h-11 w-11 items-center justify-center rounded-xl border"
             style={{
-              backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF7EF',
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmSoftLight,
               borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
             }}
           >
@@ -69,7 +69,7 @@ export function ServicePricingHeaderCard({
           onPress={onRemoveService}
           className="h-8 w-8 items-center justify-center rounded-full border"
           style={{
-            backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF8F2',
+            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmSubtleLight,
             borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
           }}
         >
@@ -99,7 +99,7 @@ export function ServicePricingHeaderCard({
                   android_ripple={{ color: uiColors.surface.accentSoft40 }}
                   style={{
                     borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                    backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : '#FFFFFF'),
+                    backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : palette.light.card),
                     shadowColor: isSelected ? uiColors.shadow.base : 'transparent',
                     shadowOpacity: isSelected && !isDark ? 0.16 : 0,
                     shadowRadius: isSelected ? 10 : 0,
@@ -169,7 +169,7 @@ export function ServicePricingHeaderCard({
                   className="rounded-full border px-4 py-2"
                   style={{
                     borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                    backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : '#FFFFFF'),
+                    backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : palette.light.card),
                   }}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
@@ -206,7 +206,7 @@ export function ServicePricingHeaderCard({
               className="h-9 w-9 items-center justify-center rounded-full"
               style={{ backgroundColor: theme.colors.primary }}
             >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Ionicons name="add" size={20} color={theme.colors.onPrimary} />
             </Pressable>
           </View>
         </View>

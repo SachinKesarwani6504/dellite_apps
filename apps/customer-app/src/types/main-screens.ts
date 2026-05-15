@@ -27,7 +27,10 @@ export type BookingDetailsNavigation = BackNavigation;
 
 export type BookingConfirmationNavigation = BackNavigation & {
   popToTop: () => void;
-  getParent: () => { navigate: (screen: string, params?: unknown) => void } | undefined;
+  getParent: () => {
+    goBack: () => void;
+    navigate: (screen: string, params?: unknown) => void;
+  } | undefined;
 };
 
 export type BookingDraftDetailsScreenProps = {

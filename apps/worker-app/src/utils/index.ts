@@ -77,6 +77,15 @@ export function formatSignedPercent(value?: number | string): string {
   const sign = growth > 0 ? '+' : '';
   return `${sign}${growth}%`;
 }
+export function formatTitle(value?: string, fallback = 'Unknown') {
+  if (!value || !value.trim()) return fallback;
+  return value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export * from '@/utils/profile';
 export * from '@/utils/referral';
@@ -87,9 +96,13 @@ export * from '@/utils/certificate-payload';
 export * from '@/utils/firebase-session';
 export * from '@/utils/locationDistance';
 export * from '@/utils/worker-live';
+export * from '@/utils/booking-details';
+export * from '@/utils/live-route';
+export * from '@/utils/svgicons';
 export * from '@/utils/image-cache';
 export * from '@/utils/otp';
 export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
+export * from '@/utils/worker-jobs';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';

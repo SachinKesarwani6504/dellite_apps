@@ -63,13 +63,14 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const [items, setItems] = useState<CustomerServiceListItem[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean }) => {
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; refresh?: boolean }) => {
     if (!selectedCity) return;
-    const { nextPage, append } = options;
+    const { nextPage, append, refresh } = options;
 
     const isPaginated = PAGINATION_ENABLED;
     const query = {
@@ -88,6 +89,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
     try {
       setError(null);
       if (append) setLoadingMore(true);
+      else if (refresh) setRefreshing(true);
       else setLoading(true);
 
       const data = await customerActions.getCustomerServices(query);
@@ -105,13 +107,14 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       setHasMore(false);
     } finally {
       setLoading(false);
+      setRefreshing(false);
       setLoadingMore(false);
     }
   }, [debouncedSearch, selectedCity]);
 
   const onRefresh = useCallback(async () => {
     setHasMore(true);
-    await runFetch({ nextPage: 1, append: false });
+    await runFetch({ nextPage: 1, append: false, refresh: true });
   }, [runFetch]);
   const refreshControlProps = useBrandRefreshControl(onRefresh);
 
@@ -136,11 +139,75 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const cardGap = 12;
   const horizontalPadding = 16;
   const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
+  const listContent = !selectedCity ? (
+    <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+  ) : loading && items.length === 0 ? (
+    <LoadingState minHeight={520} message={APP_TEXT.main.allServices.loadingServices} />
+  ) : error && items.length === 0 ? (
+    <ListErrorState
+      title={error}
+      description={APP_TEXT.main.allServices.pullToRefreshHint}
+      actionLabel={APP_TEXT.main.bookingFlow.retry}
+      onAction={() => void onRefresh()}
+    />
+  ) : items.length > 0 ? (
+    <>
+      <View className="mt-2 flex-row flex-wrap justify-between">
+        {items.map((item) => (
+          <View key={item.id} style={{ marginBottom: 12 }}>
+            <ServiceHeroCard
+              title={item.name}
+              imageUrl={pickServiceImage(item)}
+              width={serviceCardWidth}
+              height={176}
+              onPress={() => {
+                beginFlow({
+                  sourceType: 'popular_service',
+                  categoryId: item.category?.id,
+                  service: createBookingFlowService(item),
+                });
+                navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, {
+                  screen: HOME_SCREEN.SUBCATEGORY_SERVICES,
+                  params: {
+                    sourceType: 'popular_service',
+                    categoryId: item.category?.id,
+                    subcategoryId: item.subCategory?.id,
+                    serviceId: item.id,
+                    city: selectedCity,
+                  },
+                });
+              }}
+            />
+          </View>
+        ))}
+      </View>
+
+      {PAGINATION_ENABLED && hasMore ? (
+        <View className="mt-3">
+          <LoadMoreButton
+            label={loadingMore ? APP_TEXT.main.allServices.loadingMore : APP_TEXT.main.allServices.loadMoreCta}
+            loading={loadingMore}
+            disabled={loading || refreshing}
+            onPress={() => {
+              if (loadingMore || loading || refreshing) return;
+              void runFetch({ nextPage: page + 1, append: true });
+            }}
+          />
+        </View>
+      ) : null}
+    </>
+  ) : listEmpty ? (
+    <ListEmptyState
+      title={APP_TEXT.main.allServices.emptyTitle}
+      description={APP_TEXT.main.allServices.emptySubtitle}
+      icon="search-outline"
+    />
+  ) : null;
 
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 24 }}
-      refreshControl={<RefreshControl {...refreshControlProps} />}
+      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
     >
       <View className="mb-4">
         <View className="flex-row items-center justify-between">
@@ -173,79 +240,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
         </View>
       </View>
 
-      {!selectedCity ? (
-        <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
-      ) : null}
-
-      {loading && items.length === 0 ? (
-        <LoadingState minHeight={520} message={APP_TEXT.main.allServices.loadingServices} />
-      ) : null}
-
-      {error && items.length === 0 ? (
-        <ListErrorState
-          title={error}
-          description={APP_TEXT.main.allServices.pullToRefreshHint}
-          actionLabel={APP_TEXT.main.bookingFlow.retry}
-          onAction={() => void onRefresh()}
-        />
-      ) : null}
-
-      {selectedCity && !loading && items.length > 0 ? (
-        <>
-          <View className="mt-2 flex-row flex-wrap justify-between">
-            {items.map((item) => (
-              <View key={item.id} style={{ marginBottom: 12 }}>
-                <ServiceHeroCard
-                  title={item.name}
-                  imageUrl={pickServiceImage(item)}
-                  width={serviceCardWidth}
-                  height={176}
-                  onPress={() => {
-                    // Jump into booking flow via the service selection screen.
-                    beginFlow({
-                      sourceType: 'popular_service',
-                      categoryId: item.category?.id,
-                      service: createBookingFlowService(item),
-                    });
-                    navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, {
-                      screen: HOME_SCREEN.SUBCATEGORY_SERVICES,
-                      params: {
-                        sourceType: 'popular_service',
-                        categoryId: item.category?.id,
-                        subcategoryId: item.subCategory?.id,
-                        serviceId: item.id,
-                        city: selectedCity,
-                      },
-                    });
-                  }}
-                />
-              </View>
-            ))}
-          </View>
-
-          {PAGINATION_ENABLED && hasMore ? (
-            <View className="mt-3">
-              <LoadMoreButton
-                label={loadingMore ? APP_TEXT.main.allServices.loadingMore : APP_TEXT.main.allServices.loadMoreCta}
-                loading={loadingMore}
-                disabled={loading}
-                onPress={() => {
-                  if (loadingMore || loading) return;
-                  void runFetch({ nextPage: page + 1, append: true });
-                }}
-              />
-            </View>
-          ) : null}
-        </>
-      ) : null}
-
-      {listEmpty ? (
-        <ListEmptyState
-          title={APP_TEXT.main.allServices.emptyTitle}
-          description={APP_TEXT.main.allServices.emptySubtitle}
-          icon="search-outline"
-        />
-      ) : null}
+      {listContent}
     </GradientScreen>
   );
 }

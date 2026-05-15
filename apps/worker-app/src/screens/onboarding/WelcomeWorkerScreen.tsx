@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
-import { updateWorkerProfile } from '@/actions';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -170,11 +169,7 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
     if (isBusy) return;
     setStarting(true);
     try {
-      await updateWorkerProfile(
-        { hasSeenOnboardingWelcomeScreen: true },
-        { showSuccessToast: false, showErrorToast: false },
-      );
-      completeOnboardingFlow();
+      await completeOnboardingFlow();
     } finally {
       setStarting(false);
     }

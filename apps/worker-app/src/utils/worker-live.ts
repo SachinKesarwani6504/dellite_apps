@@ -10,14 +10,18 @@ export function resolveWorkerIdFromAuthUser(
 ) {
   const links = (me?.links as Record<string, unknown> | undefined) ?? undefined;
   const workerFromLinks = (links?.worker as Record<string, unknown> | undefined) ?? undefined;
+  const roleLink = (me?.roleLink as Record<string, unknown> | undefined) ?? undefined;
   const workerLink = (user?.workerLink as Record<string, unknown> | undefined) ?? undefined;
   const currentStatus = (workerLink?.currentStatus as Record<string, unknown> | undefined) ?? undefined;
 
-  return coerceToString(user?.id)
-    ?? coerceToString((user as Record<string, unknown> | undefined)?.userId)
-    ?? coerceToString((user as Record<string, unknown> | undefined)?.user_uuid)
+  // For RTDB live-location we must prefer worker entity id, not user id.
+  return coerceToString(workerFromLinks?.id)
     ?? coerceToString(workerFromLinks?.workerId)
     ?? coerceToString(workerFromLinks?.worker_id)
+    ?? coerceToString(roleLink?.id)
+    ?? coerceToString(roleLink?.workerId)
+    ?? coerceToString(roleLink?.worker_id)
+    ?? coerceToString(workerLink?.id)
     ?? coerceToString(workerLink?.workerId)
     ?? coerceToString(workerLink?.worker_id)
     ?? coerceToString(currentStatus?.workerId)

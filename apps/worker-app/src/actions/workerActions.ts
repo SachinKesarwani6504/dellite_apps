@@ -17,6 +17,7 @@ import {
   WorkerHomeHeaderBanner,
   WorkerHomeNearbyJob,
   WorkerHomeTodayStats,
+  ServiceLaunchedCity,
   WorkerStatusData,
   WorkerStatusResponse,
 } from '@/types/auth';
@@ -352,6 +353,14 @@ export async function createWorkerProfile(payload: WorkerProfilePayload) {
       aadhaarBack: payload.aadhaarBack,
     },
   );
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+  workerOperatingCities.forEach(city => {
+    formData.append('workerOperatingCities', city);
+  });
 
   const response = await apiPost<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
@@ -396,6 +405,14 @@ export async function updateWorkerProfile(
       aadhaarBack: payload.aadhaarBack,
     },
   );
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+  workerOperatingCities.forEach(city => {
+    formData.append('workerOperatingCities', city);
+  });
 
   const response = await apiPatch<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
@@ -412,6 +429,20 @@ export async function updateWorkerProfile(
     },
   );
   return unwrapData(response);
+}
+
+export async function getServiceLaunchedCities(): Promise<ServiceLaunchedCity[]> {
+  const response = await apiGet<ApiEnvelope<ServiceLaunchedCity[]> | ServiceLaunchedCity[]>('/service-launched-city');
+  const data = unwrapData(response);
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((city): city is ServiceLaunchedCity => Boolean(city && typeof city === 'object' && typeof city.id === 'string' && typeof city.name === 'string'))
+    .map(city => ({
+      id: city.id,
+      name: city.name.trim().toUpperCase(),
+      state: city.state,
+      country: city.country,
+    }));
 }
 
 function toWorkerStatusQueryString(query?: WorkerStatusQuery) {

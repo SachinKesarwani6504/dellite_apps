@@ -51,7 +51,8 @@ export async function requestOtp(payload: RequestOtpPayload): Promise<RequestOtp
 }
 
 export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpResponse> {
-  const response = await apiPost<ApiEnvelope<VerifyOtpResponse> | VerifyOtpResponse>('/auth/verify-otp', payload, {
+  const requestBody = { ...payload, role: payload.role ?? 'CUSTOMER' };
+  const response = await apiPost<ApiEnvelope<VerifyOtpResponse> | VerifyOtpResponse>('/auth/verify-otp', requestBody, {
     retryOnAuthFailure: false,
   });
   return unwrapData(response);

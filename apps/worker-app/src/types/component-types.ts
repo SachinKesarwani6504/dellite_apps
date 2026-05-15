@@ -4,6 +4,7 @@ import type { Image, ImageBackground, ImageSourcePropType, StyleProp, ViewProps,
 import type { WorkerCurrentStatus } from '@/types/auth';
 import type { ImageCacheMode } from '@/types/shared';
 import type { UploadPreviewFile } from '@/types/file-upload';
+import type { LiveRouteResult, RouteCoordinates } from '@/types/live-route';
 
 export type AppImageProps = Omit<ComponentProps<typeof Image>, 'source'> & {
   source?: ImageSourcePropType;
@@ -66,4 +67,18 @@ export type TwoOptionPillTabsProps<T extends string> = {
   value: T;
   onChange: (next: T) => void;
   isDark: boolean;
+};
+
+export type WorkerBookingRouteMapProps = {
+  originCoordinates: RouteCoordinates;
+  destinationCoordinates: RouteCoordinates;
+  route: LiveRouteResult | null;
+  isDark: boolean;
+  loading: boolean;
+  error: string | null;
+  onOpenMaps: () => void;
+};
+
+export type WorkerLiveMarkerProps = {
+  headingDegrees: number;
 };

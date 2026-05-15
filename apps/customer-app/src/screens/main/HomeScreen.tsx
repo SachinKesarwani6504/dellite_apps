@@ -126,6 +126,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     if (!homeQueryCity) {
       setLoading(isLocationPending);
       setHomeData(null);
+      setError(null);
       setCityUnavailable(!isLocationPending);
       return;
     }
@@ -335,6 +336,41 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [city, cityLabel, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
 
   const isHomePayloadEmpty = !homeData || (!shouldShowBanner && !shouldShowContent && !homeData.footer);
+  const homeFallbackContent = !homeData && !loading ? (
+    cityUnavailable ? (
+      <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
+    ) : error ? (
+      <View
+        className="rounded-2xl border p-4"
+        style={{
+          borderColor: theme.colors.negative,
+          backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayLight85,
+        }}
+      >
+        <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>
+          {error}
+        </Text>
+        <View className="mt-3">
+          <Button label="Retry" onPress={() => void fetchHome(true)} />
+        </View>
+      </View>
+    ) : (
+      <View
+        className="rounded-2xl border p-4"
+        style={{
+          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+          backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+        }}
+      >
+        <Text className="text-sm font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
+          No home content available for now.
+        </Text>
+        <View className="mt-3">
+          <Button label="Retry" onPress={() => void fetchHome(true)} />
+        </View>
+      </View>
+    )
+  ) : null;
 
   if ((loading || isLocationPending) && isHomePayloadEmpty) {
     const loadingMessage = isLocationPending ? APP_TEXT.main.loadingLocation : APP_TEXT.main.loadingHome;
@@ -375,26 +411,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </View>
 
-        {cityUnavailable ? (
+        {cityUnavailable && homeData ? (
           <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
         ) : null}
 
-        {error && !homeData ? (
-          <View
-            className="rounded-2xl border p-4"
-            style={{
-              borderColor: theme.colors.negative,
-              backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayLight85,
-            }}
-          >
-            <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>
-              {error}
-            </Text>
-            <View className="mt-3">
-              <Button label="Retry" onPress={() => void fetchHome(true)} />
-            </View>
-          </View>
-        ) : null}
+        {homeFallbackContent}
 
         {error && homeData ? (
           <View
@@ -454,24 +475,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             ) : null}
           </>
-        ) : (
-          !loading && !cityUnavailable && (
-            <View
-              className="rounded-2xl border p-4"
-              style={{
-                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-              }}
-            >
-              <Text className="text-sm font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-                No home content available for now.
-              </Text>
-              <View className="mt-3">
-                <Button label="Retry" onPress={() => void fetchHome(true)} />
-              </View>
-            </View>
-          )
-        )}
+        ) : null}
     </GradientScreen>
   );
 }

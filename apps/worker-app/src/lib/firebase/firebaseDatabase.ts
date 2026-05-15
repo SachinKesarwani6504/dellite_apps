@@ -11,20 +11,33 @@ import {
 } from 'firebase/database';
 import { getFirebaseApp } from '@/lib/firebase/firebaseApp';
 
-export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND';
+export const LIVE_LOCATION_NAMESPACE = {
+  WORKER: 'workerLive',
+  CUSTOMER: 'customerLive',
+} as const;
+
+export type LiveLocationNamespace = (typeof LIVE_LOCATION_NAMESPACE)[keyof typeof LIVE_LOCATION_NAMESPACE];
+
+export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
+export type WorkerVehicleMode =
+  | 'WALK'
+  | 'CYCLE'
+  | 'TWO_WHEELER'
+  | 'CAR'
+  | 'UNKNOWN';
 
 export type WorkerLiveLocationRecord = {
-  userId: string;
+  workerId: string;
   lat: number;
   lng: number;
-  accuracy: number;
-  heading: number;
-  speed: number;
+  accuracy: number | null;
+  heading: number | null;
+  speed: number | null;
   lastLocationAt: number;
   heartbeatAt: number;
   isAvailable: boolean;
   isTrackable: boolean;
-  activeBookingId: string | null;
+  vehicleMode: WorkerVehicleMode;
   appState: WorkerLiveAppState;
 };
 
@@ -41,24 +54,40 @@ export function getFirebaseDatabase(): Database {
   return firebaseDatabaseInstance;
 }
 
+export function getLiveLocationPath(namespace: LiveLocationNamespace, userId: string) {
+  return `${namespace}/${userId}`;
+}
+
+export function getWorkerLivePath(userId: string) {
+  return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.WORKER, userId);
+}
+
+export function getCustomerLivePath(userId: string) {
+  return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.CUSTOMER, userId);
+}
+
 export function getWorkerLiveRef(userId: string) {
-  return ref(getFirebaseDatabase(), `user-live-location/${userId}`);
+  return ref(getFirebaseDatabase(), getWorkerLivePath(userId));
 }
 
-export async function setWorkerLive(userId: string, payload: WorkerLiveLocationRecord) {
-  await set(getWorkerLiveRef(userId), payload);
+export function getCustomerLiveRef(userId: string) {
+  return ref(getFirebaseDatabase(), getCustomerLivePath(userId));
 }
 
-export async function updateWorkerLive(userId: string, payload: WorkerLiveUpdatePayload) {
-  await update(getWorkerLiveRef(userId), payload);
+export async function setWorkerLive(workerId: string, payload: WorkerLiveLocationRecord) {
+  await set(getWorkerLiveRef(workerId), payload);
 }
 
-export function registerWorkerLiveOnDisconnect(userId: string): OnDisconnect {
-  return onDisconnect(getWorkerLiveRef(userId));
+export async function updateWorkerLive(workerId: string, payload: WorkerLiveUpdatePayload) {
+  await update(getWorkerLiveRef(workerId), payload);
 }
 
-export async function removeWorkerLive(userId: string) {
-  await remove(getWorkerLiveRef(userId));
+export function registerWorkerLiveOnDisconnect(workerId: string): OnDisconnect {
+  return onDisconnect(getWorkerLiveRef(workerId));
+}
+
+export async function removeWorkerLive(workerId: string) {
+  await remove(getWorkerLiveRef(workerId));
 }
 
 export function getRealtimeServerTimestamp() {

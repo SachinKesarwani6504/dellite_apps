@@ -5,6 +5,7 @@ import {
   AuthMeResponse,
   AuthTokens,
   AuthUser,
+  CreateWorkerProfileResponse,
   SendOtpPayload,
   UserRole,
   VerifyOtpPayload,
@@ -13,6 +14,12 @@ import {
 } from '@/types/auth';
 import { toFormData } from '@/utils/form-data';
 import { stripBearerPrefix } from '@/utils';
+
+function logWorkerAuthAction(step: string, payload?: unknown) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log(`[worker-auth][action] ${step}`, payload);
+}
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
   if (typeof payload === 'object' && payload !== null && 'data' in payload) {
@@ -150,6 +157,15 @@ function normalizeAuthUser(rawUser: unknown, fallbackSource?: AnyRecord): AuthUs
   const workerLink = normalizeWorkerLink(source.workerLink) ?? normalizeWorkerLink(linksRecord?.worker);
   if (workerLink) {
     normalizedUser.workerLink = workerLink;
+  }
+
+  const workerOperatingCities = Array.isArray(source.workerOperatingCities)
+    ? source.workerOperatingCities
+    : (Array.isArray(source.worker_operating_cities) ? source.worker_operating_cities : undefined);
+  if (workerOperatingCities) {
+    normalizedUser.workerOperatingCities = workerOperatingCities
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim().toUpperCase());
   }
 
   const referralFromUser = isRecord(source.referral) ? source.referral : undefined;
@@ -325,7 +341,8 @@ export async function getMe(role: UserRole = APP_AUTH_ROLE): Promise<AuthMeRespo
 
 export async function createProfileWithPhoneToken(
   payload: WorkerProfilePayload,
-) {
+): Promise<CreateWorkerProfileResponse> {
+  logWorkerAuthAction('createProfileWithPhoneToken:payload', payload);
   const formData = toFormData(
     {
       firstName: payload.firstName,
@@ -346,8 +363,16 @@ export async function createProfileWithPhoneToken(
       aadhaarBack: payload.aadhaarBack,
     },
   );
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+  workerOperatingCities.forEach(city => {
+    formData.append('workerOperatingCities', city);
+  });
 
-  const workerResponse = await apiPost<ApiEnvelope<unknown>, FormData>(
+  const workerResponse = await apiPost<ApiEnvelope<CreateWorkerProfileResponse> | CreateWorkerProfileResponse, FormData>(
     '/worker/profile',
     formData,
     {
@@ -355,5 +380,10 @@ export async function createProfileWithPhoneToken(
       retryOnAuthFailure: false,
     },
   );
-  return unwrapData(workerResponse);
+  const unwrapped = unwrapData(workerResponse);
+  logWorkerAuthAction('createProfileWithPhoneToken:response', {
+    workerResponse,
+    unwrapped,
+  });
+  return unwrapped;
 }

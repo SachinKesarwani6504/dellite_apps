@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { BackButton } from '@/components/common/BackButton';
+import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { BOOKING_SERVICE_SUMMARY_CARD_MODE } from '@/types/component-types';
 import { CUSTOMER_BOOKING_TYPE, PRICE_TYPE } from '@/types/customer';
 import type { BookingConfirmationScreenProps } from '@/types/main-screens';
-import { MAIN_TAB_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { apiPost } from '@/actions/http/httpClient';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -30,6 +31,7 @@ import {
   getServiceLineTotalAmount,
   hasValidCoordinates,
   normalizeCityName,
+  returnToHomeAfterBookingCreate,
   shouldAllowQuantityControl,
   titleCase,
 } from '@/utils';
@@ -53,9 +55,6 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     removeService,
     resetFlow,
   } = useBookingFlowContext();
-  const [bookingCode, setBookingCode] = useState<string | null>(null);
-  const [bookingId, setBookingId] = useState<string | null>(null);
-  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -75,7 +74,6 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
     && !quoteError
     && bookingQuote
     && !confirming
-    && !bookingCode,
   );
   const appliedOfferCode = bookingQuote?.couponCode ?? bookingQuote?.discountCodes?.find(Boolean) ?? null;
 
@@ -208,15 +206,14 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         bookingDraft,
       });
 
-      const response = await apiPost<{ data: { booking: { id: string; bookingCode: string; bookingStatus: string } } }>('/booking', payload, {
+      await apiPost<unknown, typeof payload>('/booking', payload, {
         auth: true,
         headers: { 'Idempotency-Key': idempotencyKey },
       });
 
-      setBookingCode(response.data?.booking?.bookingCode ?? null);
-      setBookingId(response.data?.booking?.id ?? null);
-      setBookingStatus(response.data?.booking?.bookingStatus ?? null);
       createAttemptIdempotencyKeyRef.current = null;
+      resetFlow();
+      returnToHomeAfterBookingCreate(navigation);
     } catch {
       // The HTTP client shows the API error toast; keep the key for retrying this submit.
     } finally {
@@ -227,10 +224,10 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
-      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing || quoteLoading} />}
+      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
     >
       <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} visible={!bookingCode} />
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <View
@@ -352,168 +349,59 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
             && quoteLine.selectedPriceOptionId === line.selectedPriceOptionId,
           );
           
-          const rawQuoteTotal = quotedServiceLine?.lineTotalAmount ?? quotedServiceLine?.subtotal;
+          const rawQuoteTotal = quotedServiceLine?.subtotal;
           const localLineTotal = getServiceLineTotalAmount(line.service, line.selectedPriceOptionId, line.quantity, line.selectedDurationMinutes);
           const resolvedLineTotal = rawQuoteTotal != null ? Number(rawQuoteTotal) : localLineTotal;
-          const lineTotalLabel = resolvedLineTotal != null && !Number.isNaN(resolvedLineTotal) ? formatCurrencyAmount(resolvedLineTotal) : '--';
+          const lineTotalLabel = resolvedLineTotal != null && !Number.isNaN(resolvedLineTotal)
+            ? (formatCurrencyAmount(resolvedLineTotal) ?? '--')
+            : '--';
 
           const selectedValueRow = selectedOption?.priceType === PRICE_TYPE.HOURLY
             ? (displayDurationMinutes
               ? {
                 label: 'Duration',
                 value: formatDurationChip(displayDurationMinutes),
-                iconName: 'time-outline' as const,
               }
               : null)
             : (shouldAllowQuantityControl(selectedOption)
               ? {
                 label: APP_TEXT.main.bookingFlow.quantityLabel,
                 value: String(line.quantity),
-                iconName: 'layers-outline' as const,
               }
               : null);
           const pricingRow = selectedOption
             ? {
               label: getPriceRowTitle(selectedOption.priceType, selectedOption.priceComputationMode),
               value: typeof selectedOption.price === 'number' ? formatCurrencyAmount(selectedOption.price) : '--',
-              iconName: 'pricetag-outline' as const,
             }
             : null;
 
           return (
-            <View
+            <BookingServiceSummaryCard
               key={line.service.id}
-              className="rounded-2xl border px-3.5 py-3.5"
-              style={{
-                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-                shadowColor: uiColors.shadow.base,
-                shadowOpacity: isDark ? 0 : 0.08,
-                shadowRadius: 8,
-                shadowOffset: { width: 0, height: 3 },
-                elevation: 2,
-              }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="mr-3 flex-1 flex-row items-center">
-                  <View
-                    className="mr-3 h-11 w-11 items-center justify-center rounded-xl border"
-                    style={{
-                      backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF7EF',
-                      borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                    }}
-                  >
-                    {line.service.iconText?.trim() ? (
-                      <Text className="text-xl">{line.service.iconText.trim()}</Text>
-                    ) : (
-                      <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
-                    )}
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-lg font-extrabold leading-6 text-baseDark dark:text-white">{titleCase(line.service.name)}</Text>
-                  </View>
-                </View>
-                <Pressable
-                  onPress={() => removeService(line.service.id)}
-                  className="h-8 w-8 items-center justify-center rounded-full border"
-                  style={{
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF8F2',
-                    borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  }}
-                >
-                  <Ionicons name="close" size={15} color={theme.colors.primary} />
-                </Pressable>
-              </View>
+              mode={BOOKING_SERVICE_SUMMARY_CARD_MODE.EDIT}
+              title={titleCase(line.service.name)}
+              iconText={line.service.iconText}
+              selectedValueLabel={selectedValueRow?.label ?? APP_TEXT.main.bookingFlow.quantityLabel}
+              selectedValue={selectedValueRow?.value ?? String(line.quantity)}
+              pricingTitle={pricingRow?.label ?? 'Price'}
+              pricingValue={pricingRow?.value ?? '--'}
+              totalLabel={lineTotalLabel}
+              addons={optionalPriceOptions.map((option, index) => {
+                const normalizedId = option.id ?? `addon-${index}`;
+                const normalizedTitle = option.title ?? 'Add-on';
+                const normalizedDescription = formatPriceOptionDescription(option) || undefined;
+                const normalizedPricingLabel = formatPriceOptionPricingLabel(option) || '--';
 
-              {selectedValueRow || pricingRow ? (
-                <View
-                  className="mt-3 overflow-hidden rounded-xl border"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                    backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-                  }}
-                >
-                  {selectedValueRow ? (
-                    <View
-                      className="flex-row items-center justify-between px-3 py-2.5"
-                    >
-                      <View className="mr-3 flex-row items-center">
-                        <View
-                          className="h-7 w-7 items-center justify-center rounded-full"
-                          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFFFFF' }}
-                        >
-                          <Ionicons name={selectedValueRow.iconName} size={14} color={theme.colors.primary} />
-                        </View>
-                        <Text className="ml-2 text-[11px] font-extrabold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                          {selectedValueRow.label}
-                        </Text>
-                      </View>
-                      <Text className="text-sm font-extrabold text-baseDark dark:text-white">{selectedValueRow.value}</Text>
-                    </View>
-                  ) : null}
-
-                  {pricingRow ? (
-                    <View
-                      className={`${selectedValueRow ? 'border-t' : ''} flex-row items-center justify-between px-3 py-2.5`}
-                      style={selectedValueRow ? { borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight } : undefined}
-                    >
-                      <View className="mr-3 flex-row items-center">
-                        <View
-                          className="h-7 w-7 items-center justify-center rounded-full"
-                          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFFFFF' }}
-                        >
-                          <Ionicons name={pricingRow.iconName} size={14} color={theme.colors.primary} />
-                        </View>
-                        <Text className="ml-2 text-[11px] font-extrabold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                          {pricingRow.label}
-                        </Text>
-                      </View>
-                      <Text className="max-w-[52%] text-right text-sm font-extrabold text-baseDark dark:text-white">{pricingRow.value}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {optionalPriceOptions.length > 0 ? (
-                <View
-                  className="mt-3 rounded-xl border px-3 py-3"
-                  style={{
-                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                    backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-                  }}
-                >
-                  <Text className="text-xs font-extrabold text-baseDark dark:text-white">
-                    {APP_TEXT.main.bookingFlow.possibleAddOnsTitle}
-                  </Text>
-                  <View className="mt-2 gap-2">
-                    {optionalPriceOptions.map(option => (
-                      <View key={option.id} className="flex-row items-start justify-between">
-                        <View className="mr-3 flex-1">
-                          <Text className="text-xs font-bold text-baseDark dark:text-white">{option.title}</Text>
-                          {formatPriceOptionDescription(option) ? (
-                            <Text className="mt-0.5 text-[11px]" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                              {formatPriceOptionDescription(option)}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text className="text-xs font-extrabold text-primary">{formatPriceOptionPricingLabel(option)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
-              <View
-                className="mt-3 flex-row items-center justify-between rounded-xl px-3 py-3"
-                style={{
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-                }}
-              >
-                <Text className="text-xs font-extrabold uppercase text-baseDark dark:text-white">
-                  {APP_TEXT.main.bookingFlow.subtotalLabel}
-                </Text>
-                <Text className="text-2xl font-extrabold text-baseDark dark:text-white">{lineTotalLabel}</Text>
-              </View>
-            </View>
+                return {
+                  id: normalizedId,
+                  title: normalizedTitle,
+                  description: normalizedDescription,
+                  pricingLabel: normalizedPricingLabel,
+                };
+              })}
+              onRemove={() => removeService(line.service.id)}
+            />
           );
         })}
       </View>
@@ -654,52 +542,13 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         </View>
       </View>
 
-      {bookingCode ? (
-        <View className="mt-4 rounded-[24px] border p-4" style={{ borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight, backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}>
-          <Text className="text-sm font-bold text-primary">
-            {APP_TEXT.main.bookingFlow.doneBookingIdPrefix}: {bookingCode}
-          </Text>
-          {bookingStatus ? (
-            <Text className="mt-2 text-xs font-semibold text-baseDark dark:text-white">{APP_TEXT.main.bookingFlow.statusPrefix}: {bookingStatus}</Text>
-          ) : null}
-          {bookingId ? (
-            <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {APP_TEXT.main.bookingFlow.referencePrefix}: {bookingId}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-
       <View className="mt-4">
-        {!bookingCode ? (
-          <Button
-            label={confirmButtonLabel}
-            onPress={() => void onConfirm()}
-            loading={confirming}
-            disabled={!canSubmitBooking}
-          />
-        ) : (
-          <>
-            <Button
-              label={APP_TEXT.main.bookingFlow.goBookings}
-              onPress={() => {
-                resetFlow();
-                navigation.getParent()?.navigate(MAIN_TAB_SCREEN.BOOKINGS);
-              }}
-            />
-            <View className="mt-2">
-              <Button
-                label={APP_TEXT.main.bookingFlow.backHome}
-                variant="secondary"
-                onPress={() => {
-                  resetFlow();
-                  navigation.popToTop();
-                  navigation.getParent()?.navigate(MAIN_TAB_SCREEN.HOME);
-                }}
-              />
-            </View>
-          </>
-        )}
+        <Button
+          label={confirmButtonLabel}
+          onPress={() => void onConfirm()}
+          loading={confirming}
+          disabled={!canSubmitBooking}
+        />
       </View>
     </GradientScreen>
   );

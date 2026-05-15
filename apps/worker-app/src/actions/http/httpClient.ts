@@ -60,6 +60,13 @@ function normalizeBearerToken(token: string | null | undefined) {
   return stripBearerPrefix(token);
 }
 
+function logWorkerHttpAuth(message: string, payload?: Record<string, unknown>) {
+  if (!__DEV__) return;
+  // Token values stay private; these logs only show token presence and request shape.
+  // eslint-disable-next-line no-console
+  console.log(`[worker-auth][http] ${message}`, payload ?? {});
+}
+
 function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenType) {
   const isProfileCreate = method === 'POST' && PROFILE_CREATE_PATHS.has(normalizePath(path));
   if (isProfileCreate && tokenType !== 'phone') {
@@ -75,11 +82,24 @@ async function resolveToken(tokenType: TokenType): Promise<string | null> {
 
   if (tokenType === 'phone') {
     const raw = await getOnboardingPhoneToken();
-    return normalizeBearerToken(raw);
+    const token = normalizeBearerToken(raw);
+    logWorkerHttpAuth('resolve-phone-token', {
+      hasRawToken: Boolean(raw),
+      rawLength: raw?.length ?? 0,
+      hasToken: Boolean(token),
+      tokenLength: token?.length ?? 0,
+    });
+    return token;
   }
 
   const tokens = await getAuthTokens();
-  return normalizeBearerToken(tokens?.accessToken);
+  const token = normalizeBearerToken(tokens?.accessToken);
+  logWorkerHttpAuth('resolve-access-token', {
+    hasToken: Boolean(token),
+    tokenLength: token?.length ?? 0,
+    hasRefreshToken: Boolean(tokens?.refreshToken),
+  });
+  return token;
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -167,6 +187,16 @@ async function request<TResponse, TBody = unknown>(
     delete headers['Content-Type'];
     delete headers['content-type'];
   }
+
+  logWorkerHttpAuth('request:prepared', {
+    method,
+    path: normalizePath(path),
+    tokenType,
+    hasExplicitAuthorization,
+    hasResolvedToken: Boolean(token),
+    hasAuthorizationHeader: Boolean(headers.Authorization),
+    isMultipartRequest,
+  });
 
   if (options.cache === 'no-store') {
     headers['Cache-Control'] = 'no-store, no-cache, must-revalidate';

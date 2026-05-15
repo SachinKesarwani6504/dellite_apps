@@ -40,7 +40,6 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
     pinnedLocationPrimaryLine,
     locationRefreshing,
     locationError,
-    bookingDetailsRefreshing,
     hasMissingPriceSelection,
     hasValidSchedule,
     canReview,
@@ -70,7 +69,7 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
       refreshControl={(
         <RefreshControl
           {...refreshControlProps}
-          refreshing={refreshControlProps.refreshing || bookingDetailsRefreshing}
+          refreshing={refreshControlProps.refreshing}
         />
       )}
     >
@@ -321,16 +320,16 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
       </View>
 
       {hasMissingPriceSelection ? (
-        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
-          <Text className="text-sm font-bold" style={{ color: '#C46A2B' }}>
+        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.noticeWarmLight }}>
+          <Text className="text-sm font-bold" style={{ color: uiColors.surface.noticeWarmText }}>
             {APP_TEXT.main.bookingFlow.missingPriceSelectionError}
           </Text>
         </View>
       ) : null}
 
       {!hasValidSchedule ? (
-        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFF4EC' }}>
-          <Text className="text-sm font-bold" style={{ color: '#C46A2B' }}>
+        <View className="mt-4 rounded-md px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.noticeWarmLight }}>
+          <Text className="text-sm font-bold" style={{ color: uiColors.surface.noticeWarmText }}>
             {APP_TEXT.main.bookingFlow.invalidScheduleError}
           </Text>
         </View>

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
+import type { WorkerVehicleMode } from '@/lib/firebase';
 import { resolveWorkerIdFromAuthUser } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
-import { palette } from '@/utils/theme';
+import { palette, theme, uiColors } from '@/utils/theme';
+
+const workerVehicleModeOptions: WorkerVehicleMode[] = ['CAR', 'TWO_WHEELER', 'CYCLE', 'WALK', 'UNKNOWN'];
 
 export function WorkerHomeScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -18,11 +21,20 @@ export function WorkerHomeScreen() {
   const {
     isOnline,
     isTracking,
-    activeBookingId,
+    vehicleMode,
     lastLocation,
     error,
     goOnline,
+    updateVehicleMode,
   } = useWorkerLiveLocation({ workerId: resolvedWorkerId });
+
+  const getWorkerVehicleModeLabel = (mode: WorkerVehicleMode) => {
+    if (mode === 'CAR') return APP_TEXT.home.liveTracking.vehicleModeCar;
+    if (mode === 'TWO_WHEELER') return APP_TEXT.home.liveTracking.vehicleModeTwoWheeler;
+    if (mode === 'CYCLE') return APP_TEXT.home.liveTracking.vehicleModeCycle;
+    if (mode === 'WALK') return APP_TEXT.home.liveTracking.vehicleModeWalk;
+    return APP_TEXT.home.liveTracking.vehicleModeUnknown;
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -55,9 +67,26 @@ export function WorkerHomeScreen() {
         <Text className="mt-2 text-sm text-baseDark dark:text-white">
           Tracking: {isTracking ? APP_TEXT.home.liveTracking.trackingOn : APP_TEXT.home.liveTracking.trackingOff}
         </Text>
-        <Text className="mt-2 text-sm text-baseDark dark:text-white">
-          Active Booking: {activeBookingId ?? APP_TEXT.home.liveTracking.bookingPlaceholder}
+        <Text className="mt-4 text-xs font-extrabold uppercase text-baseDark dark:text-white">
+          {APP_TEXT.home.liveTracking.vehicleModeTitle}
         </Text>
+        <View className="mt-2 flex-row gap-2">
+          {workerVehicleModeOptions.map(mode => {
+            const selected = mode === vehicleMode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => void updateVehicleMode(mode)}
+                className="flex-1 items-center rounded-full px-3 py-2"
+                style={{ backgroundColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20) }}
+              >
+                <Text className="text-xs font-extrabold" style={{ color: selected ? theme.colors.onPrimary : theme.colors.primary }}>
+                  {getWorkerVehicleModeLabel(mode)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
         <Text className="mt-2 text-sm text-baseDark dark:text-white">
           Last Lat: {lastLocation?.lat ?? APP_TEXT.home.liveTracking.unknownCoordinates}
         </Text>

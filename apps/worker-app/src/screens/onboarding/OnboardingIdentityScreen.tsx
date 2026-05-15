@@ -1,15 +1,16 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { getServiceLaunchedCities } from '@/actions';
 import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
-import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
+import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
-import { Gender } from '@/types/auth';
+import { Gender, ServiceLaunchedCity } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
@@ -17,11 +18,8 @@ import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
 import { palette, theme, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
-import {
-  isValidFirstName,
-  isValidLastName,
-  normalizePersonName,
-} from '@/utils/validation';
+import { isValidFirstName, isValidLastName, normalizePersonName } from '@/utils/validation';
+import { formatTitle } from '@/utils';
 
 const genderOptions = Array.isArray(GENDER_OPTIONS) ? GENDER_OPTIONS : [];
 type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ONBOARDING_SCREENS.identity>;
@@ -40,6 +38,12 @@ type ProfileImageSelection = {
 const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 const AADHAAR_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
+function logOnboardingIdentityScreen(step: string, payload?: unknown) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log(`[onboarding-identity-screen] ${step}`, payload);
+}
+
 export function OnboardingIdentityScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
@@ -51,6 +55,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [aadhaarBack, setAadhaarBack] = useState<AadhaarFileSelection | null>(null);
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cityOptions, setCityOptions] = useState<ServiceLaunchedCity[]>([]);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const didRunInitialRouteCheckRef = useRef(false);
   const {
     completeIdentityProfile,
     loading,
@@ -60,6 +67,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const formDisabled = loading || isSubmitting;
 
   useEffect(() => {
+    if (didRunInitialRouteCheckRef.current) return;
+    didRunInitialRouteCheckRef.current = true;
+
     void refreshOnboardingRoute(true)
       .then(route => {
         if (route !== ONBOARDING_SCREENS.identity) {
@@ -78,34 +88,76 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     }
   }, [getOnboardingRedirect, navigation]);
 
+  useEffect(() => {
+    let mounted = true;
+    const loadCities = async () => {
+      try {
+        const cities = await getServiceLaunchedCities();
+        if (!mounted) return;
+        setCityOptions(cities);
+      } catch {
+        if (!mounted) return;
+        setCityOptions([]);
+      }
+    };
+    void loadCities();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const isValid = isValidFirstName(firstName)
     && isValidLastName(lastName)
     && Boolean(gender)
     && Boolean(aadhaarFront)
-    && Boolean(aadhaarBack);
+    && Boolean(aadhaarBack)
+    && selectedCities.length > 0;
 
   const onContinue = async () => {
+    logOnboardingIdentityScreen('next-clicked', {
+      formDisabled,
+      loading,
+      isSubmitting,
+      isValid,
+      firstName,
+      lastName,
+      gender,
+      referralCode,
+      selectedCities,
+      profileImage,
+      aadhaarFront,
+      aadhaarBack,
+    });
     if (formDisabled) return;
     if (!isValid) {
-      showError('Please enter first name, last name, select gender, and upload Aadhaar front/back.');
+      logOnboardingIdentityScreen('next-blocked-invalid-form');
+      showError('Please enter first name, last name, select gender, select at least one city, and upload Aadhaar front/back.');
       return;
     }
     setIsSubmitting(true);
+    const submitPayload = {
+      firstName: normalizePersonName(firstName).trim(),
+      lastName: normalizePersonName(lastName).trim(),
+      gender: gender ?? undefined,
+      workerOperatingCities: selectedCities,
+      referralCode: referralCode.trim() || undefined,
+      profileImage: profileImage ? { uri: profileImage.uri, name: profileImage.name, type: profileImage.type } : undefined,
+      aadhaarFront: aadhaarFront ? { uri: aadhaarFront.path, name: aadhaarFront.name, type: aadhaarFront.type } : undefined,
+      aadhaarBack: aadhaarBack ? { uri: aadhaarBack.path, name: aadhaarBack.name, type: aadhaarBack.type } : undefined,
+    };
+    logOnboardingIdentityScreen('next-submit-payload', submitPayload);
     try {
-      await completeIdentityProfile({
-        firstName: normalizePersonName(firstName).trim(),
-        lastName: normalizePersonName(lastName).trim(),
-        gender: gender ?? undefined,
-        referralCode: referralCode.trim() || undefined,
-        profileImage: profileImage ? { uri: profileImage.uri, name: profileImage.name, type: profileImage.type } : undefined,
-        aadhaarFront: aadhaarFront ? { uri: aadhaarFront.path, name: aadhaarFront.name, type: aadhaarFront.type } : undefined,
-        aadhaarBack: aadhaarBack ? { uri: aadhaarBack.path, name: aadhaarBack.name, type: aadhaarBack.type } : undefined,
-      });
+      await completeIdentityProfile(submitPayload);
+      logOnboardingIdentityScreen('next-submit-success');
       navigation.replace(ONBOARDING_SCREENS.serviceSelection);
     } catch (error) {
+      logOnboardingIdentityScreen('next-submit-error', error);
       const message = error instanceof Error && error.message.trim().length > 0
         ? error.message
         : 'Could not continue onboarding. Please try again.';
+      if (message.includes('We sent a new OTP')) {
+        return;
+      }
       showError(message);
     } finally {
       setIsSubmitting(false);
@@ -185,7 +237,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
-            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} â€¢ Max 2MB`}
+            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
             imageUri={profileImage?.uri ?? null}
             onPress={() => {
               void pickProfileImage();
@@ -225,7 +277,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
           <Text className="ml-1 text-sm font-semibold" style={{ color: theme.colors.negative }}>*</Text>
         </View>
         <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {`${APP_TEXT.onboarding.identity.aadhaarUploadHint} • Max 5MB each`}
+          {`${APP_TEXT.onboarding.identity.aadhaarUploadHint} - Max 5MB each`}
         </Text>
         <View className="mt-2 gap-2">
           <AadhaarUploadInput
@@ -286,6 +338,47 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
               </Pressable>
             );
           })}
+        </View>
+
+        <View className="mt-5">
+          <View className="flex-row items-center">
+            <Text className="text-sm font-semibold text-baseDark dark:text-white">Operating Cities</Text>
+            <Text className="ml-1 text-sm font-semibold" style={{ color: theme.colors.negative }}>*</Text>
+          </View>
+          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            Select at least one city where you can work.
+          </Text>
+          <View className="mt-2 flex-row flex-wrap gap-2">
+            {cityOptions.map(city => {
+              const cityName = city.name.trim().toUpperCase();
+              const selected = selectedCities.includes(cityName);
+              return (
+                <Pressable
+                  key={city.id}
+                  onPress={() => {
+                    if (formDisabled) return;
+                    setSelectedCities(current => (
+                      current.includes(cityName)
+                        ? current.filter(value => value !== cityName)
+                        : [...current, cityName]
+                    ));
+                  }}
+                  disabled={formDisabled}
+                  className="rounded-full border px-3 py-2"
+                  style={{
+                    borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight),
+                    backgroundColor: selected
+                      ? (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20)
+                      : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
+                  }}
+                >
+                  <Text className={`text-xs font-semibold ${selected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
+                    {formatTitle(cityName)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </View>
 

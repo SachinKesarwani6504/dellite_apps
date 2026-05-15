@@ -17,6 +17,10 @@ export const uiColors = {
   text: tokens.ui.text,
   surface: tokens.ui.surface,
   shadow: tokens.ui.shadow,
+  status: tokens.ui.status,
+  map: tokens.ui.map,
+  live: tokens.ui.live,
+  mapPin: tokens.ui.mapPin,
   toast: tokens.ui.toast,
   refresh: {
     lightSpinner: tokens.colors.primary,

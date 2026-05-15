@@ -6,130 +6,70 @@ import {
   logoutCurrentSession,
   resendOtp,
   sendOtp,
-  verifyOtp,
+  verifyOtp
 } from '@/actions';
 import { ApiError } from '@/types/api';
 import { AuthContextType } from '@/types/auth-context';
 import { AuthStatus } from '@/types/auth-status';
-import { APP_AUTH_ROLE, AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
-import { useLocationController } from '@/hooks/useLocationController';
-import { stripBearerPrefix } from '@/utils/token';
 import {
-  ensureFirebaseSessionWithCustomToken,
-} from '@/utils/firebase-session';
+  APP_AUTH_ROLE,
+  AuthMeResponse,
+  AuthTokens,
+  AuthUser,
+  UserRole,
+  VerifyOtpResult,
+  WorkerProfilePayload,
+} from '@/types/auth';
+import { useLocationController } from '@/hooks/useLocationController';
+import { clearFirebaseAuthSession, ensureFirebaseSessionWithCustomToken } from '@/utils/firebase-session';
 import {
   clearAuthTokens,
-  getAuthTokens,
-  saveAuthTokens,
-} from '@/utils/key-chain-storage/auth-storage';
-import {
   clearOnboardingPhoneToken,
+  getAuthTokens,
   getOnboardingPhoneToken,
+  getSecureValue,
+  keyChainValues,
+  saveAuthTokens,
   saveOnboardingPhoneToken,
-} from '@/utils/key-chain-storage/onboarding-storage';
+} from '@/utils/key-chain-storage';
+import { stripBearerPrefix } from '@/utils/token';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
-
-function normalizeTokenValue(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const normalized = stripBearerPrefix(value);
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function findTokenInPayload(payload: unknown, tokenKind: 'access' | 'refresh'): string | undefined {
-  const queue: unknown[] = [payload];
-  const visited = new Set<unknown>();
-  const directKeys = tokenKind === 'access'
-    ? ['accessToken', 'access_token']
-    : ['refreshToken', 'refresh_token'];
-  const nestedKeys = tokenKind === 'access'
-    ? ['accessToken', 'access_token']
-    : ['refreshToken', 'refresh_token'];
-
-  let hops = 0;
-  while (queue.length > 0 && hops < 250) {
-    const current = queue.shift();
-    hops += 1;
-    if (!isRecord(current) || visited.has(current)) continue;
-    visited.add(current);
-
-    for (let index = 0; index < directKeys.length; index += 1) {
-      const tokenValue = normalizeTokenValue(current[directKeys[index]]);
-      if (tokenValue) return tokenValue;
-    }
-
-    const nested = current.tokens;
-    if (isRecord(nested)) {
-      for (let index = 0; index < nestedKeys.length; index += 1) {
-        const nestedTokenValue = normalizeTokenValue(nested[nestedKeys[index]]);
-        if (nestedTokenValue) return nestedTokenValue;
-      }
-    }
-
-    const values = Object.values(current);
-    for (let index = 0; index < values.length; index += 1) {
-      if (isRecord(values[index])) {
-        queue.push(values[index]);
-      }
-    }
+function normalizeBearerToken(token: string | null | undefined) {
+  if (!token) {
+    return '';
   }
 
-  return undefined;
+  return stripBearerPrefix(token);
 }
 
-function findFirebaseCustomTokenInPayload(payload: unknown): string | undefined {
-  const queue: unknown[] = [payload];
-  const visited = new Set<unknown>();
-  const directKeys = ['firebaseCustomToken', 'firebase_custom_token'];
-
-  let hops = 0;
-  while (queue.length > 0 && hops < 250) {
-    const current = queue.shift();
-    hops += 1;
-    if (!isRecord(current) || visited.has(current)) continue;
-    visited.add(current);
-
-    for (let index = 0; index < directKeys.length; index += 1) {
-      const tokenValue = normalizeTokenValue(current[directKeys[index]]);
-      if (tokenValue) return tokenValue;
-    }
-
-    const nested = current.tokens;
-    if (isRecord(nested)) {
-      for (let index = 0; index < directKeys.length; index += 1) {
-        const nestedTokenValue = normalizeTokenValue(nested[directKeys[index]]);
-        if (nestedTokenValue) return nestedTokenValue;
-      }
-    }
-
-    const values = Object.values(current);
-    for (let index = 0; index < values.length; index += 1) {
-      if (isRecord(values[index])) {
-        queue.push(values[index]);
-      }
-    }
+function extractTokensFromVerifyOtpResponse(response: VerifyOtpResult & { status?: string }): AuthTokens | null {
+  if (response.status === 'NEEDS_PROFILE_CREATION' || response.status === 'NEEDS_ROLE_CREATION') {
+    return null;
+  }
+  if (!response.accessToken || !response.refreshToken) {
+    return null;
   }
 
-  return undefined;
+  return {
+    accessToken: normalizeBearerToken(response.accessToken),
+    refreshToken: normalizeBearerToken(response.refreshToken),
+    ...(response.firebaseCustomToken
+      ? { firebaseCustomToken: normalizeBearerToken(response.firebaseCustomToken) }
+      : {}),
+  };
 }
 
-async function setSessionTokens(
-  accessToken: string,
-  refreshToken: string,
-  firebaseCustomToken?: string | null,
-) {
-  await saveAuthTokens({
-    accessToken: stripBearerPrefix(accessToken),
-    refreshToken: stripBearerPrefix(refreshToken),
-    ...(firebaseCustomToken ? { firebaseCustomToken: stripBearerPrefix(firebaseCustomToken) } : {}),
-  });
+function extractPhoneTokenFromVerifyOtpResponse(response: VerifyOtpResult & { status?: string }): string | null {
+  if (response.status === 'LOGIN_SUCCESS') {
+    return null;
+  }
+  return response.phoneToken ? normalizeBearerToken(response.phoneToken) : null;
 }
 
 async function clearAllStoredTokens() {
   await clearAuthTokens();
   await clearOnboardingPhoneToken();
+  await clearFirebaseAuthSession();
 }
 
 export function useAuthController(): AuthContextType {
@@ -139,15 +79,20 @@ export function useAuthController(): AuthContextType {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [phone, setPhone] = useState('');
-  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
-  const foregroundSyncInFlightRef = useRef(false);
-  const lastForegroundSyncAtRef = useRef(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthMeResponse> | null>(null);
+  const statusRef = useRef<AuthStatus>(AuthStatus.BOOTSTRAPPING);
+  const phoneTokenRef = useRef<string | null>(null);
 
   const loading = pendingActionCount > 0;
 
-  const runWithActionState = useCallback(async <T>(operation: () => Promise<T>): Promise<T> => {
+  useEffect(() => {
+    statusRef.current = status;
+    phoneTokenRef.current = phoneToken;
+  }, [phoneToken, status]);
+
+  const runWithActionState = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
     setPendingActionCount(count => count + 1);
     try {
       return await operation();
@@ -159,7 +104,7 @@ export function useAuthController(): AuthContextType {
   const refreshMe = useCallback(async (): Promise<AuthMeResponse> => {
     if (!inFlightRefreshMeRef.current) {
       inFlightRefreshMeRef.current = (async () => {
-        const meResponse = (await getMe()) as AuthMeResponse;
+        const meResponse = await getMe();
         setMe(meResponse);
         setUser(meResponse.user);
         return meResponse;
@@ -171,88 +116,114 @@ export function useAuthController(): AuthContextType {
     return inFlightRefreshMeRef.current;
   }, []);
 
-  const ensureFirebaseSession = useCallback(async (
-    accessToken: string | null,
-    firebaseCustomToken?: string | null,
-  ) => {
-    if (!accessToken) return;
-    const normalizedToken = firebaseCustomToken ? stripBearerPrefix(firebaseCustomToken) : null;
+  const ensureFirebaseSession = useCallback(async (firebaseCustomToken?: string | null) => {
+    const normalizedToken = firebaseCustomToken ? normalizeBearerToken(firebaseCustomToken) : null;
+
     if (normalizedToken) {
-      await ensureFirebaseSessionWithCustomToken(normalizedToken);
+      await ensureFirebaseSessionWithCustomToken(normalizedToken, { forceReauth: true });
       return;
     }
 
-    const existingTokens = await getAuthTokens();
-    await ensureFirebaseSessionWithCustomToken(existingTokens?.firebaseCustomToken ?? null);
+    const tokens = await getAuthTokens();
+    await ensureFirebaseSessionWithCustomToken(tokens?.firebaseCustomToken ?? null, { forceReauth: true });
   }, []);
 
-  const bootstrap = useCallback(async () => {
+  const resetLocalSession = useCallback((nextStatus: AuthStatus) => {
+    setPhoneToken(null);
+    setMe(null);
+    setUser(null);
+    setStatus(nextStatus);
+  }, []);
+
+  const logout = useCallback(async () => {
     try {
-      const [tokens, pendingPhoneTokenRaw] = await Promise.all([
-        getAuthTokens(),
-        getOnboardingPhoneToken(),
-      ]);
-      const pendingPhoneToken = pendingPhoneTokenRaw ? stripBearerPrefix(pendingPhoneTokenRaw) : null;
-      const accessToken = tokens?.accessToken ? stripBearerPrefix(tokens.accessToken) : null;
-
-      if (accessToken) {
-        setPhoneVerificationToken(pendingPhoneToken);
-        await ensureFirebaseSession(accessToken);
-        await refreshMe();
-        setStatus(AuthStatus.AUTHENTICATED);
-        return;
+      const tokens = await getAuthTokens();
+      if (tokens?.refreshToken) {
+        try {
+          await logoutCurrentSession(tokens.refreshToken);
+        } catch {
+          // Local logout should still succeed when the server session is already gone.
+        }
       }
-
-      if (pendingPhoneToken) {
-        setPhoneVerificationToken(pendingPhoneToken);
-        setStatus(AuthStatus.PHONE_VERIFIED);
-        return;
-      }
-
-      setPhoneVerificationToken(null);
-      setStatus(AuthStatus.LOGGED_OUT);
-    } catch {
+    } finally {
       await clearAllStoredTokens();
-      setPhoneVerificationToken(null);
-      setStatus(AuthStatus.LOGGED_OUT);
+      resetLocalSession(AuthStatus.LOGGED_OUT);
+      setPhone('');
     }
-  }, [ensureFirebaseSession, refreshMe]);
+  }, [resetLocalSession]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      try {
+        const [tokens, pendingPhoneToken] = await Promise.all([
+          getAuthTokens(),
+          getOnboardingPhoneToken(),
+        ]);
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!tokens?.accessToken) {
+          if (pendingPhoneToken) {
+            setStatus(AuthStatus.ONBOARDING);
+            setPhoneToken(normalizeBearerToken(pendingPhoneToken));
+            setMe(null);
+            setUser(null);
+            return;
+          }
+
+          resetLocalSession(AuthStatus.LOGGED_OUT);
+          return;
+        }
+
+        setStatus(AuthStatus.BOOTSTRAPPING);
+        setPhoneToken(null);
+        await ensureFirebaseSession(tokens.firebaseCustomToken ?? null);
+
+        try {
+          await refreshMe();
+          if (!mounted) {
+            return;
+          }
+          await clearOnboardingPhoneToken();
+          setStatus(AuthStatus.AUTHENTICATED);
+        } catch {
+          await logout();
+        }
+      } catch {
+        if (mounted) {
+          await clearAllStoredTokens();
+          resetLocalSession(AuthStatus.LOGGED_OUT);
+        }
+      }
+    };
+
     void bootstrap();
-  }, [bootstrap]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [ensureFirebaseSession, logout, refreshMe, resetLocalSession]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
-      if (nextState !== 'active') return;
-      if (status !== AuthStatus.AUTHENTICATED) return;
-      if (foregroundSyncInFlightRef.current) return;
-
-      const now = Date.now();
-      if (now - lastForegroundSyncAtRef.current < 5000) {
+      if (nextState !== 'active') {
         return;
       }
 
-      foregroundSyncInFlightRef.current = true;
-      lastForegroundSyncAtRef.current = now;
-      void Promise.all([
-        bootstrap(),
-        initializeLocation({ forceRefresh: true }),
-      ]).finally(() => {
-        foregroundSyncInFlightRef.current = false;
-      });
+      void initializeLocation({ forceRefresh: true });
     });
 
     return () => {
       subscription.remove();
     };
-  }, [bootstrap, initializeLocation, status]);
+  }, [initializeLocation]);
 
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
-    await clearAllStoredTokens();
-    setPhoneVerificationToken(null);
-    setMe(null);
-    setUser(null);
+    console.log('[Auth Flow] Sending OTP to phone:', phoneNumber);
     await sendOtp({ phone: phoneNumber, role });
     setPhone(phoneNumber);
     setStatus(AuthStatus.OTP_SENT);
@@ -260,34 +231,45 @@ export function useAuthController(): AuthContextType {
 
   const handleVerifyOtpCode = useCallback(
     async (phoneNumber: string, otp: string) => {
+      console.log('[Auth Flow] Verifying OTP:', { phoneNumber, otp });
       const response = await verifyOtp({ phone: phoneNumber, otp, role: APP_AUTH_ROLE });
+      console.log('[Auth Flow] OTP Verification Response:', response);
       setPhone(phoneNumber);
-      const accessToken = response.accessToken ? stripBearerPrefix(response.accessToken) : null;
-      const refreshToken = response.refreshToken ? stripBearerPrefix(response.refreshToken) : null;
 
-      if (response.phoneToken) {
-        const cleanPhoneToken = stripBearerPrefix(response.phoneToken);
-        if (accessToken && refreshToken) {
-          await setSessionTokens(accessToken, refreshToken, response.firebaseCustomToken);
-          await ensureFirebaseSession(accessToken, response.firebaseCustomToken);
+      const statusResult = (response as any).status;
+
+      // CASE 1: NEEDS PROFILE/ROLE CREATION -> Enter Onboarding
+      if (statusResult === 'NEEDS_PROFILE_CREATION' || statusResult === 'NEEDS_ROLE_CREATION' || (!statusResult && extractPhoneTokenFromVerifyOtpResponse(response))) {
+        const onboardingPhoneToken = extractPhoneTokenFromVerifyOtpResponse(response);
+        if (!onboardingPhoneToken) {
+          throw new Error('Profile creation required, but no phone token was returned.');
         }
-        setPhoneVerificationToken(cleanPhoneToken);
-        await saveOnboardingPhoneToken(cleanPhoneToken);
-        setStatus(AuthStatus.PHONE_VERIFIED);
+        console.log('[Auth Flow] Extracted Onboarding Phone Token:', onboardingPhoneToken);
+        await clearAuthTokens();
+        await saveOnboardingPhoneToken(onboardingPhoneToken);
+        console.log(`[Auth Flow] Saved Onboarding Phone Token in secure storage [Service: ${keyChainValues.onboardingService}, Key: ${keyChainValues.onboardingUsername}]`);
+        setPhoneToken(onboardingPhoneToken);
+        setMe(null);
+        setUser(null);
+        setStatus(AuthStatus.ONBOARDING);
         return;
       }
 
-      if (accessToken && refreshToken) {
-        await setSessionTokens(accessToken, refreshToken, response.firebaseCustomToken);
-        await ensureFirebaseSession(accessToken, response.firebaseCustomToken);
-        await clearOnboardingPhoneToken();
-        setPhoneVerificationToken(null);
-        setStatus(AuthStatus.AUTHENTICATED);
-        await refreshMe();
-        return;
+      // CASE 2: LOGIN SUCCESS -> Authenticate Session
+      const tokens = extractTokensFromVerifyOtpResponse(response);
+      console.log('[Auth Flow] Extracted Session Tokens:', tokens);
+      if (!tokens?.accessToken) {
+        console.error('[Auth Flow] Invalid token response: No access token found.');
+        throw new Error('OTP verified, but no valid token set was returned.');
       }
 
-      throw new Error('OTP verified, but no valid token set was returned.');
+      await saveAuthTokens(tokens);
+      console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+      await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
+      await clearOnboardingPhoneToken();
+      setPhoneToken(null);
+      setStatus(AuthStatus.AUTHENTICATED);
+      await refreshMe();
     },
     [ensureFirebaseSession, refreshMe],
   );
@@ -298,97 +280,63 @@ export function useAuthController(): AuthContextType {
 
   const handleCompleteOnboarding = useCallback(
     async (payload: WorkerProfilePayload) => {
-      const restoredPhoneTokenRaw = await getOnboardingPhoneToken();
-      const restoredPhoneToken = restoredPhoneTokenRaw ? stripBearerPrefix(restoredPhoneTokenRaw) : null;
-      const phoneToken = phoneVerificationToken ?? restoredPhoneToken;
+      console.log('[Auth Flow] Completing onboarding with payload:', payload);
+      const storedPhoneTokenRaw = await getOnboardingPhoneToken();
+      const storedPhoneTokenNormalized = normalizeBearerToken(storedPhoneTokenRaw);
+      const onboardingPhoneToken = phoneToken ?? storedPhoneTokenNormalized;
 
-      if (phoneToken && phoneToken !== phoneVerificationToken) {
-        setPhoneVerificationToken(phoneToken);
+      // CASE 2: EXPIRED SESSION
+      if (!onboardingPhoneToken) {
+        await clearAllStoredTokens();
+        resetLocalSession(AuthStatus.LOGGED_OUT);
+        throw new Error('Your phone verification session expired. Please verify OTP again.');
       }
 
+      // CASE 3: NEW USER CREATING PROFILE
       if (!phoneToken) {
-        throw new Error('Session expired. Please verify OTP again.');
+        setPhoneToken(onboardingPhoneToken);
+        await saveOnboardingPhoneToken(onboardingPhoneToken);
       }
 
-      let response: {
-        accessToken?: string;
-        refreshToken?: string;
-        firebaseCustomToken?: string;
-        firebase_custom_token?: string;
-        access_token?: string;
-        refresh_token?: string;
-        tokens?: { accessToken?: string; refreshToken?: string; firebaseCustomToken?: string; firebase_custom_token?: string };
-        data?: unknown;
-        result?: unknown;
-        payload?: unknown;
-      };
-
+      let profile: Awaited<ReturnType<typeof createProfileWithPhoneToken>>;
       try {
-        response = (await createProfileWithPhoneToken(payload)) as {
-          accessToken?: string;
-          refreshToken?: string;
-          firebaseCustomToken?: string;
-          firebase_custom_token?: string;
-          access_token?: string;
-          refresh_token?: string;
-          tokens?: { accessToken?: string; refreshToken?: string; firebaseCustomToken?: string; firebase_custom_token?: string };
-        };
+        profile = await createProfileWithPhoneToken(payload);
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
-          setPhoneVerificationToken(null);
-          setStatus(AuthStatus.LOGGED_OUT);
+          await clearOnboardingPhoneToken();
+          resetLocalSession(AuthStatus.LOGGED_OUT);
         }
         throw error;
       }
 
-      const accessToken = findTokenInPayload(response, 'access');
-      const refreshToken = findTokenInPayload(response, 'refresh');
-      const firebaseCustomToken = findFirebaseCustomTokenInPayload(response);
-
-      if (accessToken && refreshToken) {
-        await setSessionTokens(accessToken, refreshToken, firebaseCustomToken);
-        await ensureFirebaseSession(accessToken, firebaseCustomToken);
-      } else {
-        const existingTokens = await getAuthTokens();
-        const existingAccessToken = existingTokens?.accessToken ? stripBearerPrefix(existingTokens.accessToken) : null;
-        const existingRefreshToken = existingTokens?.refreshToken ? stripBearerPrefix(existingTokens.refreshToken) : null;
-        if (!existingAccessToken || !existingRefreshToken) {
-          throw new Error('Profile created, but auth tokens are missing.');
-        }
-        await ensureFirebaseSession(existingAccessToken, firebaseCustomToken);
+      if (!profile.accessToken || !profile.refreshToken) {
+        console.error('[Auth Flow] Missing access or refresh token in profile response:', profile);
+        throw new Error('Profile created, but auth tokens are missing.');
       }
 
-      setPhoneVerificationToken(null);
+      const tokens: AuthTokens = {
+        accessToken: normalizeBearerToken(profile.accessToken),
+        refreshToken: normalizeBearerToken(profile.refreshToken),
+        ...(profile.firebaseCustomToken
+          ? { firebaseCustomToken: normalizeBearerToken(profile.firebaseCustomToken) }
+          : {}),
+      };
+
+      await saveAuthTokens(tokens);
+      console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+      await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
       await clearOnboardingPhoneToken();
+      setPhoneToken(null);
       setStatus(AuthStatus.AUTHENTICATED);
 
       try {
         await refreshMe();
       } catch {
-        // Keep authenticated state and retry me fetch later.
+        // Keep the newly authenticated state; a later refresh can reconcile the user snapshot.
       }
     },
-    [ensureFirebaseSession, phoneVerificationToken, refreshMe],
+    [ensureFirebaseSession, phoneToken, refreshMe, resetLocalSession],
   );
-
-  const handleLogout = useCallback(async () => {
-    try {
-      const tokens = await getAuthTokens();
-      const refreshToken = tokens?.refreshToken ? stripBearerPrefix(tokens.refreshToken) : null;
-      if (refreshToken) {
-        await logoutCurrentSession(refreshToken);
-      }
-    } catch {
-      // Even if API logout fails, we clear local session for safety.
-    } finally {
-      await clearAllStoredTokens();
-      setPhoneVerificationToken(null);
-      setMe(null);
-      setUser(null);
-      setPhone('');
-      setStatus(AuthStatus.LOGGED_OUT);
-    }
-  }, []);
 
   const sendOtpCode = useCallback(
     (phoneNumber: string, role?: UserRole) => runWithActionState(() => handleSendOtpCode(phoneNumber, role)),
@@ -410,9 +358,9 @@ export function useAuthController(): AuthContextType {
     [handleCompleteOnboarding, runWithActionState],
   );
 
-  const logout = useCallback(
-    () => runWithActionState(handleLogout),
-    [handleLogout, runWithActionState],
+  const logoutWithState = useCallback(
+    () => runWithActionState(logout),
+    [logout, runWithActionState],
   );
 
   const refreshMeWithState = useCallback(
@@ -432,7 +380,7 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    logout,
+    logout: logoutWithState,
     refreshMe: refreshMeWithState,
   }), [
     user,
@@ -445,7 +393,7 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    logout,
+    logoutWithState,
     refreshMeWithState,
   ]);
 }

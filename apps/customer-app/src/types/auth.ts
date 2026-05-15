@@ -119,6 +119,7 @@ export type RequestOtpPayload = {
 export type VerifyOtpPayload = {
   phone: string;
   otp: string;
+  role?: UserRole;
 };
 
 export type RequestOtpResponse = {

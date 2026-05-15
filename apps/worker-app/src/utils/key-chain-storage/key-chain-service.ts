@@ -1,5 +1,5 @@
-import * as Keychain from 'react-native-keychain';
 import * as SecureStore from 'expo-secure-store';
+import * as Keychain from 'react-native-keychain';
 
 function getSecureStoreKey(service: string, username: string) {
   const raw = `${service}_${username}`;

@@ -144,6 +144,7 @@ export interface AuthUser {
     [key: string]: unknown;
   };
   workerLink?: WorkerProfileLink;
+  workerOperatingCities?: string[];
   createdAt?: string;
   [key: string]: unknown;
 }
@@ -218,6 +219,12 @@ export interface VerifyOtpResult {
   user?: AuthUser;
 }
 
+export interface CreateWorkerProfileResponse {
+  accessToken: string;
+  refreshToken: string;
+  firebaseCustomToken?: string;
+}
+
 export interface WorkerProfilePayload {
   firstName: string;
   lastName?: string;
@@ -226,6 +233,7 @@ export interface WorkerProfilePayload {
   preferredLanguage?: 'EN' | 'HI';
   bio?: string;
   experienceYears?: number;
+  workerOperatingCities?: string[];
   referralCode?: string;
   profileImage?: MultipartFile;
   aadhaarFront?: MultipartFile;
@@ -241,6 +249,13 @@ export interface WorkerProfilePayload {
   hasSeenSkillSetup?: boolean;
   hasSeenCertificateSetup?: boolean;
   hasSeenOnboardingWelcomeScreen?: boolean;
+}
+
+export interface ServiceLaunchedCity {
+  id: string;
+  name: string;
+  state?: string;
+  country?: string;
 }
 
 export interface CustomerProfilePayload {

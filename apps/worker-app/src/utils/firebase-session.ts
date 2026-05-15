@@ -59,10 +59,11 @@ export async function getFirebaseLiveLocationUserIdClaim(): Promise<string | nul
 
   const claims = snapshot.claims as Record<string, unknown>;
   const candidates = [
+    claims.worker_id,
+    claims.workerId,
     claims.user_uuid,
     claims.user_id,
     claims.sub,
-    claims.worker_id,
   ];
 
   for (let index = 0; index < candidates.length; index += 1) {

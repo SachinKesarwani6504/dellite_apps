@@ -55,7 +55,7 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
             width: tabWidth - 8,
             height: 44,
             transform: [{ translateX }],
-            backgroundColor: isDark ? palette.dark.card : '#FFFFFF',
+            backgroundColor: isDark ? palette.dark.card : palette.light.card,
             shadowColor: uiColors.shadow.base,
             shadowOpacity: 0.14,
             shadowRadius: 8,
@@ -87,4 +87,3 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
     </View>
   );
 }
-

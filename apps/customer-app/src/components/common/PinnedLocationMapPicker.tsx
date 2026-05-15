@@ -8,12 +8,12 @@ import { theme, uiColors } from '@/utils/theme';
 const PINNED_LOCATION_DELTA = 0.006;
 
 const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#1d242c' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#d7dde5' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1d242c' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#313b46' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#b8c0cb' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f1722' }] },
+  { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.labelFillDark }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: uiColors.map.geometryDark }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: uiColors.map.roadDark }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.roadLabelDark }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: uiColors.map.waterDark }] },
 ];
 
 function toRegion(coordinates: PinnedLocationMapPickerProps['coordinates']): Region {
@@ -58,8 +58,8 @@ export function PinnedLocationMapPicker({
         />
         <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
           <View className="items-center">
-            <Ionicons name="location-sharp" size={42} color={theme.colors.primary} />
-            <View className="h-2 w-8 rounded-full bg-black/20" />
+            <Ionicons name="location-sharp" size={48} color={theme.colors.primary} style={{ marginBottom: -10 }} />
+            <View className="h-2 w-8 rounded-full bg-black/20 mt-1" />
           </View>
         </View>
         {isResolving ? (

@@ -6,7 +6,7 @@ import { ServiceTasksCarousel } from '@/components/common/ServiceTasksCarousel';
 import type { BookingServiceDetailCardProps } from '@/types/component-types';
 import { APP_TEXT } from '@/utils/appText';
 import { formatCurrencyAmount, formatEstimatedDurationLabel, formatPriceOptionDescription, formatPriceOptionPricingLabel, formatSubtotalMultiplierLabel, getOptionalPriceOptions } from '@/utils';
-import { theme, uiColors } from '@/utils/theme';
+import { palette, theme, uiColors } from '@/utils/theme';
 
 export function BookingServiceDetailCard({
   service,
@@ -63,7 +63,7 @@ export function BookingServiceDetailCard({
                 className="flex-row items-center rounded-full border px-2.5 py-1"
                 style={{
                   borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : '#FFFFFF',
+                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
                 }}
               >
                 <Ionicons

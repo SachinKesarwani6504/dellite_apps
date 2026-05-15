@@ -51,7 +51,7 @@ export function ServiceTasksCarousel({ includedTasks, excludedTasks, isDark }: S
       id: 'included',
       title: APP_TEXT.main.bookingFlow.includedTitle,
       emptyText: APP_TEXT.main.bookingFlow.tasksNoIncluded,
-      toneColor: '#38B66B',
+      toneColor: uiColors.status.successText,
       iconName: 'checkmark-circle',
       items: includedTasks,
     },
@@ -59,7 +59,7 @@ export function ServiceTasksCarousel({ includedTasks, excludedTasks, isDark }: S
       id: 'excluded',
       title: APP_TEXT.main.bookingFlow.excludedTitle,
       emptyText: APP_TEXT.main.bookingFlow.tasksNoExcluded,
-      toneColor: '#DB8A43',
+      toneColor: uiColors.status.warningText,
       iconName: 'close-circle',
       items: excludedTasks,
     },
@@ -122,7 +122,7 @@ export function ServiceTasksCarousel({ includedTasks, excludedTasks, isDark }: S
                   height: 8,
                   backgroundColor: selected
                     ? theme.colors.primary
-                    : (isDark ? '#5E6672' : '#C9CFD8'),
+                    : (isDark ? uiColors.text.captionDark : uiColors.text.captionLight),
                 }}
               />
             );

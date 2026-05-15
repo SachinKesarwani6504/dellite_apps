@@ -4,7 +4,7 @@ import { uiColors } from '@/utils/theme';
 
 export function CardWrapper({
   isDark,
-  lightBackgroundColor = '#FCFCFD',
+  lightBackgroundColor = uiColors.surface.cardNeutralLight,
   darkBackgroundColor = uiColors.surface.cardMutedDark,
   borderColor,
   withShadow = true,

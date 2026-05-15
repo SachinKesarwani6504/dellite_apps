@@ -1,91 +1,217 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View, useColorScheme } from "react-native";
 
-import { BookingStatusBadge } from '@/components/common/BookingStatusBadge';
-import type { Booking } from '@/types/api';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { StatusBadge } from "@/components/common/StatusBadge";
+import type { CustomerBookingCardProps } from "@/types/component-types";
+import { formatTitle } from "@/utils";
+import {
+  getCustomerBookingAddressLabel,
+  getCustomerBookingAmountLabel,
+  getCustomerBookingCategoryLabel,
+  getCustomerBookingReferenceLabel,
+  getCustomerBookingScheduleLabel,
+  getCustomerBookingServiceTitle,
+  getCustomerBookingWorkerInitial,
+  getCustomerBookingWorkerName,
+  getCustomerBookingWorkerSubtitle,
+} from "@/utils/customer-bookings";
+import { palette, theme, uiColors } from "@/utils/theme";
 
-type CustomerBookingCardProps = {
-  item: Booking;
-  onPress: (bookingId: string) => void;
-};
+export function CustomerBookingCard({
+  item,
+  onPress,
+}: CustomerBookingCardProps) {
+  const isDark = useColorScheme() === "dark";
+  const referenceLabel = getCustomerBookingReferenceLabel(item);
+  const addressLabel = getCustomerBookingAddressLabel(item);
+  const workerName = getCustomerBookingWorkerName(item);
+  const workerInitial = getCustomerBookingWorkerInitial(item);
+  const workerSubtitle = getCustomerBookingWorkerSubtitle(item);
+  const amountLabel = getCustomerBookingAmountLabel(item);
 
-export function CustomerBookingCard({ item, onPress }: CustomerBookingCardProps) {
-  const isDark = useColorScheme() === 'dark';
-
-  // Fallbacks for lightweight API payload (these fields might be added later, or we show pending states)
-  const slotLabel = 'Schedule pending';
-  const addressLabel = 'Address not provided';
-  const workerName = 'Pending Worker';
-  const workerInitial = 'P';
-
+  // Extract data safely from the new BookingListItem shape
+  const firstService = item.services?.[0];
+  const subcategoryName = formatTitle(
+    firstService?.subCategory || "Subcategory",
+  );
+  const reference = item.bookingCode || referenceLabel;
+  const bookingTypeLabel = item.bookingType
+    ? formatTitle(item.bookingType)
+    : "Booking";
+  const sceduelstartAtLabel = item.scheduledStartAt
+    ? getCustomerBookingScheduleLabel(item)
+    : null;
   return (
     <View
       className="mb-4 overflow-hidden rounded-3xl border"
       style={{
-        backgroundColor: isDark ? palette.dark.card : '#FFFFFF',
-        borderColor: isDark ? uiColors.surface.overlayDark14 : '#D1D5DB',
+        backgroundColor: isDark ? palette.dark.card : palette.light.card,
+        borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight,
       }}
     >
-      {/* Accent Line */}
-      <View className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: theme.colors.primary }} />
+      <View
+        className="absolute left-0 top-0 h-full w-1.5"
+        style={{ backgroundColor: theme.colors.primary }}
+      />
 
       <Pressable onPress={() => onPress(item.id)} className="p-4 pl-5">
         <View className="flex-row items-start justify-between">
           <View className="mr-3 flex-1">
             <Text className="text-lg font-bold text-baseDark dark:text-white">
-              {item.services?.length ? item.services.join(', ') : 'Service Booking'}
+              {subcategoryName}
             </Text>
-            <Text className="mt-1 text-sm text-baseDark/55 dark:text-white/70">
-              ID: {item.id.slice(0, 8).toUpperCase()}
-            </Text>
+            <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+              {(item.services || []).map((service) => (
+                <View
+                  key={service.id}
+                  className="rounded-full px-2.5 py-1"
+                  style={{
+                    backgroundColor: isDark
+                      ? uiColors.surface.overlayDark10
+                      : uiColors.surface.accentSoft20,
+                  }}
+                >
+                  <Text className="text-xs font-semibold text-primary">
+                    {formatTitle(service.serviceName ?? undefined)}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <BookingStatusBadge status={item.bookingStatus} />
+          <StatusBadge status={item.bookingStatus} />
         </View>
 
-        <View
-          className="mt-3 rounded-xl px-3 py-2.5"
-          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : '#F5EFEC' }}
-        >
-          <View className="flex-row items-center">
-            <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{slotLabel}</Text>
+        <View className="mt-3 gap-2">
+          <View className="flex-row items-center gap-2">
+            <View
+              className="flex-1 flex-row items-center rounded-xl px-3 py-2.5"
+              style={{
+                backgroundColor: isDark
+                  ? uiColors.surface.overlayDark95
+                  : uiColors.surface.warmCardLight,
+              }}
+            >
+              <Ionicons
+                name={
+                  item.bookingType === "INSTANT"
+                    ? "flash-outline"
+                    : "calendar-outline"
+                }
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Text
+                className="ml-2 flex-1 text-sm font-medium text-baseDark dark:text-white"
+                numberOfLines={1}
+              >
+                {bookingTypeLabel}
+              </Text>
+            </View>
+            <View
+              className="flex-1 flex-row items-center rounded-xl px-3 py-2.5"
+              style={{
+                backgroundColor: isDark
+                  ? uiColors.surface.overlayDark95
+                  : uiColors.surface.warmCardLight,
+              }}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Text
+                className="ml-2 flex-1 text-sm font-medium text-baseDark dark:text-white"
+                numberOfLines={1}
+              >
+                {reference}
+              </Text>
+            </View>
           </View>
         </View>
-
+        {sceduelstartAtLabel && (
+          <View
+            className="mt-2 rounded-xl px-3 py-2.5"
+            style={{
+              backgroundColor: isDark
+                ? uiColors.surface.overlayDark95
+                : uiColors.surface.warmCardLight,
+            }}
+          >
+            <View className="flex-row items-center">
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color={theme.colors.primary}
+              />
+              <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">
+                {sceduelstartAtLabel}
+              </Text>
+            </View>
+          </View>
+        )}
         <View
           className="mt-2 rounded-xl px-3 py-2.5"
-          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : '#F5EFEC' }}
+          style={{
+            backgroundColor: isDark
+              ? uiColors.surface.overlayDark95
+              : uiColors.surface.warmCardLight,
+          }}
         >
           <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={16} color={theme.colors.primary} />
-            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">{addressLabel}</Text>
+            <Ionicons
+              name="location-outline"
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">
+              {addressLabel}
+            </Text>
           </View>
         </View>
 
-        <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : '#D1D5DB' }} />
+        <View
+          className="my-4 h-px"
+          style={{
+            backgroundColor: isDark
+              ? uiColors.surface.overlayDark14
+              : uiColors.surface.borderNeutralLight,
+          }}
+        />
 
         <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
+          <View className="mr-3 flex-1 flex-row items-center">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : '#F6EFEA' }}
+              style={{
+                backgroundColor: isDark
+                  ? uiColors.surface.overlayDark95
+                  : uiColors.surface.warmPanelLight,
+              }}
             >
-              <Text className="text-sm font-bold text-primary">{workerInitial}</Text>
+              <Text className="text-sm font-bold text-primary">
+                {workerInitial}
+              </Text>
             </View>
-            <View className="ml-2.5">
-              <Text className="text-base font-semibold text-baseDark dark:text-white">{workerName}</Text>
-              <Text className="text-xs text-baseDark/55 dark:text-white/70">Worker</Text>
+            <View className="ml-2.5 flex-1">
+              <Text
+                className="text-base font-semibold text-baseDark dark:text-white"
+                numberOfLines={1}
+              >
+                {workerName}
+              </Text>
+              <Text
+                className="text-xs text-baseDark/55 dark:text-white/70"
+                numberOfLines={1}
+              >
+                {workerSubtitle}
+              </Text>
             </View>
           </View>
           <View className="flex-row items-center">
-            <Text className="text-xl font-extrabold text-primary">₹{item.totalAmount}</Text>
-            <View
-              className="ml-2 h-8 w-8 items-center justify-center rounded-full"
-              style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : '#F6EFEA' }}
-            >
-              <Ionicons name="call-outline" size={15} color={theme.colors.primary} />
-            </View>
+            <Text className="text-xl font-extrabold text-primary">
+              {amountLabel}
+            </Text>
           </View>
         </View>
 

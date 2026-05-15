@@ -15,7 +15,7 @@ import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import type { Booking } from '@/types/api';
 import { BOOKINGS_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { getErrorMessage } from '@/utils';
+import { buildCustomerBookingsListPath, getErrorMessage } from '@/utils';
 
 type TabType = 'ALL' | 'ONGOING' | 'COMPLETED';
 const LIMIT = 10;
@@ -27,26 +27,21 @@ export function BookingsScreen() {
   const [items, setItems] = useState<Booking[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType }) => {
-    const { nextPage, append, tab } = options;
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType; refresh?: boolean }) => {
+    const { nextPage, append, tab, refresh } = options;
 
     try {
       setError(null);
       if (append) setLoadingMore(true);
+      else if (refresh) setRefreshing(true);
       else setLoading(true);
 
-      let statusQuery = '';
-      if (tab === 'ONGOING') {
-        statusQuery = '&includeBookingStatus=IN_PROGRESS';
-      } else if (tab === 'COMPLETED') {
-        statusQuery = '&includeBookingStatus=COMPLETED';
-      }
-
-      const url = `/bookings?role=CUSTOMER&page=${nextPage}&limit=${LIMIT}${statusQuery}`;
+      const url = buildCustomerBookingsListPath({ page: nextPage, limit: LIMIT, tab });
       const response = await apiGet<{ data: Booking[] }>(url, { auth: true });
       const fetchedBookings = response.data || [];
 
@@ -58,13 +53,14 @@ export function BookingsScreen() {
       setHasMore(false);
     } finally {
       setLoading(false);
+      setRefreshing(false);
       setLoadingMore(false);
     }
   }, []);
 
   const onRefresh = useCallback(async () => {
     setHasMore(true);
-    await runFetch({ nextPage: 1, append: false, tab: activeTab });
+    await runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true });
   }, [activeTab, runFetch]);
 
   const refreshControlProps = useBrandRefreshControl(onRefresh);
@@ -75,11 +71,51 @@ export function BookingsScreen() {
   }, [activeTab, runFetch]);
 
   const listEmpty = !loading && !error && items.length === 0;
+  const listContent = loading && items.length === 0 ? (
+    <LoadingState minHeight={300} message="Loading bookings..." />
+  ) : error && items.length === 0 ? (
+    <ListErrorState
+      title={error}
+      description="Pull to refresh and try again."
+      actionLabel="Retry"
+      onAction={() => void onRefresh()}
+    />
+  ) : items.length > 0 ? (
+    <View>
+      {items.map(item => (
+        <CustomerBookingCard
+          key={item.id}
+          item={item}
+          onPress={(id) => navigation.navigate(BOOKINGS_SCREEN.DETAILS, { bookingId: id })}
+        />
+      ))}
+
+      {hasMore ? (
+        <View className="my-4">
+          <LoadMoreButton
+            label={loadingMore ? "Loading more..." : "Load more"}
+            loading={loadingMore}
+            disabled={loading || refreshing}
+            onPress={() => {
+              if (loadingMore || loading || refreshing) return;
+              void runFetch({ nextPage: page + 1, append: true, tab: activeTab });
+            }}
+          />
+        </View>
+      ) : null}
+    </View>
+  ) : listEmpty ? (
+    <ListEmptyState
+      title="No bookings found"
+      description="You don't have any bookings in this category yet."
+      icon="calendar-outline"
+    />
+  ) : null;
 
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
-      refreshControl={<RefreshControl {...refreshControlProps} />}
+      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
     >
       <SplitGradientTitle
         prefix={APP_TEXT.main.bookings.titlePrefix}
@@ -101,52 +137,7 @@ export function BookingsScreen() {
       />
 
       <View className="mt-4">
-        {loading && items.length === 0 ? (
-          <LoadingState minHeight={300} message="Loading bookings..." />
-        ) : null}
-
-        {error && items.length === 0 ? (
-          <ListErrorState
-            title={error}
-            description="Pull to refresh and try again."
-            actionLabel="Retry"
-            onAction={() => void onRefresh()}
-          />
-        ) : null}
-
-        {!loading && items.length > 0 ? (
-          <View>
-            {items.map(item => (
-              <CustomerBookingCard
-                key={item.id}
-                item={item}
-                onPress={(id) => navigation.navigate(BOOKINGS_SCREEN.DETAILS, { bookingId: id })}
-              />
-            ))}
-
-            {hasMore ? (
-              <View className="my-4">
-                <LoadMoreButton
-                  label={loadingMore ? "Loading more..." : "Load more"}
-                  loading={loadingMore}
-                  disabled={loading}
-                  onPress={() => {
-                    if (loadingMore || loading) return;
-                    void runFetch({ nextPage: page + 1, append: true, tab: activeTab });
-                  }}
-                />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {listEmpty ? (
-          <ListEmptyState
-            title="No bookings found"
-            description="You don't have any bookings in this category yet."
-            icon="calendar-outline"
-          />
-        ) : null}
+        {listContent}
       </View>
     </GradientScreen>
   );

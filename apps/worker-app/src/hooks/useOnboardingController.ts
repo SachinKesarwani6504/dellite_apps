@@ -17,6 +17,12 @@ import { OnboardingContextType } from '@/types/onboarding-context';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 import { extractWorkerOnboardingFlags, resolveWorkerOnboarding } from '@/utils/worker-onboarding';
 
+function logWorkerOnboardingFlow(step: string, payload?: unknown) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log(`[worker-onboarding][flow] ${step}`, payload);
+}
+
 export function useOnboardingController(): OnboardingContextType {
   const {
     status,
@@ -88,7 +94,7 @@ export function useOnboardingController(): OnboardingContextType {
   }, []);
 
   const refreshOnboardingRoute = useCallback(async (forceServer = false): Promise<OnboardingRouteName> => {
-    if (status === AuthStatus.PHONE_VERIFIED) {
+    if (status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED) {
       setOnboardingRoute(ONBOARDING_SCREENS.identity);
       setIsOnboardingActive(true);
       return ONBOARDING_SCREENS.identity;
@@ -122,7 +128,7 @@ export function useOnboardingController(): OnboardingContextType {
   }, [applyWorkerFlags, me?.onboarding, refreshMe, status]);
 
   useEffect(() => {
-    if (status === AuthStatus.PHONE_VERIFIED) {
+    if (status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED) {
       setOnboardingRoute(ONBOARDING_SCREENS.identity);
       setIsOnboardingActive(true);
       setLoading(false);
@@ -201,14 +207,32 @@ export function useOnboardingController(): OnboardingContextType {
     }
   }, []);
 
-  const completeOnboardingFlow = useCallback(() => {
+  const completeOnboardingFlow = useCallback(async () => {
+    await updateWorkerProfile(
+      { hasSeenOnboardingWelcomeScreen: true },
+      { showSuccessToast: false, showErrorToast: false },
+    );
     markOnboardingStepSeen('WELCOME');
-  }, [markOnboardingStepSeen]);
+    try {
+      await refreshMe();
+    } catch {
+      // The local onboarding state is already complete; a later refresh can reconcile.
+    }
+  }, [markOnboardingStepSeen, refreshMe]);
 
   const completeIdentityProfile = useCallback(async (payload: WorkerProfilePayload) => {
+    logWorkerOnboardingFlow('completeIdentityProfile:start', {
+      status,
+      payload,
+      onboardingRoute,
+      isOnboardingActive,
+      me,
+    });
     await completeOnboarding(payload);
+    logWorkerOnboardingFlow('completeIdentityProfile:completeOnboarding:success');
     markOnboardingStepSeen('BASIC_PROFILE');
-  }, [completeOnboarding, markOnboardingStepSeen]);
+    logWorkerOnboardingFlow('completeIdentityProfile:marked-basic-profile');
+  }, [completeOnboarding, isOnboardingActive, markOnboardingStepSeen, me, onboardingRoute, status]);
 
   const getRequiredCertificates = useCallback(async (): Promise<WorkerCertificateCard[]> => {
     const statusData = await getWorkerStatus<{
