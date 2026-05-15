@@ -98,7 +98,7 @@ export function EditProfileScreen({ navigation }: Props) {
     );
   })();
 
-  const isValid = isValidFirstName(firstName) && isValidLastName(lastName);
+  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && selectedCities.length > 0;
 
   const onPickProfileImage = async () => {
     if (saving) return;
@@ -131,14 +131,16 @@ export function EditProfileScreen({ navigation }: Props) {
     if (!isValid || saving) return;
     setSaving(true);
     try {
-      await updateWorkerProfile({
+      const payload = {
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
         email: email.trim() || undefined,
         gender,
         workerOperatingCities: selectedCities,
         profileImage: profileImage ?? undefined,
-      });
+      };
+      console.log("[EditProfileScreen] updateWorkerProfile Payload:", payload);
+      await updateWorkerProfile(payload);
       await refreshMe();
       navigation.goBack();
     } catch {

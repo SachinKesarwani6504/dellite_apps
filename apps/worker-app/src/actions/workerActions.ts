@@ -333,6 +333,12 @@ export async function getWorkerById<T = unknown>(id: string) {
 
 export async function createWorkerProfile(payload: WorkerProfilePayload) {
   // Example: await createWorkerProfile({ firstName: 'Sachin', aadhaarFront: { uri, name, type }, aadhaarBack: { uri, name, type } });
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+
   const formData = toFormData(
     {
       firstName: payload.firstName,
@@ -346,6 +352,7 @@ export async function createWorkerProfile(payload: WorkerProfilePayload) {
       aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
       aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
       aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+      workerOperatingCities,
     },
     {
       profileImage: payload.profileImage,
@@ -353,14 +360,6 @@ export async function createWorkerProfile(payload: WorkerProfilePayload) {
       aadhaarBack: payload.aadhaarBack,
     },
   );
-  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
-    ? payload.workerOperatingCities
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .map(value => value.trim().toUpperCase())
-    : [];
-  workerOperatingCities.forEach(city => {
-    formData.append('workerOperatingCities', city);
-  });
 
   const response = await apiPost<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',
@@ -382,6 +381,12 @@ export async function updateWorkerProfile(
   options?: { showSuccessToast?: boolean; showErrorToast?: boolean },
 ) {
   // Example: await updateWorkerProfile({ firstName: 'Sachin', preferredLanguage: 'EN', profileImage: { uri, name, type } });
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+
   const formData = toFormData(
     {
       firstName: payload.firstName,
@@ -398,6 +403,7 @@ export async function updateWorkerProfile(
       aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
       aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
       aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+      workerOperatingCities,
     },
     {
       profileImage: payload.profileImage,
@@ -405,14 +411,6 @@ export async function updateWorkerProfile(
       aadhaarBack: payload.aadhaarBack,
     },
   );
-  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
-    ? payload.workerOperatingCities
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .map(value => value.trim().toUpperCase())
-    : [];
-  workerOperatingCities.forEach(city => {
-    formData.append('workerOperatingCities', city);
-  });
 
   const response = await apiPatch<ApiEnvelope<unknown>, FormData>(
     '/worker/profile',

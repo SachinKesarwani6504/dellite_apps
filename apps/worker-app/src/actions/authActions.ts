@@ -343,6 +343,12 @@ export async function createProfileWithPhoneToken(
   payload: WorkerProfilePayload,
 ): Promise<CreateWorkerProfileResponse> {
   logWorkerAuthAction('createProfileWithPhoneToken:payload', payload);
+  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
+    ? payload.workerOperatingCities
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map(value => value.trim().toUpperCase())
+    : [];
+
   const formData = toFormData(
     {
       firstName: payload.firstName,
@@ -356,6 +362,7 @@ export async function createProfileWithPhoneToken(
       aadhaarFrontFilename: payload.aadhaarFrontFilename ?? payload.aadhaarFrontFileName,
       aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
       aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
+      workerOperatingCities,
     },
     {
       profileImage: payload.profileImage,
@@ -363,14 +370,9 @@ export async function createProfileWithPhoneToken(
       aadhaarBack: payload.aadhaarBack,
     },
   );
-  const workerOperatingCities = Array.isArray(payload.workerOperatingCities)
-    ? payload.workerOperatingCities
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .map(value => value.trim().toUpperCase())
-    : [];
-  workerOperatingCities.forEach(city => {
-    formData.append('workerOperatingCities', city);
-  });
+  console.log("**********************************************************")
+console.log("[createProfileWithPhoneToken] FormData entries:" , formData);
+  console.log("**********************************************************")
 
   const workerResponse = await apiPost<ApiEnvelope<CreateWorkerProfileResponse> | CreateWorkerProfileResponse, FormData>(
     '/worker/profile',

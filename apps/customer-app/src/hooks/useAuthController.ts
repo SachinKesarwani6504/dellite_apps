@@ -371,22 +371,14 @@ export function useAuthController(): AuthContextType {
       }));
 
       try {
-        const me = await authActions.getMe();
-        const nextUser = normalizeUserFromMeResponse(me);
-        const hasSeenWelcome = extractBoolean(nextUser.hasSeenOnboardingWelcomeScreen)
-          ?? extractBoolean(nextUser.onboarding?.hasSeenOnboardingWelcomeScreen);
-        setAuthState((prev) => ({
-          ...prev,
-          user: nextUser,
-          status: hasSeenWelcome === true
-            ? AUTH_STATUS.AUTHENTICATED
-            : AUTH_STATUS.POST_ONBOARDING_WELCOME,
-        }));
+        // Reuse shared refresh pipeline so concurrent onboarding checks
+        // join the same in-flight `/auth/me` call.
+        await refreshMe();
       } catch {
         // Keep optimistic onboarding-forward state. A later refresh can reconcile.
       }
     },
-    [authState.phoneToken, ensureFirebaseSession],
+    [authState.phoneToken, ensureFirebaseSession, refreshMe],
   );
 
   const enterMainTabs = useCallback(async () => {
@@ -518,8 +510,16 @@ export function useAuthController(): AuthContextType {
             user: nextUser,
           });
           await clearOnboardingPhoneToken();
-        } catch {
-          await logout();
+        } catch (error) {
+          if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+            await logout();
+          } else if (mounted) {
+            setAuthState((prev) => ({
+              ...prev,
+              status: AUTH_STATUS.AUTHENTICATED,
+              tokens,
+            }));
+          }
         }
       } catch {
         if (mounted) {
