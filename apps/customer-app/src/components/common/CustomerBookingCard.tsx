@@ -39,7 +39,7 @@ export function CustomerBookingCard({
   const bookingTypeLabel = item.bookingType
     ? formatTitle(item.bookingType)
     : "Booking";
-  const sceduelstartAtLabel = item.scheduledStartAt
+  const scheduledStartAtLabel = item.scheduledStartAt
     ? getCustomerBookingScheduleLabel(item)
     : null;
   return (
@@ -127,7 +127,7 @@ export function CustomerBookingCard({
             </View>
           </View>
         </View>
-        {sceduelstartAtLabel && (
+        {scheduledStartAtLabel && (
           <View
             className="mt-2 rounded-xl px-3 py-2.5"
             style={{
@@ -143,7 +143,7 @@ export function CustomerBookingCard({
                 color={theme.colors.primary}
               />
               <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">
-                {sceduelstartAtLabel}
+                {scheduledStartAtLabel}
               </Text>
             </View>
           </View>

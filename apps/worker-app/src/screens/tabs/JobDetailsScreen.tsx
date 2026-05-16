@@ -46,8 +46,6 @@ const JOB_DETAILS_TABS = [
   { label: 'History', value: 'HISTORY', iconName: 'time-outline' as const },
 ] as const;
 
-type JobDetailsTabValue = (typeof JOB_DETAILS_TABS)[number]['value'];
-
 function getLineSelectedValue(line: BookingDetailsServiceLine) {
   if (isBookingHourlyLine(line)) {
     const minutes = getBookingLineDurationMinutes(line);
@@ -75,7 +73,7 @@ function getInviteStatusFromDetails(details: unknown): WorkerJobInviteStatus | n
 
 export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<JobStackParamList, 'JobDetails'>) {
   const isDark = useColorScheme() === 'dark';
-  const [activeTab, setActiveTab] = useState<JobDetailsTabValue>('BILL');
+  const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
   const [selectedVehicleMode, setSelectedVehicleMode] = useState<RouteVehicleMode>('CAR');
   const [refreshing, setRefreshing] = useState(false);
   const [inviteActionLoading, setInviteActionLoading] = useState<null | 'ACCEPTED' | 'REJECTED'>(null);
