@@ -52,7 +52,7 @@ export function buildWorkerJobsListPath(params: {
   const excludeInviteStatus: WorkerJobInviteStatus[] = [];
 
   if (params.tab === 'NEW_JOBS') {
-    includeInviteStatus.push('NEW_JOB_REQUEST', 'VIEWED');
+    includeInviteStatus.push('NEW_JOB_REQUEST' ,"VIEWED");
   } else if (params.tab === 'ONGOING') {
     includeBookingStatus.push('CONFIRMED', 'IN_PROGRESS');
     includeInviteStatus.push('ACCEPTED');

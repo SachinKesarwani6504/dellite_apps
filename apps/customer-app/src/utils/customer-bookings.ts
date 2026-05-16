@@ -139,7 +139,7 @@ export function buildCustomerBookingsListPath(params: {
   query.set('limit', String(params.limit));
 
   const includedStatuses: BookingStatus[] = params.tab === 'ONGOING'
-    ? ['CREATED', 'SEARCHING', 'CONFIRMED', 'IN_PROGRESS']
+    ? ['CONFIRMED', 'IN_PROGRESS']
     : params.tab === 'COMPLETED'
       ? ['COMPLETED']
       : [];

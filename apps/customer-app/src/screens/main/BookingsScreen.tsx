@@ -67,11 +67,15 @@ export function BookingsScreen() {
 
   useEffect(() => {
     setHasMore(true);
+    setItems([]);
+    setPage(1);
+    setError(null);
     void runFetch({ nextPage: 1, append: false, tab: activeTab });
   }, [activeTab, runFetch]);
 
   const listEmpty = !loading && !error && items.length === 0;
-  const listContent = loading && items.length === 0 ? (
+  const showInitialLoader = loading && !loadingMore && !refreshing;
+  const listContent = showInitialLoader ? (
     <LoadingState minHeight={300} message="Loading bookings..." />
   ) : error && items.length === 0 ? (
     <ListErrorState

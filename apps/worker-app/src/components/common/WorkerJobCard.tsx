@@ -1,21 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
-import { StatusBadge } from '@/components/common/StatusBadge';
 import type { WorkerJobListItem } from '@/types/jobs';
 import {
   getWorkerJobAddressLabel,
   getWorkerJobBookingAmountLabel,
-  getWorkerJobCategoryLabel,
   getWorkerJobCustomerInitial,
   getWorkerJobCustomerName,
-  getWorkerJobCustomerSubtitle,
   getWorkerJobPayoutAmountLabel,
   getWorkerJobReferenceLabel,
   getWorkerJobScheduleLabel,
-  getWorkerJobServiceTitle,
-  getWorkerJobStatusBadgeState,
-  getWorkerJobStatusLabel,
 } from '@/utils/worker-jobs';
+import { formatTitle } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type WorkerJobCardProps = {
@@ -25,19 +20,16 @@ type WorkerJobCardProps = {
 
 export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
   const isDark = useColorScheme() === 'dark';
-  const serviceTitle = getWorkerJobServiceTitle(item);
-  const categoryLabel = getWorkerJobCategoryLabel(item);
-  const bookingTypeLabel = item.booking.bookingType ? item.booking.bookingType.replace('_', ' ') : 'Booking';
+  const firstService = item.services?.[0];
+  const subCategoryName = formatTitle(firstService?.subCategory?.trim() || 'Service');
+  const bookingTypeLabel = item.booking.bookingType ? formatTitle(item.booking.bookingType) : 'Booking';
   const referenceLabel = getWorkerJobReferenceLabel(item);
   const scheduleLabel = item.booking.scheduledStartAt ? getWorkerJobScheduleLabel(item) : null;
   const addressLabel = getWorkerJobAddressLabel(item);
   const customerName = getWorkerJobCustomerName(item);
   const customerInitial = getWorkerJobCustomerInitial(item);
-  const customerSubtitle = getWorkerJobCustomerSubtitle(item);
   const bookingAmountLabel = getWorkerJobBookingAmountLabel(item);
   const payoutAmountLabel = getWorkerJobPayoutAmountLabel(item);
-  const statusBadgeState = getWorkerJobStatusBadgeState(item);
-  const statusLabel = getWorkerJobStatusLabel(item);
   const jobId = item.booking.id;
 
   return (
@@ -46,16 +38,36 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
       style={{
         backgroundColor: isDark ? palette.dark.card : palette.light.card,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight,
+        borderTopWidth: 4,
+        borderTopColor: theme.colors.primary,
       }}
     >
-      <View className="absolute left-0 top-0 h-full w-1.5" style={{ backgroundColor: theme.colors.primary }} />
-      <Pressable onPress={() => onPress(jobId)} className="p-4 pl-5">
+      <View className="p-4">
         <View className="flex-row items-start justify-between">
           <View className="mr-3 flex-1">
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{serviceTitle}</Text>
-            <Text className="mt-1 text-sm text-baseDark/55 dark:text-white/70">{categoryLabel}</Text>
+            <Text className="text-lg font-bold text-baseDark dark:text-white">{subCategoryName}</Text>
+            <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+              {(item.services || []).map((service) => (
+                <View
+                  key={service.id}
+                  className="rounded-full px-2.5 py-1"
+                  style={{
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+                  }}
+                >
+                  <Text className="text-xs font-semibold text-primary">{formatTitle(service.serviceName ?? undefined)}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <StatusBadge status={statusBadgeState} label={statusLabel} />
+          <View
+            className="rounded-full px-3 py-1.5"
+            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmCardLight }}
+          >
+            <Text className="text-xs font-bold text-primary" numberOfLines={1}>
+              {referenceLabel}
+            </Text>
+          </View>
         </View>
 
         <View className="mt-3 gap-2">
@@ -117,14 +129,19 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
                 {customerName}
               </Text>
               <Text className="text-xs text-baseDark/55 dark:text-white/70" numberOfLines={1}>
-                {customerSubtitle}
+                Customer
               </Text>
             </View>
           </View>
-          <View className="items-end">
+        </View>
+
+        <View className="mt-3 gap-2">
+          <View className="flex-row items-center justify-between">
             <Text className="text-[11px] font-semibold uppercase text-baseDark/60 dark:text-white/70">Booking Amount</Text>
             <Text className="text-base font-extrabold text-baseDark dark:text-white">{bookingAmountLabel}</Text>
-            <Text className="mt-1 text-[11px] font-semibold uppercase text-baseDark/60 dark:text-white/70">Your Payout</Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[11px] font-semibold uppercase text-baseDark/60 dark:text-white/70">Your Payout</Text>
             <Text className="text-lg font-extrabold text-primary">{payoutAmountLabel}</Text>
           </View>
         </View>
@@ -136,7 +153,7 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
         >
           <Text className="text-base font-bold text-white">View Job</Text>
         </Pressable>
-      </Pressable>
+      </View>
     </View>
   );
 }

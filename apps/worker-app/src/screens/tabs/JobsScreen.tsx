@@ -68,11 +68,15 @@ export function JobsScreen() {
 
   useEffect(() => {
     setHasMore(true);
+    setItems([]);
+    setPage(1);
+    setError(null);
     void runFetch({ nextPage: 1, append: false, tab: activeTab });
   }, [activeTab, runFetch]);
 
   const listEmpty = !loading && !error && items.length === 0;
-  const listContent = loading && items.length === 0 ? (
+  const showInitialLoader = loading && !loadingMore && !refreshing;
+  const listContent = showInitialLoader ? (
     <LoadingState minHeight={300} message="Loading jobs..." />
   ) : error && items.length === 0 ? (
     <ListErrorState
@@ -87,7 +91,7 @@ export function JobsScreen() {
         <WorkerJobCard
           key={item.booking.id}
           item={item}
-          onPress={(jobId) => navigation.navigate(JOB_STACK_SCREENS.details, { jobId })}
+          onPress={(jobId) => navigation.navigate(JOB_STACK_SCREENS.details, { jobId, inviteStatus: item.invite?.inviteStatus ?? null })}
         />
       ))}
 

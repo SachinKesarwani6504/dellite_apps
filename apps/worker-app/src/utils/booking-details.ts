@@ -1,6 +1,5 @@
 import type {
   BookingDetailsAddress,
-  BookingDetailsAssignment,
   BookingDetailsResponse,
   BookingDetailsRole,
   BookingDetailsServiceLine,
@@ -20,7 +19,11 @@ export const PREVIEW_WORKER_ROUTE_COORDINATES: RouteCoordinates = {
 };
 
 export function getBookingDetailsPath(bookingId: string, role: BookingDetailsRole) {
-  return `/booking/${encodeURIComponent(bookingId)}?role=${role}`;
+  const normalizedBookingId = encodeURIComponent(bookingId);
+  if (role === 'WORKER') {
+    return `/job/${normalizedBookingId}`;
+  }
+  return `/booking/${normalizedBookingId}?role=${role}`;
 }
 
 function toNumber(value: string | number | null | undefined) {
@@ -135,12 +138,8 @@ export function getBookingUserName(user: BookingDetailsUser | null | undefined) 
   return fullName || user?.phone || 'Not assigned';
 }
 
-export function getLatestAssignmentStatus(assignments: BookingDetailsAssignment[] | undefined) {
-  return assignments?.[0]?.assignmentStatus ?? null;
-}
-
 export function getBookingStatusLabel(details: BookingDetailsResponse | null | undefined) {
-  return titleCaseBookingValue(details?.booking.bookingStatus ?? getLatestAssignmentStatus(details?.assignments));
+  return titleCaseBookingValue(details?.booking.bookingStatus);
 }
 
 export function getBookingLineKey(line: BookingDetailsServiceLine) {

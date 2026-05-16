@@ -46,15 +46,13 @@ export function BookingDetailsBillTab() {
           </Text>
         </View>
         <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
-        <View className="flex-row items-end justify-between">
-          <View>
-            <Text className="text-xs font-extrabold uppercase" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {APP_TEXT.main.bookingFlow.quoteTotalPay}
-            </Text>
-            <Text className="mt-1 text-4xl font-extrabold" style={{ color: theme.colors.primary }}>
-              {formatBookingMoney(details.booking.totalAmount)}
-            </Text>
-          </View>
+        <View className="flex-row items-center justify-between px-1 py-1">
+          <Text className="text-sm font-bold text-baseDark dark:text-white">
+            {APP_TEXT.main.bookingFlow.quoteTotalPay}
+          </Text>
+          <Text className="text-2xl font-extrabold" style={{ color: theme.colors.caution }}>
+            {formatBookingMoney(details.booking.totalAmount)}
+          </Text>
         </View>
       </View>
     </View>

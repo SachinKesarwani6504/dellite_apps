@@ -5,7 +5,6 @@ export type RouteCoordinates = {
 
 export type RouteVehicleMode =
   | 'WALK'
-  | 'CYCLE'
   | 'TWO_WHEELER'
   | 'CAR'
   | 'UNKNOWN';

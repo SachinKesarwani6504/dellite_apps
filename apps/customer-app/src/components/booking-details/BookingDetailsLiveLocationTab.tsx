@@ -1,4 +1,4 @@
-import { Text, View, useColorScheme } from 'react-native';
+import { View, useColorScheme } from 'react-native';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { WorkerLiveRouteMap } from '@/components/common/WorkerLiveRouteMap';
 import { useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
@@ -10,7 +10,6 @@ import {
   getBookingWorkerId,
   getTrackableWorkerCoordinates,
 } from '@/utils/booking-details';
-import { palette, uiColors } from '@/utils/theme';
 
 export function BookingDetailsLiveLocationTab() {
   const isDark = useColorScheme() === 'dark';
@@ -26,6 +25,7 @@ export function BookingDetailsLiveLocationTab() {
     vehicleMode: workerLiveState.location?.vehicleMode ?? 'UNKNOWN',
     enabled: canTrackWorker,
   });
+  const vehicleMode = workerLiveState.location?.vehicleMode ?? 'UNKNOWN';
 
   if (!canTrackWorker) {
     return (
@@ -55,23 +55,13 @@ export function BookingDetailsLiveLocationTab() {
     <View className="mt-5">
       <WorkerLiveRouteMap
         workerLocation={workerLiveState.location}
+        vehicleMode={vehicleMode}
         destinationCoordinates={destinationCoordinates}
         route={routeState.route}
         isDark={isDark}
         loading={workerLiveState.loading || routeState.loading}
         error={routeState.error ?? workerLiveState.error}
       />
-      <View
-        className="mt-3 rounded-2xl border px-4 py-3"
-        style={{
-          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-        }}
-      >
-        <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          Tracking updates come from worker live location while the assignment remains active.
-        </Text>
-      </View>
     </View>
   );
 }

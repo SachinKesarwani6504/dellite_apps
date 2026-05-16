@@ -7,7 +7,7 @@ import { resolveWorkerIdFromAuthUser } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
 
-const workerVehicleModeOptions: WorkerVehicleMode[] = ['CAR', 'TWO_WHEELER', 'CYCLE', 'WALK', 'UNKNOWN'];
+const workerVehicleModeOptions: WorkerVehicleMode[] = ['CAR', 'TWO_WHEELER', 'WALK', 'UNKNOWN'];
 
 export function WorkerHomeScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -31,7 +31,6 @@ export function WorkerHomeScreen() {
   const getWorkerVehicleModeLabel = (mode: WorkerVehicleMode) => {
     if (mode === 'CAR') return APP_TEXT.home.liveTracking.vehicleModeCar;
     if (mode === 'TWO_WHEELER') return APP_TEXT.home.liveTracking.vehicleModeTwoWheeler;
-    if (mode === 'CYCLE') return APP_TEXT.home.liveTracking.vehicleModeCycle;
     if (mode === 'WALK') return APP_TEXT.home.liveTracking.vehicleModeWalk;
     return APP_TEXT.home.liveTracking.vehicleModeUnknown;
   };

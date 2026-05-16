@@ -16,16 +16,6 @@ export type BookingDetailsPaymentStatus =
   | 'REFUNDED'
   | 'CANCELLED';
 
-export type BookingDetailsAssignmentStatus =
-  | 'PENDING'
-  | 'ACCEPTED'
-  | 'EN_ROUTE'
-  | 'ARRIVED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'REJECTED';
-
 export type BookingDetailsPriceType = 'VISIT' | 'HOURLY' | 'DAILY' | 'PER_UNIT';
 
 export type BookingDetailsPriceComputationMode = 'FLAT' | 'PER_BLOCK' | 'PER_MINUTE';
@@ -137,14 +127,12 @@ export type BookingDetailsDiscount = {
   title?: string | null;
 };
 
-export type BookingDetailsAssignment = {
-  id?: string | null;
-  assignmentStatus?: BookingDetailsAssignmentStatus | string | null;
-};
-
 export type BookingDetailsHistoryItem = {
-  id?: string | null;
-  historyType?: string | null;
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown> | null;
 };
 
 export type BookingDetailsCommission = {
@@ -160,12 +148,15 @@ export type BookingDetailsResponse = {
   booking: BookingDetailsBooking;
   customerInfo?: BookingDetailsCustomerInfo | null;
   workerInfo?: BookingDetailsWorkerInfo | null;
+  invite?: {
+    id?: string | null;
+    inviteStatus?: string | null;
+  } | null;
   address?: BookingDetailsAddress | null;
   serviceLines?: BookingDetailsServiceLine[];
   extraCharges?: BookingDetailsExtraCharge[];
   discounts?: BookingDetailsDiscount[];
-  assignments?: BookingDetailsAssignment[];
-  history?: BookingDetailsHistoryItem[];
+  history: BookingDetailsHistoryItem[];
   commissions?: BookingDetailsCommission[];
 };
 

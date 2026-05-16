@@ -9,9 +9,14 @@ export type FirebaseRuntimeConfig = {
   measurementId?: string;
 };
 
-function readEnvValue(key: string): string {
-  const value = process.env[key];
-  return typeof value === 'string' ? value.trim() : '';
+function readEnvValue(...keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return '';
 }
 
 function normalizeDatabaseUrl(value: string): string {
@@ -19,14 +24,14 @@ function normalizeDatabaseUrl(value: string): string {
 }
 
 export const firebaseConfig: FirebaseRuntimeConfig = {
-  apiKey: readEnvValue('EXPO_PUBLIC_FIREBASE_API_KEY'),
-  authDomain: readEnvValue('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-  databaseURL: normalizeDatabaseUrl(readEnvValue('EXPO_PUBLIC_FIREBASE_DATABASE_URL')),
-  projectId: readEnvValue('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
-  storageBucket: readEnvValue('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: readEnvValue('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: readEnvValue('EXPO_PUBLIC_FIREBASE_APP_ID'),
-  measurementId: readEnvValue('EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID') || undefined,
+  apiKey: readEnvValue('EXPO_PUBLIC_FIREBASE_API_KEY', 'FIREBASE_API_KEY'),
+  authDomain: readEnvValue('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 'FIREBASE_AUTH_DOMAIN'),
+  databaseURL: normalizeDatabaseUrl(readEnvValue('EXPO_PUBLIC_FIREBASE_DATABASE_URL', 'FIREBASE_DATABASE_URL')),
+  projectId: readEnvValue('EXPO_PUBLIC_FIREBASE_PROJECT_ID', 'FIREBASE_PROJECT_ID'),
+  storageBucket: readEnvValue('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET', 'FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: readEnvValue('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_MESSAGING_SENDER_ID'),
+  appId: readEnvValue('EXPO_PUBLIC_FIREBASE_APP_ID', 'FIREBASE_APP_ID'),
+  measurementId: readEnvValue('EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID', 'FIREBASE_MEASUREMENT_ID') || undefined,
 };
 
 const REQUIRED_FIREBASE_CONFIG_KEYS: ReadonlyArray<keyof FirebaseRuntimeConfig> = [
@@ -48,6 +53,6 @@ export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0;
 export function assertFirebaseConfig() {
   if (isFirebaseConfigured) return;
   throw new Error(
-    `[firebase-config] Missing EXPO_PUBLIC firebase env keys: ${missingFirebaseConfigKeys.join(', ')}`,
+    `[firebase-config] Missing firebase env keys: ${missingFirebaseConfigKeys.join(', ')}. Provide EXPO_PUBLIC_FIREBASE_* (preferred) or FIREBASE_* values.`,
   );
 }

@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<StatusBadgeType, { light: string; dark: string; text
 export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {
   const isDark = useColorScheme() === 'dark';
   const colors = STATUS_COLORS[status];
+  const textColor = isDark ? theme.colors.accent : colors.text;
   return (
     <View
       className="flex-row items-center rounded-full px-3 py-1"
@@ -33,10 +34,15 @@ export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.status.subtleBorderLight,
       }}
     >
-      <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? (isDark ? theme.colors.accent : colors.text) }} />
-      <Text className="text-xs font-bold" style={{ color: isDark ? theme.colors.accent : colors.text }}>
+      <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? textColor }} />
+      <Text className="text-xs font-bold" style={{ color: textColor }}>
         {label ?? STATUS_LABELS[status]}
       </Text>
     </View>
   );
+}
+
+export function getStatusBadgeTextColor(status: StatusBadgeType, isDark: boolean) {
+  const colors = STATUS_COLORS[status];
+  return isDark ? theme.colors.accent : colors.text;
 }

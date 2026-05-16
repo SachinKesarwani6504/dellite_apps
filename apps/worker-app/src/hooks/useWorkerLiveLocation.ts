@@ -868,8 +868,8 @@ export function useWorkerLiveLocation({
     }));
 
     const workerIdValue = workerIdRef.current;
-    if (!workerIdValue || !isOnlineRef.current) {
-      log('updateVehicleMode:skip-not-online-or-no-worker-id');
+    if (!workerIdValue) {
+      log('updateVehicleMode:skip-no-worker-id');
       return;
     }
 
