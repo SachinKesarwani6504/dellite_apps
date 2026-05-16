@@ -3,6 +3,7 @@ import { Pressable, Text, View, useColorScheme } from "react-native";
 
 import { StatusBadge, getStatusBadgeTextColor } from "@/components/common/StatusBadge";
 import type { CustomerBookingCardProps } from "@/types/component-types";
+import { CUSTOMER_BOOKING_TYPE } from "@/types/booking";
 import { formatTitle } from "@/utils";
 import {
   getCustomerBookingAddressLabel,
@@ -91,7 +92,7 @@ export function CustomerBookingCard({
             >
               <Ionicons
                 name={
-                  item.bookingType === "INSTANT"
+                  item.bookingType === CUSTOMER_BOOKING_TYPE.INSTANT
                     ? "flash-outline"
                     : "calendar-outline"
                 }

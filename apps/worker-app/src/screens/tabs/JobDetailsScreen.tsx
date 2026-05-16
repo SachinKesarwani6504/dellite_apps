@@ -18,6 +18,7 @@ import { useBookingDetailsController } from '@/hooks/useBookingDetailsController
 import { useWorkerLiveLocationReader } from '@/hooks/useWorkerLiveLocationReader';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import type { BookingDetailsServiceLine } from '@/types/booking-details';
+import { BOOKING_STATUS, CUSTOMER_BOOKING_TYPE, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
 import type { RouteVehicleMode } from '@/types/live-route';
 import type { JobStackParamList } from '@/types/navigation';
@@ -71,12 +72,27 @@ function getInviteStatusFromDetails(details: unknown): WorkerJobInviteStatus | n
   return typeof inviteStatus === 'string' ? (inviteStatus as WorkerJobInviteStatus) : null;
 }
 
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // metres
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<JobStackParamList, 'JobDetails'>) {
   const isDark = useColorScheme() === 'dark';
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
   const [selectedVehicleMode, setSelectedVehicleMode] = useState<RouteVehicleMode>('CAR');
   const [refreshing, setRefreshing] = useState(false);
-  const [inviteActionLoading, setInviteActionLoading] = useState<null | 'ACCEPTED' | 'REJECTED'>(null);
+  const [inviteActionLoading, setInviteActionLoading] = useState<null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED>(null);
   const { user, me } = useAuthContext();
   const workerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
@@ -89,7 +105,13 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     error,
     refetch,
   } = useBookingDetailsController(route.params.jobId, 'WORKER');
-  const workerLiveState = useWorkerLiveLocationReader(workerId, Boolean(details));
+  const showLiveLocation = useMemo(() => {
+    if (!details) return false;
+    const status = details.booking.bookingStatus;
+    return status === BOOKING_STATUS.SEARCHING || status === BOOKING_STATUS.CONFIRMED || status === BOOKING_STATUS.IN_PROGRESS;
+  }, [details]);
+
+  const workerLiveState = useWorkerLiveLocationReader(workerId, Boolean(details) && showLiveLocation);
   const { refreshProps } = useBrandRefreshControlProps();
   const cardStyle = {
     borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
@@ -110,22 +132,45 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     return { latitude, longitude };
   }, [workerLiveState.location?.lat, workerLiveState.location?.lng]);
   const destinationCoordinates = getBookingMapDestinationCoordinates(details?.address);
+
+  const distanceMeters = useMemo(() => {
+    if (!originCoordinates || !destinationCoordinates) return null;
+    return getDistanceMeters(
+      originCoordinates.latitude,
+      originCoordinates.longitude,
+      destinationCoordinates.latitude,
+      destinationCoordinates.longitude
+    );
+  }, [originCoordinates, destinationCoordinates]);
+
+  const showRoute = distanceMeters === null || distanceMeters >= 20;
+
   const routeState = useBookingLiveRoute({
     origin: originCoordinates,
     destination: destinationCoordinates,
     vehicleMode: selectedVehicleMode,
-    enabled: Boolean(details),
+    enabled: Boolean(details) && showLiveLocation && showRoute,
   });
 
   const inviteStatus = useMemo(
     () => route.params.inviteStatus ?? getInviteStatusFromDetails(details),
     [details, route.params.inviteStatus],
   );
-  const canAcceptReject = inviteStatus === 'VIEWED' || inviteStatus === 'NEW_JOB_REQUEST';
+  const canAcceptReject = inviteStatus === WORKER_JOB_INVITE_STATUS.VIEWED || inviteStatus === WORKER_JOB_INVITE_STATUS.NEW_JOB_REQUEST;
   const inviteId = useMemo(() => {
     const id = details?.invite?.id;
     return typeof id === 'string' && id.trim().length > 0 ? id.trim() : null;
   }, [details?.invite?.id]);
+
+  const availableTabs = useMemo(() => {
+    return JOB_DETAILS_TABS.filter((tab) => tab.value !== 'LIVE_LOCATION' || showLiveLocation);
+  }, [showLiveLocation]);
+
+  useEffect(() => {
+    if (activeTab === 'LIVE_LOCATION' && !showLiveLocation && details) {
+      setActiveTab('BILL');
+    }
+  }, [activeTab, showLiveLocation, details]);
 
   useEffect(() => {
     if (liveVehicleMode && liveVehicleMode !== 'UNKNOWN') {
@@ -134,6 +179,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   }, [liveVehicleMode]);
 
   const refreshDetails = useCallback(async () => {
+    setActiveTab('BILL');
     setRefreshing(true);
     try {
       await refetch();
@@ -147,9 +193,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
       showToast('error', 'Invite id not found for this job.');
       return;
     }
-    setInviteActionLoading('ACCEPTED');
+    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.ACCEPTED);
     try {
-      await updateBookingInvite(inviteId, 'ACCEPTED');
+      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.ACCEPTED);
       await refetch();
     } finally {
       setInviteActionLoading(null);
@@ -161,9 +207,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
       showToast('error', 'Invite id not found for this job.');
       return;
     }
-    setInviteActionLoading('REJECTED');
+    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.REJECTED);
     try {
-      await updateBookingInvite(inviteId, 'REJECTED');
+      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.REJECTED);
       await refetch();
     } finally {
       setInviteActionLoading(null);
@@ -199,15 +245,13 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
 
             <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
 
-            <View className="flex-row items-end justify-between">
-              <View>
-                <Text className="text-xs font-extrabold uppercase" style={{ color: mutedTextColor }}>
-                  Your Payout
-                </Text>
-                <Text className="mt-1 text-4xl font-extrabold" style={{ color: theme.colors.primary }}>
-                  {formatBookingMoney(payoutAmount)}
-                </Text>
-              </View>
+            <View className="flex-row items-center justify-between px-1 py-1">
+              <Text className="text-sm font-bold text-baseDark dark:text-white">
+                Your Payout
+              </Text>
+              <Text className="text-2xl font-extrabold" style={{ color: theme.colors.caution }}>
+                {formatBookingMoney(payoutAmount)}
+              </Text>
             </View>
           </View>
         </View>
@@ -259,9 +303,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               setSelectedVehicleMode(mode);
               void updateVehicleMode(mode);
             }}
-            route={routeState.route}
+            route={showRoute ? routeState.route : undefined}
             isDark={isDark}
-            loading={workerLiveState.loading || routeState.loading}
+            loading={workerLiveState.loading || (showRoute && routeState.loading)}
             error={routeState.error ?? workerLiveState.error}
           />
         </View>
@@ -280,38 +324,47 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     }
 
     return (
-      <View className="mt-4 gap-3">
+      <View className="mt-4 gap-4">
         {(details.history ?? []).map((item, index) => (
           <View
             key={item.id ?? `history-${index}`}
-            className="rounded-xl border px-4 py-3"
+            className="overflow-hidden rounded-2xl border"
             style={{
+              backgroundColor: isDark ? palette.dark.card : palette.light.card,
               borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+              borderTopWidth: 4,
+              borderTopColor: theme.colors.primary,
+              shadowColor: uiColors.shadow.base,
+              shadowOpacity: isDark ? 0 : 0.04,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
             }}
           >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-base font-extrabold text-baseDark dark:text-white">
-                {titleCaseBookingValue(item.title)}
-              </Text>
-              <View
-                className="rounded-full px-2.5 py-1"
-                style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmCardLight }}
-              >
-                <Text className="text-[10px] font-bold uppercase" style={{ color: mutedTextColor }}>
-                  Timeline
+            <View className="p-4">
+              <View className="flex-row items-center justify-between">
+                <View className="mr-3 flex-1 flex-row items-center">
+                  <View
+                    className="mr-3 h-8 w-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+                  >
+                    <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
+                  </View>
+                  <Text className="flex-1 text-base font-extrabold text-baseDark dark:text-white">
+                    {titleCaseBookingValue(item.title)}
+                  </Text>
+                </View>
+                <Text className="text-xs font-semibold" style={{ color: mutedTextColor }}>
+                  {formatBookingDateTime(item.createdAt)}
                 </Text>
               </View>
-            </View>
-            {item.description ? (
-              <Text className="mt-2 text-sm" style={{ color: mutedTextColor }}>
-                {item.description}
-              </Text>
-            ) : null}
-            <View className="mt-3 flex-row justify-end">
-              <Text className="text-xs font-semibold" style={{ color: mutedTextColor }}>
-                {formatBookingDateTime(item.createdAt)}
-              </Text>
+              {item.description ? (
+                <View className="mt-3 pl-11">
+                  <Text className="text-sm leading-5" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                    {item.description}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         ))}
@@ -336,7 +389,14 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
         <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
           <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>{error}</Text>
           <View className="mt-3">
-            <Button label="Retry" variant="secondary" onPress={() => void refetch()} />
+            <Button
+              label="Retry"
+              variant="secondary"
+              onPress={() => {
+                setActiveTab('BILL');
+                void refetch();
+              }}
+            />
           </View>
         </View>
       ) : null}
@@ -370,23 +430,19 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                   </Text>
                 </View>
               </View>
-            </View>
-
-            <View className="p-3">
-              <View className="mb-2 flex-row items-center justify-between rounded-xl border px-3 py-2.5" style={{
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-              }}>
-                <Text className="text-sm font-bold text-baseDark dark:text-white">Booking Amount</Text>
-                <Text className="text-lg font-extrabold" style={{ color: theme.colors.caution }}>
+              <View className="flex-row items-center">
+                <Text className="text-lg font-extrabold text-primary">
                   {formatBookingMoney(details.booking.totalAmount)}
                 </Text>
               </View>
+            </View>
+
+            <View className="p-3">
               <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
                 {[
                   {
                     key: 'bookingType',
-                    value: titleCaseBookingValue(details.booking.bookingType ?? 'Instant'),
+                value: titleCaseBookingValue(details.booking.bookingType ?? CUSTOMER_BOOKING_TYPE.INSTANT),
                     iconName: 'flash-outline' as const,
                     isWide: false,
                   },
@@ -512,7 +568,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
           </View>
 
           <ScrollablePillTabs
-            items={[...JOB_DETAILS_TABS]}
+            items={availableTabs as any}
             value={activeTab}
             onChange={setActiveTab}
           />
@@ -523,7 +579,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
             <View className="mt-4 flex-row items-center" style={{ gap: 10 }}>
               <View className="flex-1">
                 <Button
-                  label={inviteActionLoading === 'REJECTED' ? 'Rejecting...' : 'Reject'}
+              label={inviteActionLoading === WORKER_JOB_INVITE_STATUS.REJECTED ? 'Rejecting...' : 'Reject'}
                   variant="secondary"
                   onPress={() => void onReject()}
                   disabled={Boolean(inviteActionLoading)}
@@ -531,7 +587,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               </View>
               <View className="flex-1">
                 <Button
-                  label={inviteActionLoading === 'ACCEPTED' ? 'Accepting...' : 'Accept'}
+              label={inviteActionLoading === WORKER_JOB_INVITE_STATUS.ACCEPTED ? 'Accepting...' : 'Accept'}
                   onPress={() => void onAccept()}
                   disabled={Boolean(inviteActionLoading)}
                 />
