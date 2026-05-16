@@ -1,17 +1,21 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { BookingLocationPinMarker } from '@/components/common/BookingLocationPinMarker';
-import { WorkerLiveMarker } from '@/components/common/WorkerLiveMarker';
 import type { WorkerBookingRouteMapProps } from '@/types/component-types';
 import { APP_TEXT } from '@/utils/appText';
 import { getRouteBearingDegrees } from '@/utils/live-route';
 import { theme, uiColors } from '@/utils/theme';
+import type { RouteVehicleMode } from '@/types/live-route';
 
 const ROUTE_MAP_DELTA = 0.04;
-const ROUTE_STROKE_WIDTH = 3;
-const ROUTE_MAP_HEIGHT = 320;
+const ROUTE_STROKE_WIDTH = 5;
+const ROUTE_MAP_HEIGHT = 416;
+const VEHICLE_MODE_OPTIONS: Array<{ value: RouteVehicleMode; label: string; iconName: keyof typeof Ionicons.glyphMap }> = [
+  { value: 'CAR', label: 'Car', iconName: 'car-sport-outline' },
+  { value: 'TWO_WHEELER', label: 'Two Wheeler', iconName: 'bicycle-outline' },
+  { value: 'WALK', label: 'Walk', iconName: 'walk-outline' },
+];
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
@@ -25,11 +29,12 @@ const DARK_MAP_STYLE = [
 export function WorkerBookingRouteMap({
   originCoordinates,
   destinationCoordinates,
+  vehicleMode,
+  onVehicleModeChange,
   route,
   isDark,
   loading,
   error,
-  onOpenMaps,
 }: WorkerBookingRouteMapProps) {
   const mapRef = useRef<MapView | null>(null);
   const mapCenter = {
@@ -40,7 +45,6 @@ export function WorkerBookingRouteMap({
     () => (route?.coordinates?.length ? route.coordinates : []),
     [route],
   );
-  const routeSummary = [route?.etaText, route?.distanceText].filter(Boolean).join(' . ');
   const workerHeadingDegrees = getRouteBearingDegrees(originCoordinates, destinationCoordinates);
   const fitCoordinates = useMemo(
     () => (routeCoordinates.length > 1
@@ -71,9 +75,100 @@ export function WorkerBookingRouteMap({
     return () => clearTimeout(timeoutId);
   }, [fitCoordinates]);
 
+  const renderRouteInfoCard = () => (
+    <View className="mb-3 overflow-hidden rounded-2xl border" style={{
+      borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+      backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.overlayLight95,
+    }}>
+      <View className="flex-row items-center justify-between border-b px-4 py-3" style={{
+        borderBottomColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+        backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft40,
+      }}>
+        <View className="flex-row items-center">
+          <View
+            className="h-9 w-9 items-center justify-center rounded-full border"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="navigate-outline" size={17} color={theme.colors.primary} />
+          </View>
+          <Text className="ml-2 text-sm font-extrabold text-baseDark dark:text-white">{APP_TEXT.jobs.routeTitle}</Text>
+        </View>
+      </View>
+      <View className="p-3">
+        <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
+          <View
+            className="flex-row items-center border px-3 py-2.5"
+            style={{
+              width: '48.5%',
+              borderRadius: 12,
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
+            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{route?.etaText ?? 'Calculating ETA'}</Text>
+          </View>
+          <View
+            className="flex-row items-center border px-3 py-2.5"
+            style={{
+              width: '48.5%',
+              borderRadius: 12,
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="git-compare-outline" size={14} color={theme.colors.primary} />
+            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{route?.distanceText ?? 'Calculating distance'}</Text>
+          </View>
+        </View>
+        <Text className="mt-3 text-[11px] font-extrabold uppercase tracking-[1px]" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+          Select vehicle mode
+        </Text>
+        <View className="mt-2 flex-row" style={{ gap: 8 }}>
+          {VEHICLE_MODE_OPTIONS.map(mode => {
+            const selected = vehicleMode === mode.value;
+            return (
+              <Pressable
+                key={mode.value}
+                onPress={() => onVehicleModeChange?.(mode.value)}
+                className="flex-1 flex-row items-center justify-center rounded-full border px-2 py-2"
+                style={{
+                  borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight),
+                  backgroundColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95),
+                }}
+              >
+                <Ionicons
+                  name={mode.iconName}
+                  size={12}
+                  color={selected ? theme.colors.onPrimary : theme.colors.primary}
+                />
+                <Text
+                  className="ml-1 text-[11px] font-extrabold"
+                  style={{ color: selected ? theme.colors.onPrimary : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight) }}
+                >
+                  {mode.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      {error ? (
+        <Text className="px-3 pb-3 text-xs font-semibold" style={{ color: theme.colors.negative }}>{error}</Text>
+      ) : null}
+    </View>
+  );
+
   return (
-    <View className="mt-5 overflow-hidden rounded-2xl border" style={{ borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight }}>
-      <View style={{ height: ROUTE_MAP_HEIGHT }}>
+    <View className="mt-5">
+      {renderRouteInfoCard()}
+      <View className="overflow-hidden rounded-2xl border" style={{
+        height: ROUTE_MAP_HEIGHT,
+        borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+      }}>
         <MapView
           ref={mapRef}
           style={{ flex: 1 }}
@@ -87,20 +182,45 @@ export function WorkerBookingRouteMap({
           showsMyLocationButton={false}
           toolbarEnabled={false}
         >
-          <Marker coordinate={originCoordinates} title="Your location">
-            <WorkerLiveMarker headingDegrees={workerHeadingDegrees} />
-          </Marker>
+           {originCoordinates ? (
+            <Marker
+              coordinate={originCoordinates}
+              title="Worker live location"
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={true}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  width: 24,
+                  height: 24,
+                  borderRadius: 15,
+                  backgroundColor: uiColors.live.blue,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transform: [{ rotate: `${workerHeadingDegrees}deg` }],
+                  zIndex: 10,
+                  elevation: 10,
+                }}
+              >
+                <MaterialIcons name="navigation" size={17} color={theme.colors.onPrimary} />
+              </View>
+            </Marker>
+          ) : null}
 
-          <Marker coordinate={destinationCoordinates} title="Booking location">
-            <BookingLocationPinMarker />
+          <Marker coordinate={destinationCoordinates} title="Service address">
+            <Ionicons
+              name="location-sharp"
+              size={34}
+              color={theme.colors.primary}
+            />
           </Marker>
-
           {routeCoordinates.length > 1 ? (
             <Polyline
+              key={`worker-route-solid-${vehicleMode}`}
               coordinates={routeCoordinates}
               strokeColor={theme.colors.primary}
               strokeWidth={ROUTE_STROKE_WIDTH}
-              lineDashPattern={route?.isFallback ? [8, 6] : undefined}
             />
           ) : null}
         </MapView>
@@ -111,26 +231,6 @@ export function WorkerBookingRouteMap({
             <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{APP_TEXT.jobs.routeReading}</Text>
           </View>
         ) : null}
-      </View>
-
-      <View className="px-4 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95 }}>
-        <Text className="text-sm font-extrabold text-baseDark dark:text-white">{APP_TEXT.jobs.routeTitle}</Text>
-        <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-          {routeSummary || APP_TEXT.jobs.routeWaiting}
-        </Text>
-        {error ? (
-          <Text className="mt-2 text-xs font-semibold" style={{ color: theme.colors.negative }}>{error}</Text>
-        ) : null}
-        <Pressable
-          onPress={onOpenMaps}
-          className="mt-3 flex-row items-center justify-center rounded-xl px-4 py-3"
-          style={{ backgroundColor: theme.colors.primary }}
-        >
-          <Ionicons name="navigate-outline" size={16} color={theme.colors.onPrimary} />
-          <Text className="ml-2 text-sm font-extrabold" style={{ color: theme.colors.onPrimary }}>
-            {APP_TEXT.jobs.openInMaps}
-          </Text>
-        </Pressable>
       </View>
     </View>
   );

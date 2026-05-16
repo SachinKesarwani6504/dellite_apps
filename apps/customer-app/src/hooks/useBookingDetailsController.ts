@@ -4,6 +4,7 @@ import type { ApiEnvelope } from '@/types/api';
 import type {
   BookingDetailsContextValue,
   BookingDetailsControllerArgs,
+  BookingDetailsHistoryItem,
   BookingDetailsResponse,
 } from '@/types/booking-details';
 import { getBookingDetailsPath } from '@/utils/booking-details';
@@ -14,6 +15,37 @@ function unwrapBookingDetails(payload: BookingDetailsResponse | ApiEnvelope<Book
     return (payload as ApiEnvelope<BookingDetailsResponse>).data ?? null;
   }
   return payload as BookingDetailsResponse;
+}
+
+function normalizeHistoryItem(item: unknown): BookingDetailsHistoryItem | null {
+  if (!item || typeof item !== 'object') return null;
+  const raw = item as Record<string, unknown>;
+  const id = typeof raw.id === 'string' ? raw.id : null;
+  const title = typeof raw.title === 'string' ? raw.title : null;
+  const createdAt = typeof raw.createdAt === 'string' ? raw.createdAt : null;
+  if (!id || !title || !createdAt) return null;
+
+  return {
+    id,
+    title,
+    description: typeof raw.description === 'string' ? raw.description : null,
+    createdAt,
+    metadata: raw.metadata && typeof raw.metadata === 'object'
+      ? (raw.metadata as Record<string, unknown>)
+      : null,
+  };
+}
+
+function normalizeBookingDetails(details: BookingDetailsResponse | null): BookingDetailsResponse | null {
+  if (!details) return null;
+  const historyRaw = (details as { history?: unknown }).history;
+  const history = Array.isArray(historyRaw)
+    ? historyRaw.map(normalizeHistoryItem).filter((item): item is BookingDetailsHistoryItem => Boolean(item))
+    : [];
+  return {
+    ...details,
+    history,
+  };
 }
 
 export function useBookingDetailsController({
@@ -39,7 +71,7 @@ export function useBookingDetailsController({
         auth: true,
         cache: 'no-store',
       });
-      setDetails(unwrapBookingDetails(response));
+      setDetails(normalizeBookingDetails(unwrapBookingDetails(response)));
     } catch (fetchError) {
       setError(getErrorMessage(fetchError, 'Unable to load booking details.'));
     } finally {

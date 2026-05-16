@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { BookingDetailsAssignmentStatusTab } from '@/components/booking-details/BookingDetailsAssignmentStatusTab';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
 import { BookingDetailsLiveLocationTab } from '@/components/booking-details/BookingDetailsLiveLocationTab';
@@ -11,6 +11,7 @@ import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { LoadingState } from '@/components/common/LoadingState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
 import { BookingDetailsProvider, useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
 import type { BookingDetailsTabValue } from '@/types/booking-details';
@@ -79,10 +80,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
       />
 
       {isInitialLoading && !details ? (
-        <View className="mt-8 items-center rounded-2xl border p-6" style={cardStyle}>
-          <ActivityIndicator color={theme.colors.primary} />
-          <Text className="mt-3 text-sm font-semibold" style={{ color: mutedTextColor }}>Loading booking details...</Text>
-        </View>
+        <LoadingState minHeight={360} />
       ) : null}
 
       {error ? (
@@ -115,7 +113,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                   <Ionicons name="receipt-outline" size={20} color={theme.colors.primary} />
                 </View>
                 <View className="ml-3 flex-1">
-                  <Text className="text-lg font-extrabold leading-6 text-baseDark dark:text-white">
+                  <Text className="text-xl font-extrabold leading-6 text-baseDark dark:text-white">
                     {APP_TEXT.main.bookings.detailsTitle}
                   </Text>
                   <Text className="mt-0.5 text-xs font-semibold" style={{ color: mutedTextColor }}>
@@ -123,20 +121,18 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                   </Text>
                 </View>
               </View>
-              <View
-                className="rounded-full border px-3.5 py-2"
-                style={{
-                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
-                }}
-              >
-                <Text className="text-base font-extrabold text-baseDark dark:text-white">
-                  {formatBookingMoney(details.booking.totalAmount)}
-                </Text>
-              </View>
             </View>
 
             <View className="p-3">
+              <View className="mb-2 flex-row items-center justify-between rounded-xl border px-3 py-2.5" style={{
+                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+              }}>
+                <Text className="text-sm font-bold text-baseDark dark:text-white">Booking Amount</Text>
+                <Text className="text-lg font-extrabold" style={{ color: theme.colors.caution }}>
+                  {formatBookingMoney(details.booking.totalAmount)}
+                </Text>
+              </View>
               <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
                 {getBookingDetailsOverviewChips(details).map(row => (
                   <View

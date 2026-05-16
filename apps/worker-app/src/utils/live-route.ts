@@ -18,7 +18,6 @@ function logRouteDebug(message: string, payload?: unknown) {
 function resolveGoogleTravelMode(vehicleMode: RouteVehicleMode) {
   if (vehicleMode === 'WALK') return 'WALK';
   if (vehicleMode === 'TWO_WHEELER') return 'TWO_WHEELER';
-  if (vehicleMode === 'CYCLE') return 'BICYCLE';
   return 'DRIVE';
 }
 
@@ -121,36 +120,59 @@ export async function fetchGoogleDriveRoute({
     hasApiKey: apiKey.trim().length > 0,
   });
 
-  try {
-    const route = await fetchGoogleRoutesDriveRoute({
-      apiKey,
-      origin,
-      destination,
-      vehicleMode,
-      signal,
-    });
-    logRouteDebug('routes-api:success', {
-      points: route.coordinates.length,
-      distanceMeters: route.distanceMeters,
-      durationSeconds: route.durationSeconds,
-    });
-    return route;
-  } catch {
-    logRouteDebug('routes-api:failed-trying-directions');
-    const route = await fetchGoogleDirectionsDriveRoute({
-      apiKey,
-      origin,
-      destination,
-      vehicleMode,
-      signal,
-    });
-    logRouteDebug('directions-api:success', {
-      points: route.coordinates.length,
-      distanceMeters: route.distanceMeters,
-      durationSeconds: route.durationSeconds,
-    });
-    return route;
+  const fallbackModes: RouteVehicleMode[] = vehicleMode === 'CAR'
+    ? ['CAR']
+    : [vehicleMode, 'CAR'];
+
+  let lastError: Error | null = null;
+  for (const mode of fallbackModes) {
+    try {
+      const route = await fetchGoogleRoutesDriveRoute({
+        apiKey,
+        origin,
+        destination,
+        vehicleMode: mode,
+        signal,
+      });
+      logRouteDebug('routes-api:success', {
+        mode,
+        points: route.coordinates.length,
+        distanceMeters: route.distanceMeters,
+        durationSeconds: route.durationSeconds,
+      });
+      return route;
+    } catch (routesError) {
+      logRouteDebug('routes-api:failed-trying-directions', { mode });
+      try {
+        const route = await fetchGoogleDirectionsDriveRoute({
+          apiKey,
+          origin,
+          destination,
+          vehicleMode: mode,
+          signal,
+        });
+        logRouteDebug('directions-api:success', {
+          mode,
+          points: route.coordinates.length,
+          distanceMeters: route.distanceMeters,
+          durationSeconds: route.durationSeconds,
+        });
+        return route;
+      } catch (directionsError) {
+        const nextError = directionsError instanceof Error ? directionsError : new Error('Route unavailable.');
+        lastError = nextError;
+        logRouteDebug('directions-api:failed', {
+          mode,
+          message: nextError.message,
+        });
+        if (!(routesError instanceof Error) && lastError == null) {
+          lastError = new Error('Route unavailable.');
+        }
+      }
+    }
   }
+
+  throw lastError ?? new Error('Route unavailable.');
 }
 
 async function fetchGoogleRoutesDriveRoute({
@@ -240,7 +262,7 @@ async function fetchGoogleDirectionsDriveRoute({
 }: GoogleRouteFetchArgs): Promise<LiveRouteResult> {
   const directionsMode = vehicleMode === 'WALK'
     ? 'walking'
-    : (vehicleMode === 'CYCLE' ? 'bicycling' : 'driving');
+    : 'driving';
   const query = new URLSearchParams({
     origin: `${origin.latitude},${origin.longitude}`,
     destination: `${destination.latitude},${destination.longitude}`,

@@ -1,6 +1,5 @@
 import type {
   BookingDetailsAddress,
-  BookingDetailsAssignment,
   BookingDetailsResponse,
   BookingDetailsRole,
   BookingDetailsServiceLine,
@@ -19,7 +18,11 @@ import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
 export const BOOKING_DURATION_STEP_MINUTES = 30;
 
 export function getBookingDetailsPath(bookingId: string, role: BookingDetailsRole) {
-  return `/booking/${encodeURIComponent(bookingId)}?role=${role}`;
+  const normalizedBookingId = encodeURIComponent(bookingId);
+  if (role === 'WORKER') {
+    return `/job/${normalizedBookingId}`;
+  }
+  return `/booking/${normalizedBookingId}`;
 }
 
 function toNumber(value: string | number | null | undefined) {
@@ -131,14 +134,12 @@ export function getBookingDetailsWorkerCardDisplay(details: BookingDetailsRespon
 }
 
 export function canCallBookingWorker(details: BookingDetailsResponse | null | undefined) {
-  return (details?.assignments ?? []).some(assignment => {
-    const status = assignment.assignmentStatus;
-    return status === 'ACCEPTED'
-      || status === 'EN_ROUTE'
-      || status === 'ARRIVED'
-      || status === 'IN_PROGRESS'
-      || status === 'COMPLETED';
-  });
+  if (!details?.workerInfo?.id) return false;
+  const bookingStatus = details.booking.bookingStatus;
+  return bookingStatus !== 'CANCELLED'
+    && bookingStatus !== 'EXPIRED'
+    && bookingStatus !== 'CREATED'
+    && bookingStatus !== 'SEARCHING';
 }
 
 export function getBookingWorkerId(details: BookingDetailsResponse | null | undefined) {
@@ -158,15 +159,7 @@ export function canTrackBookingWorker(details: BookingDetailsResponse | null | u
     return false;
   }
 
-  const hasAcceptedWorker = (details.assignments ?? []).some(assignment => (
-    assignment.assignmentStatus === 'ACCEPTED'
-    || assignment.assignmentStatus === 'EN_ROUTE'
-    || assignment.assignmentStatus === 'ARRIVED'
-    || assignment.assignmentStatus === 'IN_PROGRESS'
-    || assignment.assignmentStatus === 'COMPLETED'
-  ));
-
-  return hasAcceptedWorker && Boolean(details.workerInfo?.id);
+  return Boolean(details.workerInfo?.id);
 }
 
 export function getTrackableWorkerCoordinates(workerLocation: WorkerLiveLocationRecord | null): WorkerRouteCoordinates | null {
@@ -268,27 +261,23 @@ export function getBookingDetailsTabs(): BookingDetailsTabItem[] {
     { label: 'Bill', value: 'BILL', iconName: 'wallet-outline' },
     { label: 'All Services', value: 'SERVICES', iconName: 'sparkles-outline' },
     { label: 'Live Location', value: 'LIVE_LOCATION', iconName: 'navigate-outline' },
-    { label: 'Assignment Status', value: 'ASSIGNMENTS', iconName: 'checkmark-done-outline' },
+    { label: 'History', value: 'ASSIGNMENTS', iconName: 'checkmark-done-outline' },
     { label: 'Payment', value: 'PAYMENT', iconName: 'card-outline' },
   ];
 }
 
 export function getBookingDetailsTimelineItems(details: BookingDetailsResponse | null | undefined): BookingDetailsTimelineItem[] {
-  const assignmentItems = (details?.assignments ?? []).map((item, index) => ({
-    key: item.id ?? `assignment-${index}`,
-    title: titleCaseBookingValue(item.assignmentStatus),
-    subtitle: item.createdAt ? formatBookingDateTime(item.createdAt) : 'Worker assignment update',
+  return (details?.history ?? []).map((item, index) => ({
+    key: item.id ?? `history-${index}`,
+    title: titleCaseBookingValue(item.title),
+    subtitle: item.description?.trim()
+      ? `${item.description.trim()} \u2022 ${formatBookingDateTime(item.createdAt)}`
+      : formatBookingDateTime(item.createdAt),
   }));
-
-  return assignmentItems;
-}
-
-export function getLatestAssignmentStatus(assignments: BookingDetailsAssignment[] | undefined) {
-  return assignments?.[0]?.assignmentStatus ?? null;
 }
 
 export function getBookingStatusLabel(details: BookingDetailsResponse | null | undefined) {
-  return titleCaseBookingValue(details?.booking.bookingStatus ?? getLatestAssignmentStatus(details?.assignments));
+  return titleCaseBookingValue(details?.booking.bookingStatus);
 }
 
 export function getBookingLineKey(line: BookingDetailsServiceLine) {

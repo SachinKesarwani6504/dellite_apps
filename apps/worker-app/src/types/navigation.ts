@@ -1,4 +1,5 @@
 import { AUTH_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } from '@/types/screen-names';
+import type { WorkerJobInviteStatus } from '@/types/jobs';
 
 export type AuthStackParamList = {
   [AUTH_SCREENS.phoneLogin]: undefined;
@@ -33,5 +34,5 @@ export type MainTabParamList = {
 
 export type JobStackParamList = {
   [JOB_STACK_SCREENS.home]: undefined;
-  [JOB_STACK_SCREENS.details]: { jobId: string };
+  [JOB_STACK_SCREENS.details]: { jobId: string; inviteStatus?: WorkerJobInviteStatus | null };
 };

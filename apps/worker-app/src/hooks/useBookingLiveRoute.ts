@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  buildFallbackLiveRoute,
   fetchGoogleDriveRoute,
 } from '@/utils/live-route';
 import type { BookingLiveRouteArgs, BookingLiveRouteState } from '@/types/live-route';
@@ -42,11 +41,10 @@ export function useBookingLiveRoute({
     }
 
     hasFetchedRouteRef.current = true;
-    const fallbackRoute = buildFallbackLiveRoute(currentOrigin, currentDestination);
     const apiKey = ENV.GOOGLE_MAPS_API_KEY?.trim();
 
     if (!apiKey) {
-      setRoute(fallbackRoute);
+      setRoute(null);
       setLoading(false);
       setError(`${APP_TEXT.jobs.routeFallback} Missing Google Maps API key.`);
       return;
@@ -67,7 +65,7 @@ export function useBookingLiveRoute({
       const message = routeError instanceof Error && routeError.message.trim()
         ? routeError.message.trim()
         : 'Unknown route error.';
-      setRoute(fallbackRoute);
+      setRoute(null);
       setError(`${APP_TEXT.jobs.routeFallback} ${message}`);
     } finally {
       setLoading(false);

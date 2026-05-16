@@ -63,3 +63,7 @@ export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {
     </View>
   );
 }
+
+export function getStatusBadgeTextColor(status: StatusBadgeType | string) {
+  return (STATUS_COLORS[status] || DEFAULT_COLOR).text;
+}

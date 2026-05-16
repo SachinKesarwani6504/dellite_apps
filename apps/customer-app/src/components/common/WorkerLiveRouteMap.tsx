@@ -11,8 +11,8 @@ import { getRouteBearingDegrees, getRouteVehicleModeLabel } from "@/utils/live-r
 import { theme, uiColors } from "@/utils/theme";
 
 const ROUTE_MAP_DELTA = 0.04;
-const ROUTE_STROKE_WIDTH = 3;
-const ROUTE_MAP_HEIGHT = 320;
+const ROUTE_STROKE_WIDTH = 5;
+const ROUTE_MAP_HEIGHT = 416;
 
 const DARK_MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: uiColors.map.geometryDark }] },
@@ -37,6 +37,7 @@ const DARK_MAP_STYLE = [
 
 export function WorkerLiveRouteMap({
   workerLocation,
+  vehicleMode,
   destinationCoordinates,
   route,
   isDark,
@@ -45,9 +46,6 @@ export function WorkerLiveRouteMap({
 }: WorkerLiveRouteMapProps) {
   const mapRef = useRef<MapView | null>(null);
   const workerCoordinates = getTrackableWorkerCoordinates(workerLocation);
-  const isPreviewWorkerLocation = Boolean(
-    workerCoordinates && workerLocation?.heartbeatAt === 0,
-  );
   const mapCenter = getWorkerRouteMapCenter(
     destinationCoordinates,
     workerCoordinates,
@@ -56,11 +54,9 @@ export function WorkerLiveRouteMap({
     () => (route?.coordinates?.length ? route.coordinates : []),
     [route],
   );
-  const routeSummary = [route?.etaText, route?.distanceText]
-    .filter(Boolean)
-    .join(" . ");
-  const vehicleModeLabel = getRouteVehicleModeLabel(workerLocation?.vehicleMode ?? 'UNKNOWN');
+  const vehicleModeLabel = getRouteVehicleModeLabel(vehicleMode);
   const etaLabel = route?.etaText ?? 'Calculating ETA';
+  const distanceLabel = route?.distanceText ?? 'Calculating distance';
 
   // Extract heading directly from RTDB live location payload, fallback to route bearing
   const workerHeadingDegrees =
@@ -104,16 +100,97 @@ export function WorkerLiveRouteMap({
     return () => clearTimeout(timeoutId);
   }, [fitCoordinates]);
 
+  const renderRouteInfoCard = () => (
+    <View className="mb-3 overflow-hidden rounded-2xl border" style={{
+      borderColor: isDark
+        ? uiColors.surface.borderNeutralDark
+        : uiColors.surface.borderNeutralLight,
+      backgroundColor: isDark
+        ? uiColors.surface.cardMutedDark
+        : uiColors.surface.overlayLight95,
+    }}>
+      <View className="flex-row items-center justify-between border-b px-4 py-3" style={{
+        borderBottomColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+        backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft40,
+      }}>
+        <View className="flex-row items-center">
+          <View
+            className="h-9 w-9 items-center justify-center rounded-full border"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="navigate-outline" size={17} color={theme.colors.primary} />
+          </View>
+          <Text className="ml-2 text-sm font-extrabold text-baseDark dark:text-white">
+            Worker Live Route
+          </Text>
+        </View>
+      </View>
+      <View className="p-3">
+        <View className="flex-row justify-between" style={{ gap: 8 }}>
+          <View
+            className="flex-row items-center border px-3 py-2.5"
+            style={{
+              width: "31.5%",
+              borderRadius: 12,
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="walk-outline" size={14} color={theme.colors.primary} />
+            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{vehicleModeLabel}</Text>
+          </View>
+          <View
+            className="flex-row items-center border px-3 py-2.5"
+            style={{
+              width: "31.5%",
+              borderRadius: 12,
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
+            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{etaLabel}</Text>
+          </View>
+          <View
+            className="flex-row items-center border px-3 py-2.5"
+            style={{
+              width: "31.5%",
+              borderRadius: 12,
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}
+          >
+            <Ionicons name="git-compare-outline" size={14} color={theme.colors.primary} />
+            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{distanceLabel}</Text>
+          </View>
+        </View>
+      </View>
+      {error ? (
+        <Text
+          className="px-3 pb-3 text-xs font-semibold"
+          style={{ color: theme.colors.negative }}
+        >
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+
   return (
-    <View
-      className="overflow-hidden rounded-2xl border"
-      style={{
-        borderColor: isDark
-          ? uiColors.surface.borderNeutralDark
-          : uiColors.surface.borderNeutralLight,
-      }}
-    >
-      <View style={{ height: ROUTE_MAP_HEIGHT }}>
+    <View>
+      {renderRouteInfoCard()}
+      <View
+        className="overflow-hidden rounded-2xl border"
+        style={{
+          height: ROUTE_MAP_HEIGHT,
+          borderColor: isDark
+            ? uiColors.surface.borderNeutralDark
+            : uiColors.surface.borderNeutralLight,
+        }}
+      >
         <MapView
           ref={mapRef}
           style={{ flex: 1 }}
@@ -162,10 +239,10 @@ export function WorkerLiveRouteMap({
           ) : null}
           {routeCoordinates.length > 1 ? (
             <Polyline
+              key={`customer-route-solid-${vehicleMode}`}
               coordinates={routeCoordinates}
               strokeColor={theme.colors.primary}
               strokeWidth={ROUTE_STROKE_WIDTH}
-              lineDashPattern={route?.isFallback ? [8, 6] : undefined}
             />
           ) : null}
         </MapView>
@@ -184,52 +261,6 @@ export function WorkerLiveRouteMap({
               Reading live location
             </Text>
           </View>
-        ) : null}
-      </View>
-
-      <View
-        className="px-4 py-3"
-        style={{
-          backgroundColor: isDark
-            ? uiColors.surface.overlayDark10
-            : uiColors.surface.overlayLight95,
-        }}
-      >
-        <Text className="text-sm font-extrabold text-baseDark dark:text-white">
-          Worker live route
-        </Text>
-        <Text
-          className="mt-1 text-xs font-bold"
-          style={{
-            color: isDark
-              ? uiColors.text.subtitleDark
-              : uiColors.text.subtitleLight,
-          }}
-        >
-          Coming by {vehicleModeLabel} . ETA {etaLabel}
-        </Text>
-        <Text
-          className="mt-1 text-xs"
-          style={{
-            color: isDark
-              ? uiColors.text.subtitleDark
-              : uiColors.text.subtitleLight,
-          }}
-        >
-          {routeSummary ||
-            (workerCoordinates
-              ? isPreviewWorkerLocation
-                ? "Previewing route until worker live tracking starts."
-                : "Worker location is updating from live tracking."
-              : "Waiting for the worker to share live location.")}
-        </Text>
-        {error ? (
-          <Text
-            className="mt-2 text-xs font-semibold"
-            style={{ color: theme.colors.negative }}
-          >
-            {error}
-          </Text>
         ) : null}
       </View>
     </View>

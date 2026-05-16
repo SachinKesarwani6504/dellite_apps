@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { getCachedWorkerHome, getWorkerHome } from '@/actions';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
@@ -19,7 +19,6 @@ import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { WorkerHomeData } from '@/types/auth';
-import type { WorkerVehicleMode } from '@/lib/firebase';
 import {
   formatInrCurrency,
   formatSignedPercent,
@@ -33,8 +32,6 @@ import { palette, theme, uiColors } from '@/utils/theme';
 const logo = require('@/assets/images/png/dellite_logo.png');
 const homePageDoodles = require('@/assets/images/png/home_page_doddles.png');
 
-const workerVehicleModeOptions: WorkerVehicleMode[] = ['CAR', 'TWO_WHEELER', 'CYCLE', 'WALK', 'UNKNOWN'];
-
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
   const { locationState, user, me, isAuthenticated } = useAuthContext();
@@ -45,9 +42,7 @@ export function HomeScreen() {
   const autoGoOnlineWorkerIdRef = useRef<string | null>(null);
   const {
     isOnline: isWorkerLiveOnline,
-    vehicleMode,
     goOnline: goWorkerLiveOnline,
-    updateVehicleMode,
   } = useWorkerLiveLocation({ workerId });
   const {
     city,
@@ -139,13 +134,6 @@ export function HomeScreen() {
     [homeData?.availableNearbyJobs],
   );
   const headerBannerName = homeData?.headerBanner?.name?.trim() || APP_TEXT.home.welcomeFallbackName;
-  const getWorkerVehicleModeLabel = useCallback((mode: WorkerVehicleMode) => {
-    if (mode === 'CAR') return APP_TEXT.home.liveTracking.vehicleModeCar;
-    if (mode === 'TWO_WHEELER') return APP_TEXT.home.liveTracking.vehicleModeTwoWheeler;
-    if (mode === 'CYCLE') return APP_TEXT.home.liveTracking.vehicleModeCycle;
-    if (mode === 'WALK') return APP_TEXT.home.liveTracking.vehicleModeWalk;
-    return APP_TEXT.home.liveTracking.vehicleModeUnknown;
-  }, []);
   const ratingLabel = useMemo(() => {
     const averageRating = typeof homeData?.headerBanner?.averageRating === 'number'
       ? homeData.headerBanner.averageRating.toFixed(1)
@@ -304,41 +292,6 @@ export function HomeScreen() {
           {homeData.currentStatus ? (
             <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
           ) : null}
-
-          <View
-            className="mt-4 rounded-ui-md border px-4 py-3"
-            style={{
-              borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-            }}
-          >
-            <Text className="text-xs font-extrabold uppercase" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              {APP_TEXT.home.liveTracking.vehicleModeTitle}
-            </Text>
-            <View className="mt-3 flex-row gap-2">
-              {workerVehicleModeOptions.map(mode => {
-                const selected = mode === vehicleMode;
-                return (
-                  <Pressable
-                    key={mode}
-                    onPress={() => void updateVehicleMode(mode)}
-                    className="flex-1 items-center rounded-full border px-3 py-2"
-                    style={{
-                      borderColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight),
-                      backgroundColor: selected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95),
-                    }}
-                  >
-                    <Text
-                      className="text-xs font-extrabold"
-                      style={{ color: selected ? theme.colors.onPrimary : (isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight) }}
-                    >
-                      {getWorkerVehicleModeLabel(mode)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
 
           <View className={homeData.currentStatus ? 'mt-4' : ''}>
             <ImageOverlayBanner

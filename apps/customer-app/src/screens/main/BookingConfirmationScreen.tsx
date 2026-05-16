@@ -259,29 +259,27 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
             >
               <Ionicons name="receipt-outline" size={20} color={theme.colors.primary} />
             </View>
-            <View className="ml-3 flex-1">
-              <Text className="text-lg font-extrabold leading-6 text-baseDark dark:text-white">
-                {APP_TEXT.main.bookingFlow.confirmTitle}
-              </Text>
-              <Text className="mt-0.5 text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                {bookingOverview.subtitle}
-              </Text>
-            </View>
-          </View>
-          {confirmTotalLabel ? (
-            <View
-              className="rounded-full border px-3.5 py-2"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card,
-              }}
-            >
-              <Text className="text-base font-extrabold text-baseDark dark:text-white">{confirmTotalLabel}</Text>
-            </View>
-          ) : null}
+                <View className="ml-3 flex-1">
+                  <Text className="text-xl font-extrabold leading-6 text-baseDark dark:text-white">
+                    {APP_TEXT.main.bookingFlow.confirmTitle}
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                    {bookingOverview.subtitle}
+                  </Text>
+                </View>
+              </View>
         </View>
 
         <View className="p-3">
+          {confirmTotalLabel ? (
+            <View className="mb-2 flex-row items-center justify-between rounded-xl border px-3 py-2.5" style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}>
+              <Text className="text-sm font-bold text-baseDark dark:text-white">Booking Amount</Text>
+              <Text className="text-lg font-extrabold" style={{ color: theme.colors.caution }}>{confirmTotalLabel}</Text>
+            </View>
+          ) : null}
           <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
             {bookingOverview.cards.map(row => (
               <View
@@ -509,21 +507,21 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                 </View>
               ) : null}
               <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
-              <View className="flex-row items-end justify-between">
-                <View>
-                  <Text className="text-xs font-extrabold uppercase" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                    {APP_TEXT.main.bookingFlow.quoteTotalPay}
-                  </Text>
-                  <Text className="mt-1 text-4xl font-extrabold" style={{ color: theme.colors.primary }}>
-                    {formatCurrencyAmount(bookingQuote.total)}
-                  </Text>
-                  {bookingQuote.isEstimated ? (
-                    <Text className="mt-2 max-w-[220px] text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                      {APP_TEXT.main.bookingFlow.quoteEstimatedHint}
-                    </Text>
-                  ) : null}
-                </View>
-                {bookingQuote.discountTotal > 0 ? (
+              <View className="flex-row items-center justify-between px-1 py-1">
+                <Text className="text-sm font-bold text-baseDark dark:text-white">
+                  {APP_TEXT.main.bookingFlow.quoteTotalPay}
+                </Text>
+                <Text className="text-2xl font-extrabold" style={{ color: theme.colors.caution }}>
+                  {formatCurrencyAmount(bookingQuote.total)}
+                </Text>
+              </View>
+              {bookingQuote.isEstimated ? (
+                <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                  {APP_TEXT.main.bookingFlow.quoteEstimatedHint}
+                </Text>
+              ) : null}
+              {bookingQuote.discountTotal > 0 ? (
+                <View className="mt-2 flex-row justify-end">
                   <View
                     className="rounded-full border px-4 py-2"
                     style={{
@@ -535,8 +533,8 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                       {APP_TEXT.main.bookingFlow.quoteYouSavePrefix} {formatCurrencyAmount(bookingQuote.discountTotal)}
                     </Text>
                   </View>
-                ) : null}
-              </View>
+                </View>
+              ) : null}
             </>
           ) : null}
         </View>

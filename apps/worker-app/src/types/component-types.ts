@@ -4,7 +4,7 @@ import type { Image, ImageBackground, ImageSourcePropType, StyleProp, ViewProps,
 import type { WorkerCurrentStatus } from '@/types/auth';
 import type { ImageCacheMode } from '@/types/shared';
 import type { UploadPreviewFile } from '@/types/file-upload';
-import type { LiveRouteResult, RouteCoordinates } from '@/types/live-route';
+import type { LiveRouteResult, RouteCoordinates, RouteVehicleMode } from '@/types/live-route';
 
 export type AppImageProps = Omit<ComponentProps<typeof Image>, 'source'> & {
   source?: ImageSourcePropType;
@@ -72,13 +72,55 @@ export type TwoOptionPillTabsProps<T extends string> = {
 export type WorkerBookingRouteMapProps = {
   originCoordinates: RouteCoordinates;
   destinationCoordinates: RouteCoordinates;
+  vehicleMode: RouteVehicleMode;
+  onVehicleModeChange?: (mode: RouteVehicleMode) => void;
   route: LiveRouteResult | null;
   isDark: boolean;
   loading: boolean;
   error: string | null;
-  onOpenMaps: () => void;
 };
 
 export type WorkerLiveMarkerProps = {
   headingDegrees: number;
+};
+
+export type ScrollablePillTabItem<T extends string> = {
+  label: string;
+  value: T;
+  iconName?: keyof typeof Ionicons.glyphMap;
+};
+
+export type ScrollablePillTabsProps<T extends string> = {
+  items: ScrollablePillTabItem<T>[];
+  value: T;
+  onChange: (next: T) => void;
+};
+
+export const BOOKING_SERVICE_SUMMARY_CARD_MODE = {
+  VIEW: 'VIEW',
+  EDIT: 'EDIT',
+} as const;
+
+export type BookingServiceSummaryCardMode =
+  (typeof BOOKING_SERVICE_SUMMARY_CARD_MODE)[keyof typeof BOOKING_SERVICE_SUMMARY_CARD_MODE];
+
+export type BookingServiceSummaryCardAddon = {
+  id: string;
+  title: string;
+  description?: string | null;
+  pricingLabel: string;
+};
+
+export type BookingServiceSummaryCardProps = {
+  mode: BookingServiceSummaryCardMode;
+  title: string;
+  subtitle?: string | null;
+  iconText?: string | null;
+  selectedValueLabel: string;
+  selectedValue: string;
+  pricingTitle: string;
+  pricingValue: string;
+  totalLabel: string;
+  addons?: BookingServiceSummaryCardAddon[];
+  onRemove?: () => void;
 };

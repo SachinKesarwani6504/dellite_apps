@@ -26,6 +26,7 @@ import {
   registerWorkerLiveOnDisconnect,
   removeWorkerLive,
   setWorkerLive,
+  subscribeWorkerLiveLocation,
   updateWorkerLive,
 } from '@/lib/firebase/firebaseDatabase';
 import { assertFirebaseConfig, firebaseConfig, isFirebaseConfigured, missingFirebaseConfigKeys } from '@/lib/firebase/firebaseConfig';
@@ -103,6 +104,7 @@ export {
   registerWorkerLiveOnDisconnect,
   removeWorkerLive,
   setWorkerLive,
+  subscribeWorkerLiveLocation,
   updateWorkerLive,
 };
 

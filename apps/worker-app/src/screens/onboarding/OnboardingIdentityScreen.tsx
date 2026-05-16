@@ -56,6 +56,8 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cityOptions, setCityOptions] = useState<ServiceLaunchedCity[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityLoadError, setCityLoadError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const didRunInitialRouteCheckRef = useRef(false);
   const {
@@ -91,6 +93,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   useEffect(() => {
     let mounted = true;
     const loadCities = async () => {
+      if (!mounted) return;
+      setCityLoading(true);
+      setCityLoadError(null);
       try {
         const cities = await getServiceLaunchedCities();
         if (!mounted) return;
@@ -98,6 +103,10 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       } catch {
         if (!mounted) return;
         setCityOptions([]);
+        setCityLoadError('Could not load operating cities. Please retry.');
+      } finally {
+        if (!mounted) return;
+        setCityLoading(false);
       }
     };
     void loadCities();
@@ -131,7 +140,17 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     if (formDisabled) return;
     if (!isValid) {
       logOnboardingIdentityScreen('next-blocked-invalid-form');
-      showError('Please enter first name, last name, select gender, select at least one city, and upload Aadhaar front/back.');
+      const missingFields: string[] = [];
+      if (!isValidFirstName(firstName)) missingFields.push('first name');
+      if (!isValidLastName(lastName)) missingFields.push('last name');
+      if (!gender) missingFields.push('gender');
+      if (selectedCities.length === 0) missingFields.push('at least one operating city');
+      if (!aadhaarFront) missingFields.push('Aadhaar front');
+      if (!aadhaarBack) missingFields.push('Aadhaar back');
+      const message = missingFields.length > 0
+        ? `Please add ${missingFields.join(', ')}.`
+        : 'Please complete required fields.';
+      showError(message);
       return;
     }
     setIsSubmitting(true);
@@ -348,6 +367,43 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
           <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
             Select at least one city where you can work.
           </Text>
+          {cityLoadError ? (
+            <View className="mt-2 rounded-xl border px-3 py-2" style={{
+              borderColor: theme.colors.negative,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+            }}>
+              <Text className="text-xs font-semibold" style={{ color: theme.colors.negative }}>
+                {cityLoadError}
+              </Text>
+              <Pressable
+                className="mt-2 self-start rounded-full border px-3 py-1.5"
+                style={{
+                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+                }}
+                onPress={async () => {
+                  setCityLoading(true);
+                  setCityLoadError(null);
+                  try {
+                    const cities = await getServiceLaunchedCities();
+                    setCityOptions(cities);
+                  } catch {
+                    setCityOptions([]);
+                    setCityLoadError('Could not load operating cities. Please retry.');
+                  } finally {
+                    setCityLoading(false);
+                  }
+                }}
+              >
+                <Text className="text-xs font-semibold text-primary">Retry cities</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {cityLoading ? (
+            <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              Loading cities...
+            </Text>
+          ) : null}
           <View className="mt-2 flex-row flex-wrap gap-2">
             {cityOptions.map(city => {
               const cityName = city.name.trim().toUpperCase();
@@ -388,4 +444,3 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     </GradientScreen>
   );
 }
-

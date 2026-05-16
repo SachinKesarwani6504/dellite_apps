@@ -4,6 +4,7 @@ import { useApiGet } from '@/hooks/useApiGet';
 import type { ApiEnvelope } from '@/types/api';
 import type {
   BookingDetailsResponse,
+  BookingDetailsHistoryItem,
   BookingDetailsRole,
   BookingDetailsServiceLine,
   UpdateBookingPayload,
@@ -29,6 +30,36 @@ export function useBookingDetailsController(bookingId: string, role: BookingDeta
   } = useApiGet<BookingDetailsResponse>(detailsPath);
   const [updatingLineKey, setUpdatingLineKey] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const normalizedDetails = useMemo(() => {
+    if (!data) return null;
+    const historyRaw = (data as { history?: unknown }).history;
+    const history = Array.isArray(historyRaw)
+      ? historyRaw
+        .map((item): BookingDetailsHistoryItem | null => {
+          if (!item || typeof item !== 'object') return null;
+          const raw = item as Record<string, unknown>;
+          const id = typeof raw.id === 'string' ? raw.id : null;
+          const title = typeof raw.title === 'string' ? raw.title : null;
+          const createdAt = typeof raw.createdAt === 'string' ? raw.createdAt : null;
+          if (!id || !title || !createdAt) return null;
+          return {
+            id,
+            title,
+            description: typeof raw.description === 'string' ? raw.description : null,
+            createdAt,
+            metadata: raw.metadata && typeof raw.metadata === 'object'
+              ? (raw.metadata as Record<string, unknown>)
+              : null,
+          };
+        })
+        .filter((item): item is BookingDetailsHistoryItem => Boolean(item))
+      : [];
+    return {
+      ...data,
+      history,
+    };
+  }, [data]);
 
   const patchBooking = useCallback(async (line: BookingDetailsServiceLine, payload: UpdateBookingPayload) => {
     const lineKey = getBookingLineKey(line);
@@ -77,7 +108,7 @@ export function useBookingDetailsController(bookingId: string, role: BookingDeta
   }, [updateDuration]);
 
   return {
-    details: data,
+    details: normalizedDetails,
     loading,
     error: error ?? updateError,
     updatingLineKey,

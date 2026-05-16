@@ -6,6 +6,23 @@ import {
 import type { BookingLiveRouteArgs, BookingLiveRouteState } from '@/types/live-route';
 import { APP_TEXT } from '@/utils/appText';
 import { ENV } from '@/utils/env';
+import type { RouteCoordinates } from '@/types/live-route';
+
+const ROUTE_REFRESH_MIN_INTERVAL_MS = 10000;
+const ROUTE_REFRESH_MIN_MOVE_METERS = 25;
+
+function calculateHaversineDistanceInMeters(a: RouteCoordinates, b: RouteCoordinates) {
+  const R = 6371000;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const aa = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+  const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+  return R * c;
+}
 
 export function useBookingLiveRoute({
   origin,
@@ -19,6 +36,10 @@ export function useBookingLiveRoute({
   const hasFetchedRouteRef = useRef(false);
   const originRef = useRef(origin);
   const destinationRef = useRef(destination);
+  const lastFetchAtRef = useRef<number>(0);
+  const lastFetchOriginRef = useRef<RouteCoordinates | null>(null);
+  const lastFetchDestinationRef = useRef<RouteCoordinates | null>(null);
+  const lastFetchVehicleModeRef = useRef(vehicleMode);
 
   useEffect(() => {
     originRef.current = origin;
@@ -42,6 +63,10 @@ export function useBookingLiveRoute({
     }
 
     hasFetchedRouteRef.current = true;
+    lastFetchAtRef.current = Date.now();
+    lastFetchOriginRef.current = currentOrigin;
+    lastFetchDestinationRef.current = currentDestination;
+    lastFetchVehicleModeRef.current = vehicleMode;
     const fallbackRoute = buildFallbackLiveRoute(currentOrigin, currentDestination);
     const apiKey = ENV.GOOGLE_MAPS_API_KEY?.trim();
 
@@ -107,6 +132,38 @@ export function useBookingLiveRoute({
       void refresh();
     }
   }, [vehicleMode]);
+
+  useEffect(() => {
+    if (!enabled || !origin || !destination) return;
+    if (!hasFetchedRouteRef.current) return;
+
+    const lastOrigin = lastFetchOriginRef.current;
+    const lastDestination = lastFetchDestinationRef.current;
+    const movedFromLastOrigin = lastOrigin
+      ? calculateHaversineDistanceInMeters(lastOrigin, origin)
+      : Number.POSITIVE_INFINITY;
+    const movedFromLastDestination = lastDestination
+      ? calculateHaversineDistanceInMeters(lastDestination, destination)
+      : Number.POSITIVE_INFINITY;
+    const modeChanged = lastFetchVehicleModeRef.current !== vehicleMode;
+    const movementChanged = movedFromLastOrigin >= ROUTE_REFRESH_MIN_MOVE_METERS
+      || movedFromLastDestination >= ROUTE_REFRESH_MIN_MOVE_METERS;
+    const now = Date.now();
+    const elapsedMs = now - lastFetchAtRef.current;
+    const canRefreshByInterval = elapsedMs >= ROUTE_REFRESH_MIN_INTERVAL_MS;
+
+    if (modeChanged || (movementChanged && canRefreshByInterval)) {
+      void refresh();
+    }
+  }, [
+    destination?.latitude,
+    destination?.longitude,
+    enabled,
+    origin?.latitude,
+    origin?.longitude,
+    refresh,
+    vehicleMode,
+  ]);
 
   return {
     route,

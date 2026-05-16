@@ -21,6 +21,7 @@ import {
   WorkerStatusData,
   WorkerStatusResponse,
 } from '@/types/auth';
+import type { BookingDetailsResponse } from '@/types/booking-details';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 import { toFormData } from '@/utils/form-data';
 import type { MultipartFile } from '@/types/http';
@@ -49,6 +50,7 @@ type RawServiceCategory = Omit<ServiceCategory, 'subcategories'> & {
 };
 
 type WorkerStatusEnvelopeOrData = WorkerStatusResponse | WorkerStatusData;
+export type BookingInviteUpdateType = 'ACCEPTED' | 'REJECTED';
 type WorkerStatusSortDirection = 'asc' | 'desc';
 type WorkerStatusQuery = {
   sortBy?: 'status';
@@ -687,5 +689,29 @@ export async function updateWorkerCertificates(payload: WorkerCertificateUpdateP
       },
     },
   );
+  return unwrapData(response);
+}
+
+export async function updateBookingInvite(inviteId: string, inviteType: BookingInviteUpdateType) {
+  const normalizedInviteId = inviteId.trim();
+  if (!normalizedInviteId) {
+    throw new Error('Invite id is required.');
+  }
+
+  const response = await apiPatch<ApiEnvelope<BookingDetailsResponse>>(
+    `/booking/invite/${encodeURIComponent(normalizedInviteId)}?inviteType=${inviteType}`,
+    undefined,
+    {
+      auth: true,
+      toast: {
+        successTitle: inviteType === 'ACCEPTED' ? 'Invite Accepted' : 'Invite Rejected',
+        successMessage: inviteType === 'ACCEPTED'
+          ? 'Booking invite accepted successfully.'
+          : 'Booking invite rejected successfully.',
+        errorTitle: 'Invite Update Failed',
+      },
+    },
+  );
+
   return unwrapData(response);
 }

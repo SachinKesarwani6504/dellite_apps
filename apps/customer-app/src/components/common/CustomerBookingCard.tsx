@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View, useColorScheme } from "react-native";
 
-import { StatusBadge } from "@/components/common/StatusBadge";
+import { StatusBadge, getStatusBadgeTextColor } from "@/components/common/StatusBadge";
 import type { CustomerBookingCardProps } from "@/types/component-types";
 import { formatTitle } from "@/utils";
 import {
@@ -28,6 +28,7 @@ export function CustomerBookingCard({
   const workerInitial = getCustomerBookingWorkerInitial(item);
   const workerSubtitle = getCustomerBookingWorkerSubtitle(item);
   const amountLabel = getCustomerBookingAmountLabel(item);
+  const statusAccentColor = getStatusBadgeTextColor(item.bookingStatus);
 
   // Extract data safely from the new BookingListItem shape
   const firstService = item.services?.[0];
@@ -38,7 +39,7 @@ export function CustomerBookingCard({
   const bookingTypeLabel = item.bookingType
     ? formatTitle(item.bookingType)
     : "Booking";
-  const sceduelstartAtLabel = item.scheduledStartAt
+  const scheduledStartAtLabel = item.scheduledStartAt
     ? getCustomerBookingScheduleLabel(item)
     : null;
   return (
@@ -47,14 +48,11 @@ export function CustomerBookingCard({
       style={{
         backgroundColor: isDark ? palette.dark.card : palette.light.card,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight,
+        borderTopWidth: 4,
+        borderTopColor: statusAccentColor,
       }}
     >
-      <View
-        className="absolute left-0 top-0 h-full w-1.5"
-        style={{ backgroundColor: theme.colors.primary }}
-      />
-
-      <Pressable onPress={() => onPress(item.id)} className="p-4 pl-5">
+      <View className="p-4">
         <View className="flex-row items-start justify-between">
           <View className="mr-3 flex-1">
             <Text className="text-lg font-bold text-baseDark dark:text-white">
@@ -129,7 +127,7 @@ export function CustomerBookingCard({
             </View>
           </View>
         </View>
-        {sceduelstartAtLabel && (
+        {scheduledStartAtLabel && (
           <View
             className="mt-2 rounded-xl px-3 py-2.5"
             style={{
@@ -145,7 +143,7 @@ export function CustomerBookingCard({
                 color={theme.colors.primary}
               />
               <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">
-                {sceduelstartAtLabel}
+                {scheduledStartAtLabel}
               </Text>
             </View>
           </View>
@@ -215,13 +213,14 @@ export function CustomerBookingCard({
           </View>
         </View>
 
-        <View
+        <Pressable
+          onPress={() => onPress(item.id)}
           className="mt-4 items-center justify-center rounded-2xl py-3.5"
           style={{ backgroundColor: theme.colors.primary }}
         >
           <Text className="text-base font-bold text-white">View Booking</Text>
-        </View>
-      </Pressable>
+        </Pressable>
+      </View>
     </View>
   );
 }

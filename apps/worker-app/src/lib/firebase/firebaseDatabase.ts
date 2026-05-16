@@ -1,7 +1,9 @@
 import {
+  DataSnapshot,
   Database,
   OnDisconnect,
   getDatabase,
+  onValue,
   onDisconnect,
   ref,
   remove,
@@ -21,7 +23,6 @@ export type LiveLocationNamespace = (typeof LIVE_LOCATION_NAMESPACE)[keyof typeo
 export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
 export type WorkerVehicleMode =
   | 'WALK'
-  | 'CYCLE'
   | 'TWO_WHEELER'
   | 'CAR'
   | 'UNKNOWN';
@@ -92,4 +93,18 @@ export async function removeWorkerLive(workerId: string) {
 
 export function getRealtimeServerTimestamp() {
   return serverTimestamp();
+}
+
+export function subscribeWorkerLiveLocation(
+  workerId: string,
+  onLocation: (location: WorkerLiveLocationRecord | null) => void,
+  onError: (error: Error) => void,
+) {
+  return onValue(
+    getWorkerLiveRef(workerId),
+    (snapshot: DataSnapshot) => {
+      onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
+    },
+    onError,
+  );
 }

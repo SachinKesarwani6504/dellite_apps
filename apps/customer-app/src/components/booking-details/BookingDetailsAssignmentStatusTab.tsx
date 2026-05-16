@@ -14,8 +14,8 @@ export function BookingDetailsAssignmentStatusTab() {
     return (
       <View className="mt-5">
         <ListEmptyState
-          title="No assignment updates yet"
-          description="Booking and worker assignment updates will appear here as the job moves forward."
+          title="No timeline updates yet"
+          description="Booking updates will appear here as the job moves forward."
           icon="checkmark-done-outline"
         />
       </View>

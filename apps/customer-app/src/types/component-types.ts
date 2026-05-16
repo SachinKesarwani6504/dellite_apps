@@ -7,6 +7,7 @@ import type { Booking } from '@/types/api';
 import type { CustomerBookableService, CustomerServicePriceOption, CustomerServiceTask } from '@/types/customer';
 import type { ImageCacheMode } from '@/types/shared';
 import type { WorkerLiveLocationRecord, WorkerRouteCoordinates } from '@/types/worker-live-location';
+import type { WorkerVehicleMode } from '@/types/worker-live-location';
 
 export type AppImageProps = Omit<ComponentProps<typeof Image>, 'source'> & {
   source?: ImageSourcePropType;
@@ -127,6 +128,7 @@ export type PinnedLocationMapPickerProps = {
 
 export type WorkerLiveRouteMapProps = {
   workerLocation: WorkerLiveLocationRecord | null;
+  vehicleMode: WorkerVehicleMode;
   destinationCoordinates: WorkerRouteCoordinates;
   route: LiveRouteResult | null;
   isDark: boolean;

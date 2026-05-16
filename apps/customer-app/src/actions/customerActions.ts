@@ -729,39 +729,36 @@ export async function createCustomerProfile(
 
 export async function updateCustomerProfile(payload: UpdateCustomerProfilePayload): Promise<void> {
   // Example: await updateCustomerProfile({ preferredLanguage: 'EN', hasSeenOnboardingWelcomeScreen: true });
-  const formData = toFormData(
-    {
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      gender: payload.gender,
-      preferredLanguage: payload.preferredLanguage,
-      hasSeenOnboardingWelcomeScreen: payload.hasSeenOnboardingWelcomeScreen,
-    },
-    payload.file ? { file: payload.file } : undefined,
-  );
+  const updateBody = {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    gender: payload.gender,
+    preferredLanguage: payload.preferredLanguage,
+    hasSeenOnboardingWelcomeScreen: payload.hasSeenOnboardingWelcomeScreen,
+  };
 
-  await apiPatch<{ profile?: CustomerProfile }, FormData>(
-    '/customer/profile',
-    formData,
-    {
+  if (payload.file) {
+    const formData = toFormData(updateBody, { file: payload.file });
+    await apiPatch<{ profile?: CustomerProfile }, FormData>('/customer/profile', formData, {
       auth: true,
-      toast: {
-        successMessage: 'Profile updated successfully',
-      },
-    },
-  );
+      toast: { successMessage: 'Profile updated successfully' },
+    });
+  } else {
+    await apiPatch<{ profile?: CustomerProfile }, typeof updateBody>('/customer/profile', updateBody, {
+      auth: true,
+      toast: { successMessage: 'Profile updated successfully' },
+    });
+  }
 }
 
 export async function markOnboardingWelcomeSeen(): Promise<void> {
-  const formData = toFormData({ hasSeenOnboardingWelcomeScreen: true });
-  await apiPatch<{ profile?: CustomerProfile }, FormData>(
+  await apiPatch<{ profile?: CustomerProfile }, { hasSeenOnboardingWelcomeScreen: boolean }>(
     '/customer/profile',
-    formData,
+    { hasSeenOnboardingWelcomeScreen: true },
     {
       auth: true,
       toast: {
-        enabled: false,
         showSuccess: false,
         showError: false,
       },
