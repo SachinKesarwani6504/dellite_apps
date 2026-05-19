@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { createUserBankInfo, getUserBankInfo, updateUserBankInfo } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { AppInput } from '@/components/common/AppInput';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { PayoutMethodType, UserBankInfo } from '@/types/auth';
@@ -170,9 +170,7 @@ export function PayoutDetailsScreen({ navigation }: Props) {
 
   return (
     <GradientScreen contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}>
-      <View className="mb-3">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <View className="rounded-3xl pb-6 pt-4" style={contentCardStyle}>
         <SplitGradientTitle
@@ -180,7 +178,6 @@ export function PayoutDetailsScreen({ navigation }: Props) {
           prefix="Manage your"
           highlight="bank info"
           subtitle={APP_TEXT.profile.payout.subtitle}
-          subtitleClassName="mt-1 text-sm"
         />
 
         {fetchLoading ? (

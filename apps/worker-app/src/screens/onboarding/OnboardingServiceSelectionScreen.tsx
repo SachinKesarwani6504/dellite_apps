@@ -9,9 +9,9 @@ import { WorkerSkillSubcategoryTabs } from '@/components/worker-skills/WorkerSki
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AppIcon } from '@/icons';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import {
@@ -303,9 +303,7 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
       )}
     >
         <View className="flex-row items-center">
-          <View className="w-10">
-            <BackButton onPress={onBackStep} visible={showBackButton} />
-          </View>
+          <View className="w-10">{showBackButton ? <DetailsTopBar onBack={onBackStep} /> : null}</View>
           <View className="flex-1" />
           {!isPreviewStep ? (
             <View className="flex-row items-center gap-2">
@@ -339,9 +337,6 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
             prefix={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewTitlePrefix : APP_TEXT.onboarding.vehicle.selectTitlePrefix}
             highlight={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewTitleHighlight : APP_TEXT.onboarding.vehicle.selectTitleHighlight}
             subtitle={isPreviewStep ? APP_TEXT.onboarding.vehicle.previewSubtitle : APP_TEXT.onboarding.vehicle.subtitle}
-            prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-            highlightClassName="text-4xl font-extrabold leading-[40px]"
-            subtitleClassName="mt-2 text-sm"
             showSparkle={false}
           />
         </View>

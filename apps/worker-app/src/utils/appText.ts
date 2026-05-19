@@ -34,7 +34,7 @@ export const APP_TEXT = {
       gradientWord: 'yourself',
       subtitle: "We'll personalize your experience based on this info",
       uploadPhotoTitle: 'Add profile photo',
-      uploadPhotoSubtitle: 'You can upload your picture in the next update.',
+      uploadPhotoSubtitle: 'Max 2MB',
       firstNameLabel: 'First Name',
       firstNamePlaceholder: 'First Name',
       lastNameLabel: 'Last Name',

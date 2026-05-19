@@ -1,12 +1,12 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, Text, View, useColorScheme } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { updateWorkerProfile } from "@/actions";
 import { AppInput } from "@/components/common/AppInput";
-import { BackButton } from "@/components/common/BackButton";
 import { useBrandRefreshControlProps } from "@/components/common/BrandRefreshControl";
 import { Button } from "@/components/common/Button";
+import { DetailsTopBar } from "@/components/common/DetailsTopBar";
 import { GradientScreen } from "@/components/common/GradientScreen";
 import { ProfilePhotoUploadPlaceholder } from "@/components/common/ProfilePhotoUploadPlaceholder";
 import { SplitGradientTitle } from "@/components/common/SplitGradientTitle";
@@ -35,7 +35,7 @@ const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 
 export function EditProfileScreen({ navigation }: Props) {
   const isDark = useColorScheme() === "dark";
-  const { user, refreshMe } = useAuthContext();
+  const { user, me, refreshMe } = useAuthContext();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -49,6 +49,7 @@ export function EditProfileScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const roleLink = (me as Record<string, unknown> | null | undefined)?.roleLink as Record<string, unknown> | undefined;
 
   useEffect(() => {
     setFirstName(String(user?.firstName ?? ""));
@@ -61,12 +62,15 @@ export function EditProfileScreen({ navigation }: Props) {
     ) {
       setGender(user.gender);
     }
-    const userCities = Array.isArray(
+    const roleLinkCities = Array.isArray(roleLink?.workerOperatingCities)
+      ? roleLink.workerOperatingCities
+      : [];
+    const fallbackUserCities = Array.isArray(
       (user as { workerOperatingCities?: unknown })?.workerOperatingCities,
     )
-      ? ((user as { workerOperatingCities?: unknown[] })
-          .workerOperatingCities ?? [])
+      ? ((user as { workerOperatingCities?: unknown[] }).workerOperatingCities ?? [])
       : [];
+    const userCities = roleLinkCities.length > 0 ? roleLinkCities : fallbackUserCities;
     const normalizedCities = userCities
       .filter(
         (value): value is string =>
@@ -74,7 +78,24 @@ export function EditProfileScreen({ navigation }: Props) {
       )
       .map((value) => value.trim().toUpperCase());
     setSelectedCities(normalizedCities);
-  }, [user?.email, user?.firstName, user?.gender, user?.lastName]);
+  }, [roleLink?.workerOperatingCities, user?.email, user?.firstName, user?.gender, user?.lastName]);
+
+  const availableCityNames = useMemo(() => {
+    const launchedCityCandidates = Array.isArray(roleLink?.lauchedCities)
+      ? roleLink?.lauchedCities
+      : (Array.isArray(roleLink?.launchedCities) ? roleLink?.launchedCities : []);
+    const fromOptions = launchedCityCandidates
+      .filter((cityName): cityName is string => typeof cityName === "string")
+      .map((cityName) => cityName.trim().toUpperCase())
+      .filter((cityName) => cityName.length > 0);
+    const merged = [...fromOptions];
+    selectedCities.forEach((cityName) => {
+      if (!merged.includes(cityName)) {
+        merged.push(cityName);
+      }
+    });
+    return merged;
+  }, [me, selectedCities]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -168,15 +189,10 @@ export function EditProfileScreen({ navigation }: Props) {
         />
       }
     >
-      <View className="mb-3">
-        <BackButton
-          onPress={() => navigation.goBack()}
-          visible={navigation.canGoBack()}
-        />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <View
-        className="rounded-3xl pb-6 pt-4"
+        className="rounded-3xl pb-6"
         style={{
           backgroundColor: isDark
             ? uiColors.surface.cardElevatedDark
@@ -184,7 +200,6 @@ export function EditProfileScreen({ navigation }: Props) {
         }}
       >
         <SplitGradientTitle
-          eyebrow={APP_TEXT.profile.edit.step}
           prefix={APP_TEXT.profile.edit.titlePrefix}
           highlight={APP_TEXT.profile.edit.titleGradientWord}
           subtitle={APP_TEXT.profile.edit.subtitle}
@@ -193,7 +208,7 @@ export function EditProfileScreen({ navigation }: Props) {
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
-            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
+            subtitle={APP_TEXT.onboarding.identity.uploadPhotoSubtitle}
             imageUri={profileImage?.uri ?? existingProfileImageUrl}
             onPress={() => {
               void onPickProfileImage();
@@ -290,10 +305,10 @@ export function EditProfileScreen({ navigation }: Props) {
                 : uiColors.text.subtitleLight,
             }}
           >
-            Cities shown below are from your profile data.
+            Select at least one city where you can work.
           </Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
-            {selectedCities.map((cityName) => {
+            {availableCityNames.map((cityName) => {
               const selected = selectedCities.includes(cityName);
               return (
                 <Pressable
@@ -331,18 +346,6 @@ export function EditProfileScreen({ navigation }: Props) {
                 </Pressable>
               );
             })}
-            {selectedCities.length === 0 ? (
-              <Text
-                className="text-xs"
-                style={{
-                  color: isDark
-                    ? uiColors.text.subtitleDark
-                    : uiColors.text.subtitleLight,
-                }}
-              >
-                No operating cities found in profile.
-              </Text>
-            ) : null}
           </View>
         </View>
       </View>

@@ -4,9 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
@@ -238,9 +238,7 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
       )}
     >
         <View className="flex-row items-center">
-          <View className="w-10">
-            <BackButton onPress={onBackStep} visible={showBackButton} />
-          </View>
+          <View className="w-10">{showBackButton ? <DetailsTopBar onBack={onBackStep} /> : null}</View>
           <View className="flex-1" />
           <Pressable
             onPress={() => {
@@ -269,9 +267,6 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
             prefix={APP_TEXT.onboarding.certification.titlePrefix}
             highlight={APP_TEXT.onboarding.certification.titleHighlight}
             subtitle={APP_TEXT.onboarding.certification.subtitle}
-            prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-            highlightClassName="text-4xl font-extrabold leading-[40px]"
-            subtitleClassName="mt-2 text-sm"
             showSparkle={false}
           />
         </View>

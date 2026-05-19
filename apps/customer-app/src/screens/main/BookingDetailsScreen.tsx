@@ -102,7 +102,6 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
     >
       <DetailsTopBar
         onBack={() => navigation.goBack()}
-        onEdit={() => {}}
       />
 
       {isInitialLoading && !details ? (

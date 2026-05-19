@@ -127,9 +127,6 @@ export function JobsScreen() {
         prefix={APP_TEXT.jobs.titlePrefix}
         highlight={APP_TEXT.jobs.titleHighlight}
         subtitle={APP_TEXT.jobs.subtitle}
-        inline
-        prefixClassName="text-[34px] font-extrabold leading-[38px] text-baseDark dark:text-white"
-        highlightClassName="text-[38px] font-extrabold leading-[41px]"
       />
 
       <AnimatedSegmentTabs

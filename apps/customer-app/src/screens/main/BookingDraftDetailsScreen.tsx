@@ -1,10 +1,10 @@
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { BookingServiceDetailCard } from '@/components/common/BookingServiceDetailCard';
 import { Button } from '@/components/common/Button';
 import { CardWrapper } from '@/components/common/CardWrapper';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { TwoOptionPillTabs } from '@/components/common/TwoOptionPillTabs';
@@ -73,9 +73,7 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
         />
       )}
     >
-      <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} />
-      </View>
+      <DetailsTopBar onBack={() => navigation.goBack()} />
 
       <SplitGradientTitle
         prefix="Book your"

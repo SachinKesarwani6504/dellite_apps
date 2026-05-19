@@ -131,6 +131,7 @@ function normalizeWorkerHomeData(value: unknown): WorkerHomeData {
       workerId: toOptionalString((currentStatusRaw as Record<string, unknown>).workerId ?? (currentStatusRaw as Record<string, unknown>).worker_id),
       status: toOptionalString((currentStatusRaw as Record<string, unknown>).status),
       isLatest: toOptionalBoolean((currentStatusRaw as Record<string, unknown>).isLatest ?? (currentStatusRaw as Record<string, unknown>).is_latest),
+      showStatusInUi: toOptionalBoolean((currentStatusRaw as Record<string, unknown>).showStatusInUi ?? (currentStatusRaw as Record<string, unknown>).show_status_in_ui),
       message: toOptionalString((currentStatusRaw as Record<string, unknown>).message),
       createdAt: toOptionalString((currentStatusRaw as Record<string, unknown>).createdAt ?? (currentStatusRaw as Record<string, unknown>).created_at),
       updatedAt: toOptionalString((currentStatusRaw as Record<string, unknown>).updatedAt ?? (currentStatusRaw as Record<string, unknown>).updated_at),

@@ -28,7 +28,6 @@ export function OnboardingCustomerIdentityScreen() {
   const isDark = useColorScheme() === 'dark';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const [profileImage, setProfileImage] = useState<{ uri: string; name: string; type: string } | null>(null);
@@ -37,9 +36,7 @@ export function OnboardingCustomerIdentityScreen() {
   const formDisabled = loading || isSubmitting;
   const text = APP_TEXT.onboarding.identity;
 
-  const normalizedEmail = email.trim();
-  const hasValidEmail = normalizedEmail.length === 0 || /\S+@\S+\.\S+/.test(normalizedEmail);
-  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && hasValidEmail && Boolean(gender);
+  const isValid = isValidFirstName(firstName) && isValidLastName(lastName) && Boolean(gender);
 
   const onPickProfileImage = async () => {
     if (formDisabled) return;
@@ -72,7 +69,6 @@ export function OnboardingCustomerIdentityScreen() {
       await completeOnboarding({
         firstName: normalizePersonName(firstName).trim(),
         lastName: normalizePersonName(lastName).trim(),
-        email: normalizedEmail || undefined,
         gender: gender ?? undefined,
         referralCode: referralCode.trim() || undefined,
         file: profileImage ?? undefined,
@@ -91,7 +87,6 @@ export function OnboardingCustomerIdentityScreen() {
     >
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <SplitGradientTitle
-          eyebrow={text.step}
           prefix={text.titlePrefix}
           highlight={text.gradientWord}
           subtitle={text.subtitle}
@@ -122,15 +117,6 @@ export function OnboardingCustomerIdentityScreen() {
             value={lastName}
             onChangeText={(value) => setLastName(normalizePersonName(value))}
             placeholder={text.lastNamePlaceholder}
-            editable={!formDisabled}
-          />
-          <AppInput
-            label={text.emailLabel}
-            value={email}
-            onChangeText={setEmail}
-            placeholder={text.emailPlaceholder}
-            keyboardType="email-address"
-            autoCapitalize="none"
             editable={!formDisabled}
           />
           <AppInput

@@ -4,8 +4,8 @@ import { Pressable, Text, View, useColorScheme } from 'react-native';
 
 import { customerActions } from '@/actions';
 import { AppInput } from '@/components/common/AppInput';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -105,91 +105,88 @@ export function EditProfileScreen() {
     <GradientScreen
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
-      <View className="mb-3">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} disabled={formDisabled} />
+      <DetailsTopBar onBack={() => navigation.goBack()} />
+
+      <SplitGradientTitle
+        prefix={APP_TEXT.profile.edit.titlePrefix}
+        highlight={APP_TEXT.profile.edit.titleGradientWord}
+        subtitle={APP_TEXT.profile.edit.subtitle}
+      />
+
+      <View className="mt-5 items-center">
+        <ProfilePhotoUploadPlaceholder
+          title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
+          subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
+          imageUri={profileImage?.uri ?? existingProfileImageUrl}
+          onPress={() => {
+            void onPickProfileImage();
+          }}
+        />
       </View>
 
-        <SplitGradientTitle
-          eyebrow={APP_TEXT.profile.edit.step}
-          prefix={APP_TEXT.profile.edit.titlePrefix}
-          highlight={APP_TEXT.profile.edit.titleGradientWord}
-          subtitle={APP_TEXT.profile.edit.subtitle}
+      <View className="mt-6 gap-3">
+        <AppInput
+          label={APP_TEXT.onboarding.identity.firstNameLabel}
+          isRequired
+          value={firstName}
+          onChangeText={(value) => setFirstName(normalizePersonName(value))}
+          placeholder={APP_TEXT.onboarding.identity.firstNamePlaceholder}
+          editable={!formDisabled}
         />
+        <AppInput
+          label={APP_TEXT.onboarding.identity.lastNameLabel}
+          isRequired
+          value={lastName}
+          onChangeText={(value) => setLastName(normalizePersonName(value))}
+          placeholder={APP_TEXT.onboarding.identity.lastNamePlaceholder}
+          editable={!formDisabled}
+        />
+        <AppInput
+          label={APP_TEXT.profile.emailLabel}
+          value={email}
+          onChangeText={setEmail}
+          placeholder={APP_TEXT.profile.edit.emailPlaceholder}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          editable={!formDisabled}
+        />
+      </View>
 
-        <View className="mt-5 items-center">
-          <ProfilePhotoUploadPlaceholder
-            title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
-            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
-            imageUri={profileImage?.uri ?? existingProfileImageUrl}
-            onPress={() => {
-              void onPickProfileImage();
-            }}
-          />
-        </View>
-
-        <View className="mt-6 gap-3">
-          <AppInput
-            label={APP_TEXT.onboarding.identity.firstNameLabel}
-            isRequired
-            value={firstName}
-            onChangeText={(value) => setFirstName(normalizePersonName(value))}
-            placeholder={APP_TEXT.onboarding.identity.firstNamePlaceholder}
-            editable={!formDisabled}
-          />
-          <AppInput
-            label={APP_TEXT.onboarding.identity.lastNameLabel}
-            isRequired
-            value={lastName}
-            onChangeText={(value) => setLastName(normalizePersonName(value))}
-            placeholder={APP_TEXT.onboarding.identity.lastNamePlaceholder}
-            editable={!formDisabled}
-          />
-          <AppInput
-            label={APP_TEXT.profile.emailLabel}
-            value={email}
-            onChangeText={setEmail}
-            placeholder={APP_TEXT.profile.edit.emailPlaceholder}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!formDisabled}
-          />
-        </View>
-
-        <Text className="mt-5 text-sm font-semibold text-baseDark dark:text-white">
-          {APP_TEXT.onboarding.identity.genderLabel}
-        </Text>
-        <View className="mt-2 flex-row gap-2">
-          {genderOptions.map((option) => {
-            const selected = option.value === gender;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => {
-                  if (formDisabled) {
-                    return;
-                  }
-                  setGender(option.value);
-                }}
-                disabled={formDisabled}
-                className={`flex-1 rounded-2xl border p-3 ${
-                  selected
-                    ? 'border-primary bg-primary/10'
-                    : 'border-accent/40 bg-white dark:border-white/10'
+      <Text className="mt-5 text-sm font-semibold text-baseDark dark:text-white">
+        {APP_TEXT.onboarding.identity.genderLabel}
+      </Text>
+      <View className="mt-2 flex-row gap-2">
+        {genderOptions.map((option) => {
+          const selected = option.value === gender;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                if (formDisabled) {
+                  return;
+                }
+                setGender(option.value);
+              }}
+              disabled={formDisabled}
+              className={`flex-1 rounded-2xl border p-3 ${
+                selected
+                  ? 'border-primary bg-primary/10'
+                  : 'border-accent/40 bg-white dark:border-white/10'
+              }`}
+              style={!selected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
+            >
+              <Text className="text-center text-2xl">{option.icon}</Text>
+              <Text
+                className={`mt-1 text-center text-sm font-semibold ${
+                  selected ? 'text-primary' : 'text-baseDark dark:text-white'
                 }`}
-                style={!selected ? { backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card } : undefined}
               >
-                <Text className="text-center text-2xl">{option.icon}</Text>
-                <Text
-                  className={`mt-1 text-center text-sm font-semibold ${
-                    selected ? 'text-primary' : 'text-baseDark dark:text-white'
-                  }`}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <View className="mt-5">
         <Button

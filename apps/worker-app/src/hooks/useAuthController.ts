@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
   createProfileWithPhoneToken,
+  getWorkerOnboardingPrefill,
   getMe,
   logoutCurrentSession,
   resendOtp,
@@ -18,6 +19,7 @@ import {
   AuthUser,
   UserRole,
   VerifyOtpResult,
+  WorkerOnboardingPrefillData,
   WorkerProfilePayload,
 } from '@/types/auth';
 import { useLocationController } from '@/hooks/useLocationController';
@@ -33,6 +35,7 @@ import {
   saveOnboardingPhoneToken,
 } from '@/utils/key-chain-storage';
 import { stripBearerPrefix } from '@/utils/token';
+import { showError } from '@/utils/toast';
 
 function normalizeBearerToken(token: string | null | undefined) {
   if (!token) {
@@ -78,6 +81,7 @@ export function useAuthController(): AuthContextType {
   const [status, setStatus] = useState<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
+  const [onboardingPrefill, setOnboardingPrefill] = useState<WorkerOnboardingPrefillData | null>(null);
   const [phone, setPhone] = useState('');
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
@@ -130,9 +134,33 @@ export function useAuthController(): AuthContextType {
 
   const resetLocalSession = useCallback((nextStatus: AuthStatus) => {
     setPhoneToken(null);
+    setOnboardingPrefill(null);
     setMe(null);
     setUser(null);
     setStatus(nextStatus);
+  }, []);
+
+  const fetchOnboardingPrefill = useCallback(async (rawPhoneToken: string) => {
+    const normalizedPhoneToken = normalizeBearerToken(rawPhoneToken);
+    if (!normalizedPhoneToken) {
+      return null;
+    }
+
+    try {
+      const prefill = await getWorkerOnboardingPrefill(normalizedPhoneToken);
+      setOnboardingPrefill(prefill);
+      return prefill;
+    } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 401) {
+        await clearOnboardingPhoneToken();
+        setPhoneToken(null);
+        setOnboardingPrefill(null);
+        setPhone('');
+        setStatus(AuthStatus.LOGGED_OUT);
+        showError('Session expired. Please login again.');
+      }
+      throw error;
+    }
   }, []);
 
   const logout = useCallback(async () => {
@@ -168,10 +196,18 @@ export function useAuthController(): AuthContextType {
 
         if (!tokens?.accessToken) {
           if (pendingPhoneToken) {
+            const normalizedPendingPhoneToken = normalizeBearerToken(pendingPhoneToken);
             setStatus(AuthStatus.ONBOARDING);
-            setPhoneToken(normalizeBearerToken(pendingPhoneToken));
+            setPhoneToken(normalizedPendingPhoneToken);
             setMe(null);
             setUser(null);
+            if (normalizedPendingPhoneToken) {
+              try {
+                await fetchOnboardingPrefill(normalizedPendingPhoneToken);
+              } catch {
+                // Non-blocking prefill fetch failure; user can continue manually.
+              }
+            }
             return;
           }
 
@@ -206,7 +242,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [ensureFirebaseSession, logout, refreshMe, resetLocalSession]);
+  }, [ensureFirebaseSession, fetchOnboardingPrefill, logout, refreshMe, resetLocalSession]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
@@ -226,6 +262,7 @@ export function useAuthController(): AuthContextType {
     console.log('[Auth Flow] Sending OTP to phone:', phoneNumber);
     await sendOtp({ phone: phoneNumber, role });
     setPhone(phoneNumber);
+    setOnboardingPrefill(null);
     setStatus(AuthStatus.OTP_SENT);
   }, []);
 
@@ -236,7 +273,7 @@ export function useAuthController(): AuthContextType {
       console.log('[Auth Flow] OTP Verification Response:', response);
       setPhone(phoneNumber);
 
-      const statusResult = (response as any).status;
+      const statusResult = response.status;
 
       // CASE 1: NEEDS PROFILE/ROLE CREATION -> Enter Onboarding
       if (statusResult === 'NEEDS_PROFILE_CREATION' || statusResult === 'NEEDS_ROLE_CREATION' || (!statusResult && extractPhoneTokenFromVerifyOtpResponse(response))) {
@@ -249,9 +286,27 @@ export function useAuthController(): AuthContextType {
         await saveOnboardingPhoneToken(onboardingPhoneToken);
         console.log(`[Auth Flow] Saved Onboarding Phone Token in secure storage [Service: ${keyChainValues.onboardingService}, Key: ${keyChainValues.onboardingUsername}]`);
         setPhoneToken(onboardingPhoneToken);
+        setOnboardingPrefill(null);
         setMe(null);
         setUser(null);
         setStatus(AuthStatus.ONBOARDING);
+
+        try {
+          await fetchOnboardingPrefill(onboardingPhoneToken);
+        } catch (error) {
+          if (error instanceof ApiError && error.statusCode === 401) {
+            return;
+          }
+          if (error instanceof ApiError && error.statusCode === 403) {
+            await clearOnboardingPhoneToken();
+            setPhoneToken(null);
+            setOnboardingPrefill(null);
+            setStatus(AuthStatus.OTP_SENT);
+            showError('Session mismatch. Please verify OTP again.');
+            return;
+          }
+          showError('Couldn’t fetch prefill. Please enter details manually.');
+        }
         return;
       }
 
@@ -268,6 +323,7 @@ export function useAuthController(): AuthContextType {
       await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
       await clearOnboardingPhoneToken();
       setPhoneToken(null);
+      setOnboardingPrefill(null);
       setStatus(AuthStatus.AUTHENTICATED);
       await refreshMe();
     },
@@ -327,6 +383,7 @@ export function useAuthController(): AuthContextType {
       await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
       await clearOnboardingPhoneToken();
       setPhoneToken(null);
+      setOnboardingPrefill(null);
       setStatus(AuthStatus.AUTHENTICATED);
 
       try {
@@ -376,12 +433,14 @@ export function useAuthController(): AuthContextType {
     phone,
     isAuthenticated: status === AuthStatus.AUTHENTICATED,
     locationState,
+    onboardingPrefill,
     sendOtpCode,
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
     logout: logoutWithState,
     refreshMe: refreshMeWithState,
+    fetchOnboardingPrefill,
   }), [
     user,
     me,
@@ -389,11 +448,13 @@ export function useAuthController(): AuthContextType {
     loading,
     phone,
     locationState,
+    onboardingPrefill,
     sendOtpCode,
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
     logoutWithState,
     refreshMeWithState,
+    fetchOnboardingPrefill,
   ]);
 }

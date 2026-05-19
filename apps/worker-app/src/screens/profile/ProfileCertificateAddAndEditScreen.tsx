@@ -4,9 +4,9 @@ import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-nat
 import * as DocumentPicker from 'expo-document-picker';
 import { createWorkerCertificates, getWorkerStatus, updateWorkerCertificates } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
@@ -181,18 +181,13 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
         />
       )}
     >
-      <View className="flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <View className="mt-3">
         <SplitGradientTitle
           prefix={APP_TEXT.profile.certificates.titlePrefix}
           highlight={APP_TEXT.profile.certificates.titleHighlight}
           subtitle={APP_TEXT.profile.certificates.subtitle}
-          prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-          highlightClassName="text-4xl font-extrabold leading-[40px]"
-          subtitleClassName="mt-2 text-sm"
           showSparkle={false}
         />
       </View>

@@ -4,8 +4,8 @@ import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUserAadhar, updateUserAadhar } from '@/actions';
 import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -129,9 +129,7 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
       contentContainerStyle={{ paddingHorizontal: APP_LAYOUT.screenHorizontalPadding, paddingBottom: 20, paddingTop: 12 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void onRefresh(); }} />}
     >
-      <View className="mb-3">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <View className="mb-4">
         <SplitGradientTitle
@@ -139,9 +137,6 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
           prefix={APP_TEXT.profile.identityVerification.titlePrefix}
           highlight={APP_TEXT.profile.identityVerification.titleHighlight}
           subtitle={APP_TEXT.profile.identityVerification.subtitle}
-          prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-          highlightClassName="text-4xl font-extrabold leading-[40px]"
-          subtitleClassName="mt-2 text-sm"
           showSparkle={false}
         />
       </View>

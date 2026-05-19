@@ -58,6 +58,7 @@ export interface WorkerCurrentStatus {
   workerId?: string;
   status?: string;
   isLatest?: boolean;
+  showStatusInUi?: boolean;
   message?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -212,11 +213,35 @@ export interface VerifyOtpPayload {
 }
 
 export interface VerifyOtpResult {
+  status?: string;
   accessToken?: string;
   refreshToken?: string;
   phoneToken?: string;
   firebaseCustomToken?: string;
   user?: AuthUser;
+}
+
+export interface WorkerOnboardingPrefillData {
+  phone: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  gender?: Gender | null;
+  email?: string | null;
+  profileImage?: {
+    id?: string;
+    filename?: string;
+    filepath?: string;
+    url?: string;
+    [key: string]: unknown;
+  } | null;
+  sourceRole?: UserRole | null;
+  canEdit?: {
+    firstName?: boolean;
+    lastName?: boolean;
+    gender?: boolean;
+    email?: boolean;
+    profileImage?: boolean;
+  };
 }
 
 export interface CreateWorkerProfileResponse {

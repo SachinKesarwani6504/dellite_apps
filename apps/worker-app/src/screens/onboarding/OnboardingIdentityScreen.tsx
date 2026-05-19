@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getServiceLaunchedCities } from '@/actions';
 import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
@@ -9,6 +9,8 @@ import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { Gender, ServiceLaunchedCity } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
@@ -17,6 +19,8 @@ import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
 import { GENDER_OPTIONS } from '@/utils/options';
 import { palette, theme, uiColors } from '@/utils/theme';
+import { getOnboardingPhoneToken } from '@/utils/key-chain-storage';
+import { stripBearerPrefix } from '@/utils/token';
 import { showError } from '@/utils/toast';
 import { isValidFirstName, isValidLastName, normalizePersonName } from '@/utils/validation';
 import { formatTitle } from '@/utils';
@@ -46,11 +50,16 @@ function logOnboardingIdentityScreen(step: string, payload?: unknown) {
 
 export function OnboardingIdentityScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
+  const { onboardingPrefill, fetchOnboardingPrefill } = useAuthContext();
+  const canEdit = onboardingPrefill?.canEdit ?? {};
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   const [gender, setGender] = useState<Gender | null>(null);
   const [referralCode, setReferralCode] = useState('');
   const [profileImage, setProfileImage] = useState<ProfileImageSelection | null>(null);
+  const [existingProfileImageUrl, setExistingProfileImageUrl] = useState<string | null>(null);
   const [aadhaarFront, setAadhaarFront] = useState<AadhaarFileSelection | null>(null);
   const [aadhaarBack, setAadhaarBack] = useState<AadhaarFileSelection | null>(null);
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
@@ -59,7 +68,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [cityLoading, setCityLoading] = useState(false);
   const [cityLoadError, setCityLoadError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const didRunInitialRouteCheckRef = useRef(false);
+  const didRequestPrefillRef = useRef(false);
   const {
     completeIdentityProfile,
     loading,
@@ -67,6 +78,43 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     refreshOnboardingRoute,
   } = useOnboardingContext();
   const formDisabled = loading || isSubmitting;
+
+  const onRefreshPrefill = async () => {
+    const token = await getOnboardingPhoneToken();
+    const normalizedToken = token ? stripBearerPrefix(token) : '';
+    if (!normalizedToken) {
+      showError('Session expired. Please verify OTP again.');
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      await fetchOnboardingPrefill(normalizedToken);
+    } catch {
+      showError('Couldn’t fetch prefill. Please enter details manually.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (didRequestPrefillRef.current) return;
+    didRequestPrefillRef.current = true;
+
+    const requestPrefill = async () => {
+      const token = await getOnboardingPhoneToken();
+      const normalizedToken = token ? stripBearerPrefix(token) : '';
+      if (!normalizedToken) return;
+
+      try {
+        await fetchOnboardingPrefill(normalizedToken);
+      } catch {
+        // Non-blocking: user can still enter details manually.
+      }
+    };
+
+    void requestPrefill();
+  }, [fetchOnboardingPrefill]);
 
   useEffect(() => {
     if (didRunInitialRouteCheckRef.current) return;
@@ -82,6 +130,30 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         // Existing onboarding route in context still guards the current screen.
       });
   }, [navigation, refreshOnboardingRoute]);
+
+  useEffect(() => {
+    if (!onboardingPrefill) return;
+
+    if (typeof onboardingPrefill.firstName === 'string' && onboardingPrefill.firstName.trim().length > 0) {
+      setFirstName(normalizePersonName(onboardingPrefill.firstName));
+    }
+    if (typeof onboardingPrefill.lastName === 'string' && onboardingPrefill.lastName.trim().length > 0) {
+      setLastName(normalizePersonName(onboardingPrefill.lastName));
+    }
+    if (typeof onboardingPrefill.email === 'string' && onboardingPrefill.email.trim().length > 0) {
+      setEmail(onboardingPrefill.email.trim());
+    }
+    if (
+      onboardingPrefill.gender === 'MALE'
+      || onboardingPrefill.gender === 'FEMALE'
+      || onboardingPrefill.gender === 'OTHER'
+    ) {
+      setGender(onboardingPrefill.gender);
+    }
+    if (typeof onboardingPrefill.profileImage?.url === 'string' && onboardingPrefill.profileImage.url.trim().length > 0) {
+      setExistingProfileImageUrl(onboardingPrefill.profileImage.url.trim());
+    }
+  }, [onboardingPrefill]);
 
   useEffect(() => {
     const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.identity);
@@ -133,6 +205,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       gender,
       referralCode,
       selectedCities,
+      email,
       profileImage,
       aadhaarFront,
       aadhaarBack,
@@ -157,6 +230,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     const submitPayload = {
       firstName: normalizePersonName(firstName).trim(),
       lastName: normalizePersonName(lastName).trim(),
+      email: email.trim() || undefined,
       gender: gender ?? undefined,
       workerOperatingCities: selectedCities,
       referralCode: referralCode.trim() || undefined,
@@ -218,7 +292,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   };
 
   const pickProfileImage = async () => {
-    if (formDisabled) return;
+    if (formDisabled || canEdit.profileImage === false) return;
     try {
       const picked = await DocumentPicker.getDocumentAsync({
         multiple: false,
@@ -245,6 +319,16 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     <GradientScreen
       keyboardAware
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={() => {
+            void onRefreshPrefill();
+          }}
+          {...refreshProps}
+        />
+      )}
     >
       <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <SplitGradientTitle
@@ -256,9 +340,9 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         <View className="mt-5">
           <ProfilePhotoUploadPlaceholder
             title={APP_TEXT.onboarding.identity.uploadPhotoTitle}
-            subtitle={`${APP_TEXT.onboarding.identity.uploadPhotoSubtitle} - Max 2MB`}
-            imageUri={profileImage?.uri ?? null}
-            onPress={() => {
+            subtitle={APP_TEXT.onboarding.identity.uploadPhotoSubtitle}
+            imageUri={profileImage?.uri ?? existingProfileImageUrl}
+            onPress={canEdit.profileImage === false ? undefined : () => {
               void pickProfileImage();
             }}
           />
@@ -271,7 +355,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
             value={firstName}
             onChangeText={value => setFirstName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.firstNamePlaceholder}
-            editable={!formDisabled}
+            editable={!formDisabled && canEdit.firstName !== false}
           />
           <AppInput
             label={APP_TEXT.onboarding.identity.lastNameLabel}
@@ -279,7 +363,15 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
             value={lastName}
             onChangeText={value => setLastName(normalizePersonName(value))}
             placeholder={APP_TEXT.onboarding.identity.lastNamePlaceholder}
-            editable={!formDisabled}
+            editable={!formDisabled && canEdit.lastName !== false}
+          />
+          <AppInput
+            label={APP_TEXT.profile.emailLabel}
+            value={email}
+            onChangeText={setEmail}
+            placeholder={APP_TEXT.profile.edit.emailPlaceholder}
+            keyboardType="email-address"
+            editable={!formDisabled && canEdit.email !== false}
           />
           <AppInput
             label={APP_TEXT.onboarding.identity.referralCodeLabel}
@@ -335,10 +427,10 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
               <Pressable
                 key={option.value}
                 onPress={() => {
-                  if (formDisabled) return;
+                  if (formDisabled || canEdit.gender === false) return;
                   setGender(option.value);
                 }}
-                disabled={formDisabled}
+                disabled={formDisabled || canEdit.gender === false}
                 className={`flex-1 rounded-2xl border p-3 ${
                   selected
                     ? 'border-primary bg-primary/10'

@@ -10,6 +10,7 @@ import { useLocationController } from '@/hooks/useLocationController';
 import {
   applyFirebaseCustomToken,
 } from '@/utils/firebase-session';
+import { resolveCustomerBookingCountsFromMeResponse } from '@/utils/customer-booking-counts';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -136,6 +137,7 @@ function normalizeUserFromMeResponse(me: AuthMeResponse): NonNullable<AuthState[
     ...me.user,
     referral: me.user.referral ?? me.referral,
     roles: me.user.roles ?? me.roles,
+    bookingCounts: resolveCustomerBookingCountsFromMeResponse(me),
     referralCode: resolvedReferralCode,
     onboarding: mergedOnboarding,
     hasSeenOnboardingWelcomeScreen:
