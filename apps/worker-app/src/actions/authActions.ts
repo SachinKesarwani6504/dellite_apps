@@ -10,10 +10,11 @@ import {
   UserRole,
   VerifyOtpPayload,
   VerifyOtpResult,
+  WorkerOnboardingPrefillData,
   WorkerProfilePayload,
 } from '@/types/auth';
 import { toFormData } from '@/utils/form-data';
-import { stripBearerPrefix } from '@/utils';
+import { stripBearerPrefix, toBearerToken } from '@/utils';
 
 function logWorkerAuthAction(step: string, payload?: unknown) {
   if (!__DEV__) return;
@@ -115,13 +116,33 @@ function normalizeCount(value: unknown): number | undefined {
   return undefined;
 }
 
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return undefined;
+}
+
 function normalizeWorkerLink(value: unknown): AuthUser['workerLink'] | undefined {
   if (!isRecord(value)) return undefined;
 
   const source = value as AnyRecord;
-  const currentStatus = isRecord(source.currentStatus)
+  const currentStatusRaw = isRecord(source.currentStatus)
     ? source.currentStatus
     : (isRecord(source.current_status) ? source.current_status : undefined);
+  const currentStatus = isRecord(currentStatusRaw)
+    ? {
+      ...currentStatusRaw,
+      showStatusInUi: normalizeOptionalBoolean(currentStatusRaw.showStatusInUi ?? currentStatusRaw.show_status_in_ui),
+    }
+    : undefined;
 
   return {
     ...source,
@@ -221,6 +242,7 @@ function normalizeAuthMePayload(payload: unknown): AuthMeResponse {
 }
 
 type VerifyResponseData = {
+  status?: string;
   accessToken?: string;
   refreshToken?: string;
   phoneToken?: string;
@@ -271,9 +293,14 @@ export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpRes
     },
   );
   const data = unwrapDataDeep(response) as VerifyResponseData;
+  const responseRecord = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
+  const responseStatus =
+    (typeof data.status === 'string' ? data.status : undefined)
+    ?? (typeof responseRecord.status === 'string' ? responseRecord.status : undefined);
   const nestedTokens = (data.tokens ?? {}) as NonNullable<VerifyResponseData['tokens']>;
   const discoveredPhoneToken = findPhoneTokenCandidate(data);
   return {
+    status: responseStatus,
     accessToken: data.accessToken ?? data.access_token ?? nestedTokens.accessToken ?? nestedTokens.access_token,
     refreshToken: data.refreshToken ?? data.refresh_token ?? nestedTokens.refreshToken ?? nestedTokens.refresh_token,
     firebaseCustomToken:
@@ -293,6 +320,31 @@ export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpRes
       ?? discoveredPhoneToken,
     user: data.user,
   };
+}
+
+export async function getWorkerOnboardingPrefill(phoneToken: string): Promise<WorkerOnboardingPrefillData | null> {
+  const normalizedPhoneToken = stripBearerPrefix(phoneToken);
+  if (!normalizedPhoneToken) {
+    return null;
+  }
+
+  const response = await apiGet<ApiEnvelope<WorkerOnboardingPrefillData> | WorkerOnboardingPrefillData>(
+    '/worker/onboarding/prefill',
+    {
+      tokenType: 'none',
+      retryOnAuthFailure: false,
+      headers: {
+        Authorization: toBearerToken(normalizedPhoneToken),
+      },
+    },
+  );
+
+  const data = unwrapData(response);
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  return data as WorkerOnboardingPrefillData;
 }
 
 export async function resendOtp(phone: string): Promise<void> {

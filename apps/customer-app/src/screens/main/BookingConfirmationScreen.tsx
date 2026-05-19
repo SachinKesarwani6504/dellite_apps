@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { BackButton } from '@/components/common/BackButton';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
@@ -226,9 +226,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
       refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
     >
-      <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} />
-      </View>
+      <DetailsTopBar onBack={() => navigation.goBack()} />
 
       <View
         className="mt-1 overflow-hidden rounded-2xl border"

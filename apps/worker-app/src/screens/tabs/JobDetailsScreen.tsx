@@ -3,10 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, Text, View, useColorScheme, Pressable } from 'react-native';
 import { updateBookingInvite } from '@/actions/workerActions';
-import { BackButton } from '@/components/common/BackButton';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -303,7 +303,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               setSelectedVehicleMode(mode);
               void updateVehicleMode(mode);
             }}
-            route={showRoute ? routeState.route : undefined}
+            route={showRoute ? routeState.route : null}
             isDark={isDark}
             loading={workerLiveState.loading || (showRoute && routeState.loading)}
             error={routeState.error ?? workerLiveState.error}
@@ -377,9 +377,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
       refreshControl={<RefreshControl {...refreshProps} refreshing={refreshing} onRefresh={() => void refreshDetails()} />}
     >
-      <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} />
-      </View>
+      <DetailsTopBar onBack={() => navigation.goBack()} />
 
       {loading && !details ? (
         <LoadingState minHeight={360} />

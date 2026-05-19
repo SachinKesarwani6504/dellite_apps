@@ -280,10 +280,7 @@ export function OnboardingCustomerWelcomeScreen() {
             <SplitGradientTitle
               prefix={text.titlePrefix}
               highlight={text.titleGradientWord}
-              inline
               showSparkle={false}
-              prefixClassName="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white"
-              highlightClassName="text-[42px] font-extrabold leading-[46px]"
             />
           </Animated.View>
           <Animated.Text

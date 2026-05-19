@@ -54,6 +54,9 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function extractImageUrl(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];

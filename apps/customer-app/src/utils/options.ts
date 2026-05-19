@@ -23,9 +23,9 @@ export const contactPreferenceOptions: OptionItem<'sms' | 'whatsapp' | 'call'>[]
 ];
 
 export const GENDER_OPTIONS: GenderOption[] = [
-  { label: 'Male', value: 'MALE', icon: 'M' },
-  { label: 'Female', value: 'FEMALE', icon: 'F' },
-  { label: 'Other', value: 'OTHER', icon: 'O' },
+  { label: 'Male', value: 'MALE', icon: '\u{1F468}' },
+  { label: 'Female', value: 'FEMALE', icon: '\u{1F469}' },
+  { label: 'Other', value: 'OTHER', icon: '\u{1F9D1}' },
 ];
 
 export type BookingSlotValue = 'morning' | 'afternoon' | 'evening';

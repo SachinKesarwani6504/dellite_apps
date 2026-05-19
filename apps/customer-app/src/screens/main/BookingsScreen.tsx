@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, View } from 'react-native';
+import { RefreshControl, Text, View } from 'react-native';
 
 import { apiGet } from '@/actions/http/httpClient';
 import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
@@ -11,17 +11,18 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
-import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import type { Booking } from '@/types/api';
 import { BOOKINGS_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { buildCustomerBookingsListPath, getErrorMessage } from '@/utils';
+import { buildCustomerBookingsListPath, getErrorMessage, normalizeCustomerBookingCounts } from '@/utils';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 type TabType = 'ALL' | 'ONGOING' | 'COMPLETED';
 const LIMIT = 10;
 
 export function BookingsScreen() {
   const navigation = useNavigation() as any;
+  const { authState } = useAuthContext();
 
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
   const [items, setItems] = useState<Booking[]>([]);
@@ -116,27 +117,24 @@ export function BookingsScreen() {
     />
   ) : null;
 
+  const bookingCounts = normalizeCustomerBookingCounts(authState.user?.bookingCounts);
+
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
       refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
     >
-      <SplitGradientTitle
-        prefix={APP_TEXT.main.bookings.titlePrefix}
-        highlight={APP_TEXT.main.bookings.titleHighlight}
-        subtitle={APP_TEXT.main.bookings.subtitle}
-        inline
-        prefixClassName="text-[34px] font-extrabold leading-[38px] text-baseDark dark:text-white"
-        highlightClassName="text-[38px] font-extrabold leading-[41px]"
-      />
+      <Text className="text-2xl font-extrabold text-baseDark dark:text-white">
+        {APP_TEXT.main.bookingsTitle}
+      </Text>
 
       <AnimatedSegmentTabs
         value={activeTab}
         onChange={setActiveTab}
         items={[
-          { label: APP_TEXT.main.bookings.tabs.all || 'All', value: 'ALL' },
-          { label: APP_TEXT.main.bookings.tabs.ongoing || 'Ongoing', value: 'ONGOING' },
-          { label: APP_TEXT.main.bookings.tabs.completed || 'Completed', value: 'COMPLETED' },
+          { label: `${APP_TEXT.main.bookings.tabs.all || 'All'} (${bookingCounts.totalBookingsCount})`, value: 'ALL' },
+          { label: `${APP_TEXT.main.bookings.tabs.ongoing || 'Ongoing'} (${bookingCounts.activeBookingsCount})`, value: 'ONGOING' },
+          { label: `${APP_TEXT.main.bookings.tabs.completed || 'Completed'} (${bookingCounts.completedBookingsCount})`, value: 'COMPLETED' },
         ]}
       />
 

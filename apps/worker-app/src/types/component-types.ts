@@ -96,6 +96,13 @@ export type ScrollablePillTabsProps<T extends string> = {
   onChange: (next: T) => void;
 };
 
+export type DetailsTopBarProps = {
+  onBack: () => void;
+  onEdit?: () => void;
+  editLabel?: string;
+  editDisabled?: boolean;
+};
+
 export const BOOKING_SERVICE_SUMMARY_CARD_MODE = {
   VIEW: 'VIEW',
   EDIT: 'EDIT',

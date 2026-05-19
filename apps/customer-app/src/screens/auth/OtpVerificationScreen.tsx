@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppState, Pressable, Text, View, useColorScheme } from 'react-native';
 
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { AppImage } from '@/components/common/AppImage';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { APP_TEXT } from '@/utils/appText';
@@ -84,11 +84,7 @@ export function OtpVerificationScreen({ navigation }: Props) {
     >
       <View className="flex-1">
         <View className="px-6 pb-5 pt-4">
-          <BackButton
-            onPress={() => navigation.goBack()}
-            visible={navigation.canGoBack()}
-            disabled={isBusy}
-          />
+          <DetailsTopBar onBack={() => navigation.goBack()} />
 
           <View className="items-center">
             <AppImage

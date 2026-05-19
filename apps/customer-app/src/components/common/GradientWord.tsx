@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 
 import { theme } from '@/utils/theme';
 
@@ -24,12 +24,12 @@ export function GradientWord({
   });
 
   return (
-    <View className={wrap ? 'flex-row flex-wrap' : 'flex-row'}>
+    <Text className={className}>
       {letters.map((char, index) => (
-        <Text key={`${char}-${index}`} className={className} style={{ color: colors[index] }}>
+        <Text key={`${char}-${index}`} style={{ color: colors[index] }}>
           {char}
         </Text>
       ))}
-    </View>
+    </Text>
   );
 }

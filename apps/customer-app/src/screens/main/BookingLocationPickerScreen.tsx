@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { CardWrapper } from '@/components/common/CardWrapper';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { PinnedLocationMapPicker } from '@/components/common/PinnedLocationMapPicker';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -28,12 +28,9 @@ export function BookingLocationPickerScreen({ navigation }: BookingLocationPicke
 
   return (
     <GradientScreen contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12 }}>
-      <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} />
-      </View>
+      <DetailsTopBar onBack={() => navigation.goBack()} />
 
       <SplitGradientTitle
-        eyebrow={APP_TEXT.main.bookingFlow.locationPickerEyebrow}
         prefix={APP_TEXT.main.bookingFlow.locationPickerTitlePrefix}
         highlight={APP_TEXT.main.bookingFlow.locationPickerTitleHighlight}
       />

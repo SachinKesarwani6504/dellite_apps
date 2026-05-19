@@ -13,6 +13,7 @@ import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, them
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PROFILE_SCREEN } from '@/types/screen-names';
+import { normalizeCustomerBookingCounts } from '@/utils/customer-booking-counts';
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -49,15 +50,14 @@ export function ProfileScreen() {
   const genderLabel = useMemo(() => toDisplayGender(user?.gender, APP_TEXT.profile.notProvided), [user?.gender]);
   const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${formatDateToDdMmmYyyy(getUserCreatedAt(user))}`;
 
-  const onboarding = user?.onboarding;
   const stats = useMemo(() => {
-    const completed = onboarding?.isBasicInfoCompleted ? 1 : 0;
+    const bookingCounts = normalizeCustomerBookingCounts(user?.bookingCounts);
     return {
-      bookings: completed ? 1 : 0,
-      active: authState.status === 'authenticated' ? 1 : 0,
-      completed,
+      bookings: bookingCounts.totalBookingsCount,
+      active: bookingCounts.activeBookingsCount,
+      completed: bookingCounts.completedBookingsCount,
     };
-  }, [authState.status, onboarding?.isBasicInfoCompleted]);
+  }, [user?.bookingCounts]);
 
   const cardStyle = {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,

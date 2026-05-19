@@ -2,8 +2,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { AppState, Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -86,7 +86,7 @@ export function OtpVerificationScreen({ navigation }: Props) {
     >
       <View className="flex-1">
         <View className="px-6 pb-8 pt-6">
-          <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
+          {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
           <View className="items-center">
             <AppImage
