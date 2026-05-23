@@ -110,10 +110,9 @@ export function WorkerLiveRouteMap({
     distanceKm,
   });
 
-  const workerHeadingDegrees =
-    (workerLocation as any)?.heading
-    ?? (workerCoordinates as any)?.heading
-    ?? (workerCoordinates ? getRouteBearingDegrees(workerCoordinates, destinationCoordinates) : 0);
+  const workerHeadingDegrees = typeof workerLocation?.heading === 'number' && Number.isFinite(workerLocation.heading)
+    ? workerLocation.heading
+    : (workerCoordinates ? getRouteBearingDegrees(workerCoordinates, destinationCoordinates) : 0);
 
   const fitCoordinates = useMemo(
     () => (routeCoordinates.length > 1

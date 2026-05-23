@@ -106,7 +106,10 @@ export function WorkerBookingRouteMap({
     vehicleMode: liveVehicleMode,
     distanceKm,
   });
-  const workerHeadingDegrees = getRouteBearingDegrees(originCoordinates, destinationCoordinates);
+  const liveHeading = workerLiveLocation?.heading;
+  const workerHeadingDegrees = typeof liveHeading === 'number' && Number.isFinite(liveHeading)
+    ? liveHeading
+    : getRouteBearingDegrees(originCoordinates, destinationCoordinates);
   const fitCoordinates = useMemo(
     () => (routeCoordinates.length > 1 ? routeCoordinates : [originCoordinates, destinationCoordinates]),
     [
