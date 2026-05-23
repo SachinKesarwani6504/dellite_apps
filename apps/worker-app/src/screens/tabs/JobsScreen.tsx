@@ -1,4 +1,3 @@
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, View } from 'react-native';
@@ -12,8 +11,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
-import type { JobStackParamList } from '@/types/navigation';
-import { JOB_STACK_SCREENS } from '@/types/screen-names';
+import { JOB_STACK_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import type { WorkerJobListItem, WorkerJobListTab } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
 import { buildWorkerJobsListPath, getErrorMessage } from '@/utils';
@@ -21,7 +19,7 @@ import { buildWorkerJobsListPath, getErrorMessage } from '@/utils';
 const LIMIT = 10;
 
 export function JobsScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<JobStackParamList>>();
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
   const [items, setItems] = useState<WorkerJobListItem[]>([]);
   const [page, setPage] = useState(1);
@@ -91,7 +89,10 @@ export function JobsScreen() {
         <WorkerJobCard
           key={item.booking.id}
           item={item}
-          onPress={(jobId) => navigation.navigate(JOB_STACK_SCREENS.details, { jobId, inviteStatus: item.invite?.inviteStatus ?? null })}
+          onPress={(jobId) => navigation.navigate(ROOT_SCREENS.jobDetailsNavigator, {
+            screen: JOB_STACK_SCREENS.details,
+            params: { jobId, inviteStatus: item.invite?.inviteStatus ?? null },
+          })}
         />
       ))}
 

@@ -1,39 +1,51 @@
-import { useEffect, useMemo, useRef } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import type { WorkerLiveRouteMapProps } from "@/types/component-types";
-import {
-  getTrackableWorkerCoordinates,
-  getWorkerRouteMapCenter,
-} from "@/utils/booking-details";
-import { getRouteBearingDegrees, getRouteVehicleModeLabel } from "@/utils/live-route";
-import { theme, uiColors } from "@/utils/theme";
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useEffect, useMemo, useRef } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+import { LiveTrackingStatusCard } from '@/components/common/LiveTrackingStatusCard';
+import type { WorkerLiveRouteMapProps } from '@/types/component-types';
+import { ROUTE_VEHICLE_MODE, WORKER_MOVEMENT_STATUS } from '@/types/live-route';
+import { APP_TEXT } from '@/utils/appText';
+import { getTrackableWorkerCoordinates, getWorkerRouteMapCenter } from '@/utils/booking-details';
+import { getCustomerLiveTrackingCard } from '@/utils/live-tracking';
+import { getRouteBearingDegrees } from '@/utils/live-route';
+import { theme, uiColors } from '@/utils/theme';
 
 const ROUTE_MAP_DELTA = 0.04;
-const ROUTE_STROKE_WIDTH = 5;
 const ROUTE_MAP_HEIGHT = 416;
+const MIN_ROUTE_RENDER_DISTANCE_METERS = 10;
+const DELLITE_ORANGE = '#FF7A00';
+const MAIN_ROUTE_STROKE_WIDTH = 7;
+const MAIN_ROUTE_SHADOW_STROKE_WIDTH = 11;
+const FINAL_APPROACH_STROKE_WIDTH = 4;
+const FINAL_APPROACH_THRESHOLD_METERS = 30;
+const FINAL_APPROACH_DASH_PATTERN = [8, 8] as const;
 
 const DARK_MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: uiColors.map.geometryDark }] },
-  { elementType: "labels.text.fill", stylers: [{ color: uiColors.map.labelFillDark }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: uiColors.map.geometryDark }] },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: uiColors.map.roadDark }],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [{ color: uiColors.map.roadLabelDark }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: uiColors.map.waterDark }],
-  },
+  { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.labelFillDark }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: uiColors.map.geometryDark }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: uiColors.map.roadDark }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.roadLabelDark }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: uiColors.map.waterDark }] },
 ];
+
+function getDistanceInMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+) {
+  const earthRadiusMeters = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2)
+    + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusMeters * c;
+}
 
 export function WorkerLiveRouteMap({
   workerLocation,
@@ -46,34 +58,67 @@ export function WorkerLiveRouteMap({
 }: WorkerLiveRouteMapProps) {
   const mapRef = useRef<MapView | null>(null);
   const workerCoordinates = getTrackableWorkerCoordinates(workerLocation);
-  const mapCenter = getWorkerRouteMapCenter(
-    destinationCoordinates,
-    workerCoordinates,
-  );
+  const mapCenter = getWorkerRouteMapCenter(destinationCoordinates, workerCoordinates);
   const routeCoordinates = useMemo(
     () => (route?.coordinates?.length ? route.coordinates : []),
     [route],
   );
-  const vehicleModeLabel = getRouteVehicleModeLabel(vehicleMode);
-  const etaLabel = route?.etaText ?? 'Calculating ETA';
-  const distanceLabel = route?.distanceText ?? 'Calculating distance';
+  const arrivalMinutes = typeof route?.durationSeconds === 'number' && Number.isFinite(route.durationSeconds)
+    ? Math.max(1, Math.round(route.durationSeconds / 60))
+    : undefined;
+  const distanceKm = typeof route?.distanceMeters === 'number' && Number.isFinite(route.distanceMeters)
+    ? route.distanceMeters / 1000
+    : undefined;
+  const fallbackDistanceMeters = useMemo(
+    () => (workerCoordinates
+      ? getDistanceInMeters(
+          workerCoordinates.latitude,
+          workerCoordinates.longitude,
+          destinationCoordinates.latitude,
+          destinationCoordinates.longitude,
+        )
+      : Number.POSITIVE_INFINITY),
+    [
+      destinationCoordinates.latitude,
+      destinationCoordinates.longitude,
+      workerCoordinates?.latitude,
+      workerCoordinates?.longitude,
+    ],
+  );
+  const effectiveRouteDistanceMeters = typeof route?.distanceMeters === 'number' && Number.isFinite(route.distanceMeters)
+    ? route.distanceMeters
+    : fallbackDistanceMeters;
+  const shouldRenderRoute = routeCoordinates.length > 1
+    && effectiveRouteDistanceMeters >= MIN_ROUTE_RENDER_DISTANCE_METERS;
+  const routeEndPoint = shouldRenderRoute ? routeCoordinates[routeCoordinates.length - 1] : null;
+  const finalApproachDistanceMeters = routeEndPoint
+    ? getDistanceInMeters(
+        routeEndPoint.latitude,
+        routeEndPoint.longitude,
+        destinationCoordinates.latitude,
+        destinationCoordinates.longitude,
+      )
+    : 0;
+  const shouldShowFinalApproach = Boolean(routeEndPoint)
+    && finalApproachDistanceMeters > FINAL_APPROACH_THRESHOLD_METERS;
+  const liveVehicleMode = workerLocation?.vehicleMode ?? vehicleMode ?? ROUTE_VEHICLE_MODE.UNKNOWN;
+  const statusCard = getCustomerLiveTrackingCard({
+    isOnline: workerLocation?.isOnline ?? false,
+    movementStatus: workerLocation?.movementStatus ?? WORKER_MOVEMENT_STATUS.UNKNOWN,
+    vehicleMode: liveVehicleMode,
+    arrivalMinutes,
+    distanceKm,
+  });
 
-  // Extract heading directly from RTDB live location payload, fallback to route bearing
   const workerHeadingDegrees =
-    (workerLocation as any)?.heading ??
-    (workerCoordinates as any)?.heading ??
-    (workerCoordinates
-      ? getRouteBearingDegrees(workerCoordinates, destinationCoordinates)
-      : 0);
+    (workerLocation as any)?.heading
+    ?? (workerCoordinates as any)?.heading
+    ?? (workerCoordinates ? getRouteBearingDegrees(workerCoordinates, destinationCoordinates) : 0);
 
   const fitCoordinates = useMemo(
-    () =>
-      routeCoordinates.length > 1
-        ? routeCoordinates
-        : [
-            destinationCoordinates,
-            ...(workerCoordinates ? [workerCoordinates] : []),
-          ],
+    () => (routeCoordinates.length > 1
+      ? routeCoordinates
+      : [destinationCoordinates, ...(workerCoordinates ? [workerCoordinates] : [])]),
     [
       destinationCoordinates.latitude,
       destinationCoordinates.longitude,
@@ -100,95 +145,20 @@ export function WorkerLiveRouteMap({
     return () => clearTimeout(timeoutId);
   }, [fitCoordinates]);
 
-  const renderRouteInfoCard = () => (
-    <View className="mb-3 overflow-hidden rounded-2xl border" style={{
-      borderColor: isDark
-        ? uiColors.surface.borderNeutralDark
-        : uiColors.surface.borderNeutralLight,
-      backgroundColor: isDark
-        ? uiColors.surface.cardMutedDark
-        : uiColors.surface.overlayLight95,
-    }}>
-      <View className="flex-row items-center justify-between border-b px-4 py-3" style={{
-        borderBottomColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-        backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft40,
-      }}>
-        <View className="flex-row items-center">
-          <View
-            className="h-9 w-9 items-center justify-center rounded-full border"
-            style={{
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
-            }}
-          >
-            <Ionicons name="navigate-outline" size={17} color={theme.colors.primary} />
-          </View>
-          <Text className="ml-2 text-sm font-extrabold text-baseDark dark:text-white">
-            Worker Live Route
-          </Text>
-        </View>
-      </View>
-      <View className="p-3">
-        <View className="flex-row justify-between" style={{ gap: 8 }}>
-          <View
-            className="flex-row items-center border px-3 py-2.5"
-            style={{
-              width: "31.5%",
-              borderRadius: 12,
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-            }}
-          >
-            <Ionicons name="walk-outline" size={14} color={theme.colors.primary} />
-            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{vehicleModeLabel}</Text>
-          </View>
-          <View
-            className="flex-row items-center border px-3 py-2.5"
-            style={{
-              width: "31.5%",
-              borderRadius: 12,
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-            }}
-          >
-            <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
-            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{etaLabel}</Text>
-          </View>
-          <View
-            className="flex-row items-center border px-3 py-2.5"
-            style={{
-              width: "31.5%",
-              borderRadius: 12,
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-            }}
-          >
-            <Ionicons name="git-compare-outline" size={14} color={theme.colors.primary} />
-            <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">{distanceLabel}</Text>
-          </View>
-        </View>
-      </View>
-      {error ? (
-        <Text
-          className="px-3 pb-3 text-xs font-semibold"
-          style={{ color: theme.colors.negative }}
-        >
-          {error}
-        </Text>
-      ) : null}
-    </View>
-  );
-
   return (
     <View>
-      {renderRouteInfoCard()}
+      <LiveTrackingStatusCard
+        card={statusCard}
+        isDark={isDark}
+        liveBadgeText={APP_TEXT.main.bookings.liveLocation.liveBadge}
+        error={error}
+      />
+
       <View
         className="overflow-hidden rounded-2xl border"
         style={{
           height: ROUTE_MAP_HEIGHT,
-          borderColor: isDark
-            ? uiColors.surface.borderNeutralDark
-            : uiColors.surface.borderNeutralLight,
+          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
         }}
       >
         <MapView
@@ -204,18 +174,43 @@ export function WorkerLiveRouteMap({
           showsMyLocationButton={false}
           toolbarEnabled={false}
         >
-          <Marker coordinate={destinationCoordinates} title="Service address">
-            <Ionicons
-              name="location-sharp"
-              size={34}
-              color={theme.colors.primary}
+          {shouldRenderRoute ? (
+            <>
+              <Polyline
+                key={`customer-route-shadow-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor="rgba(255,255,255,0.85)"
+                strokeWidth={MAIN_ROUTE_SHADOW_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+              <Polyline
+                key={`customer-route-main-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor={DELLITE_ORANGE}
+                strokeWidth={MAIN_ROUTE_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+            </>
+          ) : null}
+
+          {shouldShowFinalApproach && routeEndPoint ? (
+            <Polyline
+              key="customer-final-approach"
+              coordinates={[routeEndPoint, destinationCoordinates]}
+              strokeColor="rgba(255,122,0,0.75)"
+              strokeWidth={FINAL_APPROACH_STROKE_WIDTH}
+              lineDashPattern={[...FINAL_APPROACH_DASH_PATTERN]}
+              lineCap="round"
+              lineJoin="round"
             />
-          </Marker>
+          ) : null}
 
           {workerCoordinates ? (
             <Marker
               coordinate={workerCoordinates}
-              title="Worker live location"
+              title={APP_TEXT.main.bookings.liveLocation.workerMarkerTitle}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={true}
             >
@@ -237,28 +232,20 @@ export function WorkerLiveRouteMap({
               </View>
             </Marker>
           ) : null}
-          {routeCoordinates.length > 1 ? (
-            <Polyline
-              key={`customer-route-solid-${vehicleMode}`}
-              coordinates={routeCoordinates}
-              strokeColor={theme.colors.primary}
-              strokeWidth={ROUTE_STROKE_WIDTH}
-            />
-          ) : null}
+
+          <Marker coordinate={destinationCoordinates} title={APP_TEXT.main.bookings.liveLocation.destinationMarkerTitle}>
+            <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
+          </Marker>
         </MapView>
 
         {loading ? (
           <View
             className="absolute right-3 top-3 flex-row items-center rounded-full px-3 py-2"
-            style={{
-              backgroundColor: isDark
-                ? uiColors.surface.overlayDark95
-                : uiColors.surface.overlayLight95,
-            }}
+            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95 }}
           >
             <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text className="ml-2 text-xs font-bold text-baseDark dark:text-white">
-              Reading live location
+              {APP_TEXT.main.bookings.liveLocation.readingLabel}
             </Text>
           </View>
         ) : null}

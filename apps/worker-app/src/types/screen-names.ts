@@ -29,6 +29,13 @@ export const MAIN_TAB_SCREENS = {
   profile: 'Profile',
 } as const;
 
+export const ROOT_SCREENS = {
+  authNavigator: 'AuthNavigator',
+  onboardingNavigator: 'OnboardingNavigator',
+  mainTabsNavigator: 'MainTabsNavigator',
+  jobDetailsNavigator: 'JobDetailsNavigator',
+} as const;
+
 export const JOB_STACK_SCREENS = {
   home: 'JobsHome',
   details: 'JobDetails',

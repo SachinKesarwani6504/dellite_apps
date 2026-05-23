@@ -1,9 +1,13 @@
 export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
 export type WorkerVehicleMode =
   | 'WALK'
-  | 'CYCLE'
   | 'TWO_WHEELER'
   | 'CAR'
+  | 'UNKNOWN';
+export type WorkerMovementStatus =
+  | 'STATIONARY'
+  | 'MOVING'
+  | 'GPS_WEAK'
   | 'UNKNOWN';
 
 export type WorkerLiveLocationRecord = {
@@ -16,9 +20,10 @@ export type WorkerLiveLocationRecord = {
   appState: WorkerLiveAppState;
   lastLocationAt: number;
   heartbeatAt: number;
+  isOnline: boolean;
   isAvailable: boolean;
-  isTrackable: boolean;
   vehicleMode: WorkerVehicleMode;
+  movementStatus: WorkerMovementStatus;
 };
 
 export type WorkerLiveLocationState = {

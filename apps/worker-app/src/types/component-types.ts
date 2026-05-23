@@ -5,6 +5,8 @@ import type { WorkerCurrentStatus } from '@/types/auth';
 import type { ImageCacheMode } from '@/types/shared';
 import type { UploadPreviewFile } from '@/types/file-upload';
 import type { LiveRouteResult, RouteCoordinates, RouteVehicleMode } from '@/types/live-route';
+import type { LiveTrackingCard } from '@/types/live-tracking';
+import type { WorkerLiveLocationRecord } from '@/lib/firebase';
 
 export type AppImageProps = Omit<ComponentProps<typeof Image>, 'source'> & {
   source?: ImageSourcePropType;
@@ -70,18 +72,26 @@ export type TwoOptionPillTabsProps<T extends string> = {
 };
 
 export type WorkerBookingRouteMapProps = {
+  workerLiveLocation: WorkerLiveLocationRecord | null;
   originCoordinates: RouteCoordinates;
   destinationCoordinates: RouteCoordinates;
   vehicleMode: RouteVehicleMode;
-  onVehicleModeChange?: (mode: RouteVehicleMode) => void;
   route: LiveRouteResult | null;
   isDark: boolean;
   loading: boolean;
   error: string | null;
+  onVehicleModeChange?: (mode: RouteVehicleMode) => void;
 };
 
 export type WorkerLiveMarkerProps = {
   headingDegrees: number;
+};
+
+export type LiveTrackingStatusCardProps = {
+  card: LiveTrackingCard;
+  isDark: boolean;
+  liveBadgeText: string;
+  error?: string | null;
 };
 
 export type ScrollablePillTabItem<T extends string> = {

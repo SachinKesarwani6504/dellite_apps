@@ -163,7 +163,8 @@ export function canTrackBookingWorker(details: BookingDetailsResponse | null | u
 }
 
 export function getTrackableWorkerCoordinates(workerLocation: WorkerLiveLocationRecord | null): WorkerRouteCoordinates | null {
-  if (!workerLocation || !workerLocation.isTrackable) return null;
+  if (!workerLocation) return null;
+  if (!Number.isFinite(workerLocation.lat) || !Number.isFinite(workerLocation.lng)) return null;
   return {
     latitude: workerLocation.lat,
     longitude: workerLocation.lng,

@@ -9,6 +9,7 @@ import { BookingFlowProvider } from '@/contexts/BookingFlowContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
+import { BookingDetailsNavigator } from '@/navigation/BookingDetailsNavigator';
 import { BookingFlowNavigator } from '@/navigation/BookingFlowNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
@@ -78,6 +79,7 @@ export function AppNavigator() {
             <>
               <RootStack.Screen name={ROOT_SCREEN.MAIN_TABS_NAVIGATOR} component={MainTabsNavigator} />
               <RootStack.Screen name={ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR} component={BookingFlowNavigator} />
+              <RootStack.Screen name={ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR} component={BookingDetailsNavigator} />
             </>
           )}
         </RootStack.Navigator>

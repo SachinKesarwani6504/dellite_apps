@@ -3,6 +3,7 @@ export const ROOT_SCREEN = {
   ONBOARDING_NAVIGATOR: 'OnboardingNavigator',
   MAIN_TABS_NAVIGATOR: 'MainTabsNavigator',
   BOOKING_FLOW_NAVIGATOR: 'BookingFlowNavigator',
+  BOOKING_DETAILS_NAVIGATOR: 'BookingDetailsNavigator',
 } as const;
 
 export const AUTH_SCREEN = {

@@ -67,7 +67,7 @@ export function useBookingLiveRoute({
     lastFetchOriginRef.current = currentOrigin;
     lastFetchDestinationRef.current = currentDestination;
     lastFetchVehicleModeRef.current = vehicleMode;
-    const fallbackRoute = buildFallbackLiveRoute(currentOrigin, currentDestination);
+    const fallbackRoute = buildFallbackLiveRoute(currentOrigin, currentDestination, vehicleMode);
     const apiKey = ENV.GOOGLE_MAPS_API_KEY?.trim();
 
     if (!apiKey) {

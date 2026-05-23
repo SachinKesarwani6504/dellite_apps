@@ -15,6 +15,7 @@ import {
   WorkerLiveAppState,
   WorkerLiveLocationRecord,
   WorkerLiveUpdatePayload,
+  WorkerMovementStatus,
   WorkerVehicleMode,
   getCustomerLivePath,
   getCustomerLiveRef,
@@ -113,5 +114,6 @@ export type {
   WorkerLiveAppState,
   WorkerLiveLocationRecord,
   WorkerLiveUpdatePayload,
+  WorkerMovementStatus,
   WorkerVehicleMode,
 };
