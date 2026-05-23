@@ -12,9 +12,14 @@ import { getRouteBearingDegrees } from '@/utils/live-route';
 import { theme, uiColors } from '@/utils/theme';
 
 const ROUTE_MAP_DELTA = 0.04;
-const ROUTE_STROKE_WIDTH = 5;
 const ROUTE_MAP_HEIGHT = 416;
 const MIN_ROUTE_RENDER_DISTANCE_METERS = 10;
+const DELLITE_ORANGE = '#FF7A00';
+const MAIN_ROUTE_STROKE_WIDTH = 7;
+const MAIN_ROUTE_SHADOW_STROKE_WIDTH = 11;
+const FINAL_APPROACH_STROKE_WIDTH = 4;
+const FINAL_APPROACH_THRESHOLD_METERS = 30;
+const FINAL_APPROACH_DASH_PATTERN = [8, 8] as const;
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
@@ -85,6 +90,17 @@ export function WorkerLiveRouteMap({
     : fallbackDistanceMeters;
   const shouldRenderRoute = routeCoordinates.length > 1
     && effectiveRouteDistanceMeters >= MIN_ROUTE_RENDER_DISTANCE_METERS;
+  const routeEndPoint = shouldRenderRoute ? routeCoordinates[routeCoordinates.length - 1] : null;
+  const finalApproachDistanceMeters = routeEndPoint
+    ? getDistanceInMeters(
+        routeEndPoint.latitude,
+        routeEndPoint.longitude,
+        destinationCoordinates.latitude,
+        destinationCoordinates.longitude,
+      )
+    : 0;
+  const shouldShowFinalApproach = Boolean(routeEndPoint)
+    && finalApproachDistanceMeters > FINAL_APPROACH_THRESHOLD_METERS;
   const liveVehicleMode = workerLocation?.vehicleMode ?? vehicleMode ?? ROUTE_VEHICLE_MODE.UNKNOWN;
   const statusCard = getCustomerLiveTrackingCard({
     isOnline: workerLocation?.isOnline ?? false,
@@ -158,9 +174,38 @@ export function WorkerLiveRouteMap({
           showsMyLocationButton={false}
           toolbarEnabled={false}
         >
-          <Marker coordinate={destinationCoordinates} title={APP_TEXT.main.bookings.liveLocation.destinationMarkerTitle}>
-            <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
-          </Marker>
+          {shouldRenderRoute ? (
+            <>
+              <Polyline
+                key={`customer-route-shadow-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor="rgba(255,255,255,0.85)"
+                strokeWidth={MAIN_ROUTE_SHADOW_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+              <Polyline
+                key={`customer-route-main-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor={DELLITE_ORANGE}
+                strokeWidth={MAIN_ROUTE_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+            </>
+          ) : null}
+
+          {shouldShowFinalApproach && routeEndPoint ? (
+            <Polyline
+              key="customer-final-approach"
+              coordinates={[routeEndPoint, destinationCoordinates]}
+              strokeColor="rgba(255,122,0,0.75)"
+              strokeWidth={FINAL_APPROACH_STROKE_WIDTH}
+              lineDashPattern={[...FINAL_APPROACH_DASH_PATTERN]}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ) : null}
 
           {workerCoordinates ? (
             <Marker
@@ -188,14 +233,9 @@ export function WorkerLiveRouteMap({
             </Marker>
           ) : null}
 
-          {shouldRenderRoute ? (
-            <Polyline
-              key={`customer-route-solid-${vehicleMode}`}
-              coordinates={routeCoordinates}
-              strokeColor={theme.colors.primary}
-              strokeWidth={ROUTE_STROKE_WIDTH}
-            />
-          ) : null}
+          <Marker coordinate={destinationCoordinates} title={APP_TEXT.main.bookings.liveLocation.destinationMarkerTitle}>
+            <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
+          </Marker>
         </MapView>
 
         {loading ? (

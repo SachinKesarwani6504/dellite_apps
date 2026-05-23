@@ -11,18 +11,14 @@ import { getRouteBearingDegrees } from '@/utils/live-route';
 import { theme, uiColors } from '@/utils/theme';
 
 const ROUTE_MAP_DELTA = 0.04;
-const ROUTE_STROKE_WIDTH = 5;
 const ROUTE_MAP_HEIGHT = 416;
 const MIN_ROUTE_RENDER_DISTANCE_METERS = 10;
-
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.labelFillDark }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: uiColors.map.geometryDark }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: uiColors.map.roadDark }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.roadLabelDark }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: uiColors.map.waterDark }] },
-];
+const DELLITE_ORANGE = '#FF7A00';
+const MAIN_ROUTE_STROKE_WIDTH = 7;
+const MAIN_ROUTE_SHADOW_STROKE_WIDTH = 11;
+const FINAL_APPROACH_STROKE_WIDTH = 4;
+const FINAL_APPROACH_THRESHOLD_METERS = 30;
+const FINAL_APPROACH_DASH_PATTERN = [8, 8] as const;
 
 function getDistanceInMeters(
   lat1: number,
@@ -40,6 +36,15 @@ function getDistanceInMeters(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadiusMeters * c;
 }
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: uiColors.map.geometryDark }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.labelFillDark }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: uiColors.map.geometryDark }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: uiColors.map.roadDark }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: uiColors.map.roadLabelDark }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: uiColors.map.waterDark }] },
+];
 
 export function WorkerBookingRouteMap({
   workerLiveLocation,
@@ -83,6 +88,17 @@ export function WorkerBookingRouteMap({
     : fallbackDistanceMeters;
   const shouldRenderRoute = routeCoordinates.length > 1
     && effectiveRouteDistanceMeters >= MIN_ROUTE_RENDER_DISTANCE_METERS;
+  const routeEndPoint = shouldRenderRoute ? routeCoordinates[routeCoordinates.length - 1] : null;
+  const finalApproachDistanceMeters = routeEndPoint
+    ? getDistanceInMeters(
+        routeEndPoint.latitude,
+        routeEndPoint.longitude,
+        destinationCoordinates.latitude,
+        destinationCoordinates.longitude,
+      )
+    : 0;
+  const shouldShowFinalApproach = Boolean(routeEndPoint)
+    && finalApproachDistanceMeters > FINAL_APPROACH_THRESHOLD_METERS;
   const liveVehicleMode = workerLiveLocation?.vehicleMode ?? ROUTE_VEHICLE_MODE.UNKNOWN;
   const statusCard = getWorkerLiveTrackingCard({
     isOnline: workerLiveLocation?.isOnline ?? false,
@@ -189,6 +205,39 @@ export function WorkerBookingRouteMap({
           showsMyLocationButton={false}
           toolbarEnabled={false}
         >
+          {shouldRenderRoute ? (
+            <>
+              <Polyline
+                key={`worker-route-shadow-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor="rgba(255,255,255,0.85)"
+                strokeWidth={MAIN_ROUTE_SHADOW_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+              <Polyline
+                key={`worker-route-main-${vehicleMode}`}
+                coordinates={routeCoordinates}
+                strokeColor={DELLITE_ORANGE}
+                strokeWidth={MAIN_ROUTE_STROKE_WIDTH}
+                lineCap="round"
+                lineJoin="round"
+              />
+            </>
+          ) : null}
+
+          {shouldShowFinalApproach && routeEndPoint ? (
+            <Polyline
+              key="worker-final-approach"
+              coordinates={[routeEndPoint, destinationCoordinates]}
+              strokeColor="rgba(255,122,0,0.75)"
+              strokeWidth={FINAL_APPROACH_STROKE_WIDTH}
+              lineDashPattern={[...FINAL_APPROACH_DASH_PATTERN]}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ) : null}
+
           <Marker
             coordinate={originCoordinates}
             title={APP_TEXT.jobs.liveLocation.workerMarkerTitle}
@@ -216,15 +265,6 @@ export function WorkerBookingRouteMap({
           <Marker coordinate={destinationCoordinates} title={APP_TEXT.jobs.liveLocation.destinationMarkerTitle}>
             <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
           </Marker>
-
-          {shouldRenderRoute ? (
-            <Polyline
-              key={`worker-route-solid-${vehicleMode}`}
-              coordinates={routeCoordinates}
-              strokeColor={theme.colors.primary}
-              strokeWidth={ROUTE_STROKE_WIDTH}
-            />
-          ) : null}
         </MapView>
 
         {loading ? (
