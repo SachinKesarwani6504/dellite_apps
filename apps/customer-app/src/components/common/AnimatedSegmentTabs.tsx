@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
-
 import { palette, theme, uiColors } from '@/utils/theme';
 
 export type SegmentTabItem<T extends string> = {
@@ -55,7 +54,7 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
 
   return (
     <View
-      className="mt-4 rounded-full p-1.5"
+      className="mt-4 rounded-full p-1"
       style={{
         backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
@@ -70,9 +69,10 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
         bounces={false}
         showsHorizontalScrollIndicator={false}
         style={{ overflow: 'hidden' }}
+        className='rounded-full'
         contentContainerStyle={{ paddingHorizontal: INNER_HORIZONTAL_PADDING }}
       >
-        <View style={{ width: totalTabsWidth, minHeight: TAB_HEIGHT, position: 'relative' }}>
+        <View  style={{ width: totalTabsWidth, minHeight: TAB_HEIGHT, position: 'relative' }}>
           <Animated.View
             pointerEvents="none"
             className="absolute top-0 rounded-full"
@@ -89,7 +89,7 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
               elevation: 2,
             }}
           />
-          <View className="flex-row">
+          <View className="flex-row ">
             {items.map(item => {
               const isActive = item.value === value;
               return (
