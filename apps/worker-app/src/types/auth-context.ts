@@ -1,10 +1,11 @@
 import { AuthStatus } from '@/types/auth-status';
-import { AuthMeResponse, AuthUser, UserRole, WorkerProfilePayload } from '@/types/auth';
+import { AuthMeResponse, AuthUser, UserRole, WorkerOnboardingPrefillData, WorkerProfilePayload } from '@/types/auth';
 import type { LocationContextValue } from '@/modules/location/types/location.types';
 
 export type AuthContextType = {
   user: AuthUser | null;
   me: AuthMeResponse | null;
+  onboardingPrefill: WorkerOnboardingPrefillData | null;
   status: AuthStatus;
   loading: boolean;
   phone: string;
@@ -16,4 +17,5 @@ export type AuthContextType = {
   completeOnboarding: (payload: WorkerProfilePayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<AuthMeResponse>;
+  fetchOnboardingPrefill: (phoneToken: string) => Promise<WorkerOnboardingPrefillData | null>;
 };

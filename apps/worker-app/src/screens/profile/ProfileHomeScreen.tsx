@@ -130,6 +130,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
         workerId: typeof raw.workerId === 'string' ? raw.workerId : (typeof raw.worker_id === 'string' ? raw.worker_id : undefined),
         status: typeof raw.status === 'string' ? raw.status : undefined,
         isLatest: toBoolean(raw.isLatest ?? raw.is_latest),
+        showStatusInUi: toBoolean(raw.showStatusInUi ?? raw.show_status_in_ui),
         message: typeof raw.message === 'string' ? raw.message : undefined,
         createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : (typeof raw.created_at === 'string' ? raw.created_at : undefined),
         updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : (typeof raw.updated_at === 'string' ? raw.updated_at : undefined),
@@ -155,9 +156,8 @@ export function ProfileHomeScreen({ navigation }: Props) {
     return null;
   }, [me, user?.workerLink?.currentStatus]);
   const shouldShowCurrentStatusBanner = useMemo(() => {
-    const status = String(currentStatus?.status ?? '').trim().toUpperCase();
-    return Boolean(status) && status !== APP_TEXT.home.currentStatusActiveValue;
-  }, [currentStatus?.status]);
+    return currentStatus?.showStatusInUi === true;
+  }, [currentStatus?.showStatusInUi]);
 
   useEffect(() => {
     void refreshMe();

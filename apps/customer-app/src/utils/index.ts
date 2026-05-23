@@ -17,6 +17,7 @@ export * from '@/utils/live-route';
 export * from '@/utils/svgicons';
 export * from '@/utils/booking-catalog';
 export * from '@/utils/customer-bookings';
+export * from '@/utils/customer-booking-counts';
 export * from '@/utils/customer-navigation';
 export * from '@/utils/service-pricing';
 export * from '@/utils/pricing/calculateLineSubtotal';
@@ -33,6 +34,9 @@ export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';
 
 export function extractImageUrl(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];

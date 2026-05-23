@@ -65,6 +65,12 @@ export type AuthTokens = {
   refreshToken?: string | null;
 };
 
+export type CustomerBookingCounts = {
+  totalBookingsCount: number;
+  activeBookingsCount: number;
+  completedBookingsCount: number;
+};
+
 export type OnboardingFlags = {
   identityCompleted?: boolean;
   profileCompleted?: boolean;
@@ -101,6 +107,7 @@ export type AuthUser = {
   hasSeenOnboardingWelcomeScreen?: boolean;
   isOnboardingDone?: boolean;
   isOnboardingCompleted?: boolean;
+  bookingCounts?: CustomerBookingCounts;
 };
 
 export type AuthMeOnboarding = {
@@ -174,9 +181,11 @@ export type LogoutResponse = {
 export type AuthMeResponse = {
   user: AuthUser;
   referral?: ReferralInfo;
+  bookingCounts?: CustomerBookingCounts;
   roleLink?: {
     id?: string;
     hasSeenOnboardingWelcomeScreen?: boolean;
+    bookingCounts?: CustomerBookingCounts;
     [key: string]: unknown;
   };
   roles?: Record<UserRole, boolean> & Record<string, boolean>;

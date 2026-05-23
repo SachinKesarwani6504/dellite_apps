@@ -1,7 +1,7 @@
 import { FlatList, RefreshControl, Text, View, useWindowDimensions } from 'react-native';
-import { BackButton } from '@/components/common/BackButton';
 import { Button } from '@/components/common/Button';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -161,9 +161,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
       refreshControl={<RefreshControl {...refreshControlProps} />}
     >
-      <View className="mb-2 flex-row items-center">
-        <BackButton onPress={() => navigation.goBack()} />
-      </View>
+      <DetailsTopBar onBack={() => navigation.goBack()} />
 
       <ImageOverlayBanner
         imageUrl={headerBannerImage}

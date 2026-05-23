@@ -333,8 +333,6 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
               highlight="All Set!"
               inline
               showSparkle={false}
-              prefixClassName="text-center text-[42px] font-extrabold leading-[46px] text-baseDark dark:text-white"
-              highlightClassName="text-[42px] font-extrabold leading-[46px]"
             />
           </Animated.View>
 

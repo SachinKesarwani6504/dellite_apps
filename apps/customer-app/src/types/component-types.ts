@@ -162,7 +162,7 @@ export type ScrollablePillTabsProps<T extends string> = {
 
 export type DetailsTopBarProps = {
   onBack: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   editLabel?: string;
   editDisabled?: boolean;
 };

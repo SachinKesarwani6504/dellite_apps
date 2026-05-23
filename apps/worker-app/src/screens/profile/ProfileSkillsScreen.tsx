@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Switch, Text, View, useColorScheme } from 'react-native';
 import { getWorkerStatus, updateWorkerServices } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
@@ -143,9 +143,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
         />
       )}
     >
-        <View className="mb-4">
-          <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-        </View>
+        {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
         <View className="mt-1">
           <Text className="text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">All</Text>

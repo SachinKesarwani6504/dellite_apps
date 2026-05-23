@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Pressable, Text, View, useColorScheme } from 'react-native';
-import { BackButton } from '@/components/common/BackButton';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SectionCard } from '@/components/common/SectionCard';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
@@ -161,18 +161,13 @@ export function ReferralScreen({ navigation }: Props) {
 
   return (
     <GradientScreen contentContainerStyle={{ flexGrow: 1, paddingBottom: 28, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}>
-      <View className="mb-3">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <SplitGradientTitle
         prefix="Refer &"
         highlight="Earn"
         inline
         subtitle={APP_TEXT.profile.referral.pageSubtitle}
-        prefixClassName="text-[32px] font-extrabold leading-[36px] text-baseDark dark:text-white"
-        highlightClassName="text-[32px] font-extrabold leading-[36px]"
-        subtitleClassName="mt-1 text-sm"
         showSparkle={false}
       />
 

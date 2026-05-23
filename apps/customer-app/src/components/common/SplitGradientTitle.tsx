@@ -27,7 +27,7 @@ export function SplitGradientTitle({
   highlightClassName = 'text-[25px] font-extrabold leading-[28px]',
   subtitleClassName = 'mt-2 text-sm',
   subtitleStyle,
-  inline = false,
+  inline = true,
   showSparkle = true,
   wrapHighlight = false,
 }: SplitGradientTitleProps) {

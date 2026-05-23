@@ -13,7 +13,6 @@ type AadhaarUploadInputProps = {
   required?: boolean;
   showPreview?: boolean;
   emptyHint?: string;
-  maxSizeHint?: string;
   iconName?: 'document-attach-outline' | 'document-text-outline';
 };
 
@@ -26,8 +25,7 @@ export function AadhaarUploadInput({
   isLoading = false,
   required = false,
   showPreview = true,
-  emptyHint = 'PNG, JPG only • Max 5MB',
-  maxSizeHint = 'PNG, JPG only • Max 5MB',
+  emptyHint = 'PNG, JPG only - Max 5MB',
   iconName = 'document-attach-outline',
 }: AadhaarUploadInputProps) {
   const isDark = useColorScheme() === 'dark';
@@ -84,11 +82,7 @@ export function AadhaarUploadInput({
             style={{ width: '100%', height: 220, marginTop: 4, marginBottom: 6 }}
           />
         </View>
-      ) : (
-        <Text className="mt-2 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-          {maxSizeHint}
-        </Text>
-      )}
+      ) : null}
     </Pressable>
   );
 }

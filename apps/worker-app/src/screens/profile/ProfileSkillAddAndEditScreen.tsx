@@ -2,9 +2,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { AppSpinner } from '@/components/common/AppSpinner';
-import { BackButton } from '@/components/common/BackButton';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
@@ -114,17 +114,12 @@ export function ProfileSkillAddAndEditScreen({ navigation, route }: Props) {
         />
       )}
     >
-      <View className="mb-3">
-        <BackButton onPress={() => navigation.goBack()} visible={navigation.canGoBack()} />
-      </View>
+      {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
       <SplitGradientTitle
         prefix={APP_TEXT.profile.skillManager.addTitlePrefix}
         highlight={APP_TEXT.profile.skillManager.titleHighlight}
         subtitle={APP_TEXT.profile.skillManager.addSubtitle}
-        prefixClassName="mt-2 text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white"
-        highlightClassName="text-4xl font-extrabold leading-[40px]"
-        subtitleClassName="mt-2 text-sm"
         showSparkle={false}
       />
 

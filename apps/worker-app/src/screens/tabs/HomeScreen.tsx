@@ -133,6 +133,7 @@ export function HomeScreen() {
     () => (Array.isArray(homeData?.availableNearbyJobs) ? homeData.availableNearbyJobs : []),
     [homeData?.availableNearbyJobs],
   );
+  const shouldShowCurrentStatusBanner = homeData?.currentStatus?.showStatusInUi === true;
   const headerBannerName = homeData?.headerBanner?.name?.trim() || APP_TEXT.home.welcomeFallbackName;
   const ratingLabel = useMemo(() => {
     const averageRating = typeof homeData?.headerBanner?.averageRating === 'number'
@@ -289,11 +290,11 @@ export function HomeScreen() {
 
       {homeData ? (
         <>
-          {homeData.currentStatus ? (
+          {shouldShowCurrentStatusBanner ? (
             <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
           ) : null}
 
-          <View className={homeData.currentStatus ? 'mt-4' : ''}>
+          <View className={shouldShowCurrentStatusBanner ? 'mt-4' : ''}>
             <ImageOverlayBanner
               imageUrl={homeData.headerBanner?.imageUrl}
               overline={APP_TEXT.home.welcomeBack}
