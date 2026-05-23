@@ -26,6 +26,11 @@ export type WorkerVehicleMode =
   | 'TWO_WHEELER'
   | 'CAR'
   | 'UNKNOWN';
+export type WorkerMovementStatus =
+  | 'STATIONARY'
+  | 'MOVING'
+  | 'GPS_WEAK'
+  | 'UNKNOWN';
 
 export type WorkerLiveLocationRecord = {
   workerId: string;
@@ -36,10 +41,12 @@ export type WorkerLiveLocationRecord = {
   speed: number | null;
   lastLocationAt: number;
   heartbeatAt: number;
+  isOnline: boolean;
   isAvailable: boolean;
-  isTrackable: boolean;
   vehicleMode: WorkerVehicleMode;
+  movementStatus: WorkerMovementStatus;
   appState: WorkerLiveAppState;
+  updatedAt?: number;
 };
 
 export type WorkerLiveUpdatePayload = Partial<WorkerLiveLocationRecord> & Record<string, unknown>;

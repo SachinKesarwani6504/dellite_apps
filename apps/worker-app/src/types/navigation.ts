@@ -1,5 +1,15 @@
-import { AUTH_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS } from '@/types/screen-names';
+import { AUTH_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
+
+export type RootStackParamList = {
+  [ROOT_SCREENS.authNavigator]: undefined;
+  [ROOT_SCREENS.onboardingNavigator]: undefined;
+  [ROOT_SCREENS.mainTabsNavigator]: undefined;
+  [ROOT_SCREENS.jobDetailsNavigator]: {
+    screen: string;
+    params?: unknown;
+  };
+};
 
 export type AuthStackParamList = {
   [AUTH_SCREENS.phoneLogin]: undefined;
@@ -34,5 +44,9 @@ export type MainTabParamList = {
 
 export type JobStackParamList = {
   [JOB_STACK_SCREENS.home]: undefined;
+  [JOB_STACK_SCREENS.details]: { jobId: string; inviteStatus?: WorkerJobInviteStatus | null };
+};
+
+export type JobsStackParamList = {
   [JOB_STACK_SCREENS.details]: { jobId: string; inviteStatus?: WorkerJobInviteStatus | null };
 };

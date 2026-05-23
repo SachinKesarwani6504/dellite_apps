@@ -3,11 +3,25 @@ export type RouteCoordinates = {
   longitude: number;
 };
 
+export const ROUTE_VEHICLE_MODE = {
+  WALK: 'WALK',
+  TWO_WHEELER: 'TWO_WHEELER',
+  CAR: 'CAR',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
 export type RouteVehicleMode =
-  | 'WALK'
-  | 'TWO_WHEELER'
-  | 'CAR'
-  | 'UNKNOWN';
+  (typeof ROUTE_VEHICLE_MODE)[keyof typeof ROUTE_VEHICLE_MODE];
+
+export const WORKER_MOVEMENT_STATUS = {
+  STATIONARY: 'STATIONARY',
+  MOVING: 'MOVING',
+  GPS_WEAK: 'GPS_WEAK',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type WorkerMovementStatus =
+  (typeof WORKER_MOVEMENT_STATUS)[keyof typeof WORKER_MOVEMENT_STATUS];
 
 export type LiveRouteResult = {
   encodedPolyline: string | null;
@@ -40,30 +54,6 @@ export type GoogleRoutesApiResponse = {
   error?: {
     message?: string;
   };
-};
-
-export type GoogleDirectionsApiLegValue = {
-  text?: string;
-  value?: number;
-};
-
-export type GoogleDirectionsApiLeg = {
-  distance?: GoogleDirectionsApiLegValue;
-  duration?: GoogleDirectionsApiLegValue;
-  duration_in_traffic?: GoogleDirectionsApiLegValue;
-};
-
-export type GoogleDirectionsApiRoute = {
-  overview_polyline?: {
-    points?: string;
-  };
-  legs?: GoogleDirectionsApiLeg[];
-};
-
-export type GoogleDirectionsApiResponse = {
-  status?: string;
-  error_message?: string;
-  routes?: GoogleDirectionsApiRoute[];
 };
 
 export type BookingLiveRouteArgs = {

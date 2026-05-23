@@ -97,6 +97,7 @@ export * from '@/utils/firebase-session';
 export * from '@/utils/locationDistance';
 export * from '@/utils/worker-live';
 export * from '@/utils/booking-details';
+export * from '@/utils/live-tracking';
 export * from '@/utils/live-route';
 export * from '@/utils/svgicons';
 export * from '@/utils/image-cache';

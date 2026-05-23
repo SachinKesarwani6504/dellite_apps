@@ -1,5 +1,4 @@
 import type {
-  GoogleDirectionsApiResponse,
   GoogleRouteFetchArgs,
   GoogleRoutesApiResponse,
   LiveRouteResult,
@@ -7,7 +6,6 @@ import type {
   RouteCoordinates,
 } from '@/types/live-route';
 
-const GOOGLE_DIRECTIONS_ENDPOINT = 'https://maps.googleapis.com/maps/api/directions/json';
 const GOOGLE_ROUTES_COMPUTE_ENDPOINT = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const GOOGLE_ROUTES_FIELD_MASK = 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline';
 
@@ -18,14 +16,12 @@ function logRouteDebug(message: string, payload?: unknown) {
 function resolveGoogleTravelMode(vehicleMode: RouteVehicleMode) {
   if (vehicleMode === 'WALK') return 'WALK';
   if (vehicleMode === 'TWO_WHEELER') return 'TWO_WHEELER';
-  if (vehicleMode === 'CYCLE') return 'BICYCLE';
   return 'DRIVE';
 }
 
 export function getRouteVehicleModeLabel(vehicleMode: RouteVehicleMode) {
   if (vehicleMode === 'CAR') return 'Car';
   if (vehicleMode === 'TWO_WHEELER') return 'Two wheeler';
-  if (vehicleMode === 'CYCLE') return 'Cycle';
   if (vehicleMode === 'WALK') return 'Walk';
   return 'Vehicle';
 }
@@ -90,17 +86,41 @@ export function formatRouteEta(durationSeconds: number | null | undefined) {
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
+function getDistanceInMeters(origin: RouteCoordinates, destination: RouteCoordinates) {
+  const radius = 6371000;
+  const dLat = ((destination.latitude - origin.latitude) * Math.PI) / 180;
+  const dLng = ((destination.longitude - origin.longitude) * Math.PI) / 180;
+  const lat1 = (origin.latitude * Math.PI) / 180;
+  const lat2 = (destination.latitude * Math.PI) / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const a = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(radius * c);
+}
+
+function getFallbackSpeedMetersPerSecond(vehicleMode: RouteVehicleMode) {
+  if (vehicleMode === 'WALK') return 1.4;
+  if (vehicleMode === 'TWO_WHEELER') return 8;
+  return 10;
+}
+
 export function buildFallbackLiveRoute(
   origin: RouteCoordinates,
   destination: RouteCoordinates,
+  vehicleMode: RouteVehicleMode = 'CAR',
 ): LiveRouteResult {
+  const distanceMeters = getDistanceInMeters(origin, destination);
+  const speed = getFallbackSpeedMetersPerSecond(vehicleMode);
+  const durationSeconds = speed > 0 ? Math.max(60, Math.round(distanceMeters / speed)) : null;
+
   return {
     encodedPolyline: null,
     coordinates: [origin, destination],
-    distanceMeters: null,
-    durationSeconds: null,
-    etaText: null,
-    distanceText: null,
+    distanceMeters,
+    durationSeconds,
+    etaText: formatRouteEta(durationSeconds),
+    distanceText: formatRouteDistance(distanceMeters),
     isFallback: true,
   };
 }
@@ -129,36 +149,19 @@ export async function fetchGoogleDriveRoute({
     hasApiKey: apiKey.trim().length > 0,
   });
 
-  try {
-    const route = await fetchGoogleRoutesDriveRoute({
-      apiKey,
-      origin,
-      destination,
-      vehicleMode,
-      signal,
-    });
-    logRouteDebug('routes-api:success', {
-      points: route.coordinates.length,
-      distanceMeters: route.distanceMeters,
-      durationSeconds: route.durationSeconds,
-    });
-    return route;
-  } catch {
-    logRouteDebug('routes-api:failed-trying-directions');
-    const route = await fetchGoogleDirectionsDriveRoute({
-      apiKey,
-      origin,
-      destination,
-      vehicleMode,
-      signal,
-    });
-    logRouteDebug('directions-api:success', {
-      points: route.coordinates.length,
-      distanceMeters: route.distanceMeters,
-      durationSeconds: route.durationSeconds,
-    });
-    return route;
-  }
+  const route = await fetchGoogleRoutesDriveRoute({
+    apiKey,
+    origin,
+    destination,
+    vehicleMode,
+    signal,
+  });
+  logRouteDebug('routes-api:success', {
+    points: route.coordinates.length,
+    distanceMeters: route.distanceMeters,
+    durationSeconds: route.durationSeconds,
+  });
+  return route;
 }
 
 async function fetchGoogleRoutesDriveRoute({
@@ -235,66 +238,6 @@ async function fetchGoogleRoutesDriveRoute({
     durationSeconds,
     etaText: formatRouteEta(durationSeconds),
     distanceText: formatRouteDistance(distanceMeters),
-    isFallback: false,
-  };
-}
-
-async function fetchGoogleDirectionsDriveRoute({
-  apiKey,
-  origin,
-  destination,
-  vehicleMode,
-  signal,
-}: GoogleRouteFetchArgs): Promise<LiveRouteResult> {
-  const directionsMode = vehicleMode === 'WALK'
-    ? 'walking'
-    : (vehicleMode === 'CYCLE' ? 'bicycling' : 'driving');
-  const query = new URLSearchParams({
-    origin: `${origin.latitude},${origin.longitude}`,
-    destination: `${destination.latitude},${destination.longitude}`,
-    mode: directionsMode,
-    departure_time: 'now',
-    traffic_model: 'best_guess',
-    key: apiKey,
-  });
-  const response = await fetch(`${GOOGLE_DIRECTIONS_ENDPOINT}?${query.toString()}`, { signal });
-  const payload = await response.json() as GoogleDirectionsApiResponse;
-  logRouteDebug('directions-api:response', {
-    ok: response.ok,
-    status: response.status,
-    apiStatus: payload.status ?? null,
-    routeCount: payload.routes?.length ?? 0,
-    errorMessage: payload.error_message ?? null,
-  });
-
-  if (!response.ok || payload.status !== 'OK') {
-    throw new Error(payload.error_message || payload.status || 'Route unavailable.');
-  }
-
-  const route = payload.routes?.[0];
-  const encodedPolyline = route?.overview_polyline?.points ?? null;
-  if (!encodedPolyline) {
-    throw new Error('Route unavailable.');
-  }
-
-  const coordinates = decodeEncodedPolyline(encodedPolyline);
-  if (coordinates.length < 2) {
-    throw new Error('Route unavailable.');
-  }
-
-  const leg = route?.legs?.[0];
-  const distanceMeters = typeof leg?.distance?.value === 'number' ? leg.distance.value : null;
-  const durationSeconds = typeof leg?.duration_in_traffic?.value === 'number'
-    ? leg.duration_in_traffic.value
-    : (typeof leg?.duration?.value === 'number' ? leg.duration.value : null);
-
-  return {
-    encodedPolyline,
-    coordinates,
-    distanceMeters,
-    durationSeconds,
-    etaText: leg?.duration_in_traffic?.text ?? leg?.duration?.text ?? formatRouteEta(durationSeconds),
-    distanceText: leg?.distance?.text ?? formatRouteDistance(distanceMeters),
     isFallback: false,
   };
 }

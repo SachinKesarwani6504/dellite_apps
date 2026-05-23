@@ -13,7 +13,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import type { Booking } from '@/types/api';
-import { BOOKINGS_SCREEN } from '@/types/screen-names';
+import { BOOKINGS_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { buildCustomerBookingsListPath, getErrorMessage } from '@/utils';
 
@@ -90,7 +90,10 @@ export function BookingsScreen() {
         <CustomerBookingCard
           key={item.id}
           item={item}
-          onPress={(id) => navigation.navigate(BOOKINGS_SCREEN.DETAILS, { bookingId: id })}
+          onPress={(id) => navigation.navigate(ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR, {
+            screen: BOOKINGS_SCREEN.DETAILS,
+            params: { bookingId: id },
+          })}
         />
       ))}
 

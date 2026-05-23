@@ -2,21 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { refreshAuth } from '@/actions/authActions';
 import {
   WorkerLiveAppState,
   WorkerLiveLocationRecord,
+  WorkerMovementStatus,
   WorkerVehicleMode,
   getRealtimeServerTimestamp,
   getWorkerLivePath,
   registerWorkerLiveOnDisconnect,
   removeWorkerLive,
-  setWorkerLive,
   updateWorkerLive,
 } from '@/lib/firebase';
 import {
-  LOCATION_TRACKING_CONFIG,
+  LIVE_LOCATION_CONFIG,
+  type LocationPoint,
+  applyVehicleModeAdjustment,
+  getDistanceInMeters,
+  getRequiredDistanceBySpeed,
   resolveWorkerTrackingProfile,
-  shouldSendWorkerLocationUpdate,
+  shouldUpdateLiveLocation,
 } from '@/lib/location-tracking/locationTrackingConfig';
 import {
   ENABLE_BACKGROUND_LOCATION_TRACKING,
@@ -32,17 +37,15 @@ import {
   markFirebaseReauthRequired,
   shouldForceFirebaseReauth,
 } from '@/utils/firebase-session';
-import { calculateHaversineDistanceInMeters } from '@/utils/locationDistance';
-import { getAuthTokens } from '@/utils/key-chain-storage';
+import { getAuthTokens, saveAuthTokens } from '@/utils/key-chain-storage';
 
-type LastSentLocationSnapshot = {
-  lat: number;
-  lng: number;
+type LastSentLocationSnapshot = LocationPoint & {
   sentAt: number;
 };
 
 type WorkerLiveRuntimeContext = {
   workerId: string | null;
+  isOnline: boolean;
   isAvailable: boolean;
   appState: WorkerLiveAppState;
   vehicleMode: WorkerVehicleMode;
@@ -69,9 +72,11 @@ type UpdateLocationOptions = {
 };
 
 const FIREBASE_RECOVERY_COOLDOWN_MS = 15000;
+const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
 
 const backgroundRuntimeContext: WorkerLiveRuntimeContext = {
   workerId: null,
+  isOnline: false,
   isAvailable: false,
   appState: 'FOREGROUND',
   vehicleMode: 'UNKNOWN',
@@ -99,32 +104,17 @@ function normalizeOptionalLocationValue(value: number | null | undefined) {
   return isFiniteNumber(value) ? value : null;
 }
 
+function normalizeBearerToken(token: string | null | undefined) {
+  if (!token) return '';
+  return token.replace(/^Bearer\s+/i, '').trim();
+}
+
 function resolveRealtimeDatabaseErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : '';
   if (message.includes('PERMISSION_DENIED')) {
     return 'Realtime Database write denied. Wait for backend auth refresh to re-establish Firebase session and verify rules.';
   }
   return message || fallback;
-}
-
-function resolveSpeedMetersPerSecond(
-  location: Location.LocationObject,
-  hasPrevious: boolean,
-  elapsedMs: number,
-  movedMeters: number,
-): number | null {
-  if (!hasPrevious) {
-    return normalizeOptionalLocationValue(location.coords.speed);
-  }
-
-  if (elapsedMs <= 0) {
-    return normalizeOptionalLocationValue(location.coords.speed);
-  }
-
-  const speedMetersPerSecond = movedMeters / (elapsedMs / 1000);
-  return Number.isFinite(speedMetersPerSecond)
-    ? Number(speedMetersPerSecond.toFixed(2))
-    : normalizeOptionalLocationValue(location.coords.speed);
 }
 
 function toRadians(value: number) {
@@ -154,9 +144,11 @@ function resolveHeadingDegrees(
     return null;
   }
 
-  const movedMeters = calculateHaversineDistanceInMeters(
-    { lat: previousSnapshot.lat, lng: previousSnapshot.lng },
-    { lat: nextSnapshot.lat, lng: nextSnapshot.lng },
+  const movedMeters = getDistanceInMeters(
+    previousSnapshot.lat,
+    previousSnapshot.lng,
+    nextSnapshot.lat,
+    nextSnapshot.lng,
   );
   if (movedMeters < 2) {
     return null;
@@ -177,12 +169,14 @@ function buildWorkerLivePayload(
   location: Location.LocationObject,
   headingDegrees: number | null,
   speedMetersPerSecond: number | null,
+  isOnline: boolean,
   isAvailable: boolean,
   vehicleMode: WorkerVehicleMode,
   appState: WorkerLiveAppState,
 ): WorkerLiveLocationRecord {
   const now = Date.now();
   const accuracy = normalizeOptionalLocationValue(location.coords.accuracy);
+  const movementStatus = resolveMovementStatus(accuracy, speedMetersPerSecond);
 
   return {
     workerId,
@@ -193,63 +187,79 @@ function buildWorkerLivePayload(
     speed: speedMetersPerSecond,
     lastLocationAt: isFiniteNumber(location.timestamp) ? location.timestamp : now,
     heartbeatAt: now,
+    isOnline,
     isAvailable,
-    isTrackable: true,
     vehicleMode,
+    movementStatus,
     appState,
+    updatedAt: now,
+  };
+}
+
+function resolveMovementStatus(
+  accuracy: number | null,
+  speedMetersPerSecond: number | null,
+): WorkerMovementStatus {
+  if (typeof accuracy === 'number' && Number.isFinite(accuracy) && accuracy > LIVE_LOCATION_CONFIG.MAX_ACCURACY_METERS) {
+    return 'GPS_WEAK';
+  }
+
+  if (typeof speedMetersPerSecond === 'number' && Number.isFinite(speedMetersPerSecond)) {
+    return speedMetersPerSecond >= LIVE_LOCATION_CONFIG.STOPPED_SPEED ? 'MOVING' : 'STATIONARY';
+  }
+
+  return 'UNKNOWN';
+}
+
+function toLocationPoint(location: Location.LocationObject): LocationPoint {
+  return {
+    lat: location.coords.latitude,
+    lng: location.coords.longitude,
+    accuracy: normalizeOptionalLocationValue(location.coords.accuracy),
+    speed: normalizeOptionalLocationValue(location.coords.speed),
+    heading: normalizeOptionalLocationValue(location.coords.heading),
   };
 }
 
 async function writeBackgroundLocationUpdate(location: Location.LocationObject, force: boolean) {
+  void force;
   const workerId = backgroundRuntimeContext.workerId;
   if (!workerId) return;
 
-  const now = Date.now();
-  const nextSnapshot: LastSentLocationSnapshot = {
-    lat: location.coords.latitude,
-    lng: location.coords.longitude,
-    sentAt: now,
-  };
-
+  const newLoc = toLocationPoint(location);
   const previousSnapshot = backgroundLastSentByWorker.get(workerId) ?? null;
-  const elapsedMs = previousSnapshot ? (nextSnapshot.sentAt - previousSnapshot.sentAt) : 0;
-  const movedMeters = previousSnapshot
-    ? calculateHaversineDistanceInMeters(
-      { lat: previousSnapshot.lat, lng: previousSnapshot.lng },
-      { lat: nextSnapshot.lat, lng: nextSnapshot.lng },
-    )
-    : 0;
-  const speedMetersPerSecond = resolveSpeedMetersPerSecond(
-    location,
-    Boolean(previousSnapshot),
-    elapsedMs,
-    movedMeters,
-  );
-  const trackingSpeedMetersPerSecond = speedMetersPerSecond ?? 0;
-
-  const shouldWrite = shouldSendWorkerLocationUpdate({
-    hasPrevious: Boolean(previousSnapshot),
-    force,
-    activeBookingId: null,
-    elapsedMs,
-    movedMeters,
-    speedMps: trackingSpeedMetersPerSecond,
+  const shouldWrite = shouldUpdateLiveLocation({
+    newLoc,
+    lastSentLoc: previousSnapshot,
+    vehicleMode: backgroundRuntimeContext.vehicleMode,
   });
 
   if (!shouldWrite) return;
 
+  const now = Date.now();
+  const nextSnapshot: LastSentLocationSnapshot = {
+    ...newLoc,
+    sentAt: now,
+  };
+  const speedMetersPerSecond = newLoc.speed ?? null;
+  const nextVehicleMode = backgroundRuntimeContext.vehicleMode;
   const headingDegrees = resolveHeadingDegrees(location, previousSnapshot, nextSnapshot);
   const payload = buildWorkerLivePayload(
     workerId,
     location,
     headingDegrees,
     speedMetersPerSecond,
+    backgroundRuntimeContext.isOnline,
     backgroundRuntimeContext.isAvailable,
-    backgroundRuntimeContext.vehicleMode,
+    nextVehicleMode,
     backgroundRuntimeContext.appState,
   );
 
-  await setWorkerLive(workerId, payload);
+  await updateWorkerLive(workerId, {
+    ...payload,
+    routeVehicleMode: null,
+    trackable: null,
+  });
   backgroundLastSentByWorker.set(workerId, nextSnapshot);
 }
 
@@ -297,14 +307,23 @@ export function useWorkerLiveLocation({
 
   const log = useCallback((message: string, payload?: unknown) => {
     if (!__DEV__) return;
+    const allowedMessages = new Set([
+      'startForegroundWatch:onLocation',
+      'writeLiveLocation:decision',
+      'writeLiveLocation:skip-threshold',
+      'live-location:fetched',
+      'live-location:written',
+      'writeLiveLocation:error',
+    ]);
+    if (!allowedMessages.has(message)) return;
     // eslint-disable-next-line no-console
     console.log(`[worker-live-location] ${message}`, payload);
   }, []);
 
   const trace = useCallback((step: string, message: string, payload?: unknown) => {
-    if (!__DEV__) return;
-    // eslint-disable-next-line no-console
-    console.log(`[worker-live-location][${step}] ${message}`, payload);
+    void step;
+    void message;
+    void payload;
   }, []);
 
   const setError = useCallback((message: string | null) => {
@@ -317,6 +336,54 @@ export function useWorkerLiveLocation({
       heartbeatIntervalRef.current = null;
     }
   }, []);
+
+  const recoverFirebaseSessionForRealtime = useCallback(async () => {
+    if (hasFirebaseAuthenticatedUser()) {
+      return true;
+    }
+
+    const tokens = await getAuthTokens();
+    if (!tokens?.accessToken || !tokens?.refreshToken) {
+      log('recoverFirebaseSession:missing-auth-tokens');
+      return false;
+    }
+
+    let firebaseCustomToken = normalizeBearerToken(tokens.firebaseCustomToken ?? '');
+    if (!firebaseCustomToken) {
+      log('recoverFirebaseSession:refresh-start', {
+        hasRefreshToken: Boolean(tokens.refreshToken),
+      });
+      try {
+        const refreshed = await refreshAuth(tokens.refreshToken);
+        const nextTokens = {
+          accessToken: normalizeBearerToken(refreshed.accessToken),
+          refreshToken: normalizeBearerToken(refreshed.refreshToken),
+          ...(refreshed.firebaseCustomToken
+            ? { firebaseCustomToken: normalizeBearerToken(refreshed.firebaseCustomToken) }
+            : {}),
+        };
+        await saveAuthTokens(nextTokens);
+        firebaseCustomToken = normalizeBearerToken(nextTokens.firebaseCustomToken ?? '');
+        log('recoverFirebaseSession:refresh-success', {
+          hasFirebaseCustomToken: Boolean(firebaseCustomToken),
+        });
+      } catch (error) {
+        log('recoverFirebaseSession:refresh-failed', error);
+        return false;
+      }
+    }
+
+    if (!firebaseCustomToken) {
+      log('recoverFirebaseSession:no-firebase-custom-token-after-refresh');
+      return false;
+    }
+
+    const recovered = await ensureFirebaseSessionWithCustomToken(firebaseCustomToken, {
+      forceReauth: shouldForceFirebaseReauth(),
+    });
+    log('recoverFirebaseSession:custom-token-signin-result', { recovered });
+    return recovered && hasFirebaseAuthenticatedUser();
+  }, [log]);
 
   const stopForegroundWatch = useCallback(async () => {
     const existingWatch = watchSubscriptionRef.current;
@@ -351,40 +418,59 @@ export function useWorkerLiveLocation({
         return false;
       }
 
-      const now = Date.now();
-      const nextSnapshot: LastSentLocationSnapshot = {
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
-        sentAt: now,
-      };
+      const newLoc = toLocationPoint(location);
       const previousSnapshot = lastSentLocationRef.current;
-      const elapsedMs = previousSnapshot ? (nextSnapshot.sentAt - previousSnapshot.sentAt) : 0;
-      const movedMeters = previousSnapshot
-        ? calculateHaversineDistanceInMeters(
-          { lat: previousSnapshot.lat, lng: previousSnapshot.lng },
-          { lat: nextSnapshot.lat, lng: nextSnapshot.lng },
-        )
+      const distanceMoved = previousSnapshot
+        ? getDistanceInMeters(previousSnapshot.lat, previousSnapshot.lng, newLoc.lat, newLoc.lng)
         : 0;
-      const speedMetersPerSecond = resolveSpeedMetersPerSecond(
-        location,
-        Boolean(previousSnapshot),
-        elapsedMs,
-        movedMeters,
-      );
-      const trackingSpeedMetersPerSecond = speedMetersPerSecond ?? 0;
+      const speedMetersPerSecond = newLoc.speed ?? 0;
+      const baseRequiredDistance = getRequiredDistanceBySpeed(speedMetersPerSecond);
+      const requiredDistance = applyVehicleModeAdjustment({
+        requiredDistance: baseRequiredDistance,
+        speed: speedMetersPerSecond,
+        vehicleMode: vehicleModeRef.current,
+      });
+      const isAccuracyAccepted = !(typeof newLoc.accuracy === 'number'
+        && Number.isFinite(newLoc.accuracy)
+        && newLoc.accuracy > LIVE_LOCATION_CONFIG.MAX_ACCURACY_METERS);
+      const shouldWrite = options.force || (isAccuracyAccepted && shouldUpdateLiveLocation({
+        newLoc,
+        lastSentLoc: previousSnapshot,
+        vehicleMode: vehicleModeRef.current,
+      }));
+      const nextSnapshot: LastSentLocationSnapshot = {
+        ...newLoc,
+        sentAt: Date.now(),
+      };
 
-      const shouldWrite = shouldSendWorkerLocationUpdate({
+      log('writeLiveLocation:decision', {
+        workerId: workerIdValue,
         hasPrevious: Boolean(previousSnapshot),
         force: options.force,
-        activeBookingId: null,
-        elapsedMs,
-        movedMeters,
-        speedMps: trackingSpeedMetersPerSecond,
+        accuracy: newLoc.accuracy,
+        isAccuracyAccepted,
+        distanceMoved,
+        requiredDistance,
+        speedMps: speedMetersPerSecond,
+        vehicleMode: vehicleModeRef.current,
+        shouldWrite,
+        previousSnapshot,
+        nextSnapshot,
       });
 
       if (!shouldWrite) {
+        log('writeLiveLocation:skip-threshold', {
+          workerId: workerIdValue,
+          accuracy: newLoc.accuracy,
+          isAccuracyAccepted,
+          distanceMoved,
+          requiredDistance,
+          speedMps: speedMetersPerSecond,
+          vehicleMode: vehicleModeRef.current,
+        });
         return false;
       }
+      const nextVehicleMode = vehicleModeRef.current;
       const headingDegrees = resolveHeadingDegrees(
         location,
         previousSnapshot,
@@ -394,9 +480,10 @@ export function useWorkerLiveLocation({
         workerIdValue,
         location,
         headingDegrees,
-        speedMetersPerSecond,
+        newLoc.speed ?? null,
+        isOnlineRef.current,
         isAvailableRef.current,
-        vehicleModeRef.current,
+        nextVehicleMode,
         appStateRef.current,
       );
 
@@ -424,14 +511,19 @@ export function useWorkerLiveLocation({
         log('writeLiveLocation:before-rtdb-session-debug', debugSnapshot);
         log('writeLiveLocation:rtdb-set-attempt', {
           path: getWorkerLivePath(workerIdValue),
+          isOnline: payload.isOnline,
           isAvailable: payload.isAvailable,
-          isTrackable: payload.isTrackable,
           vehicleMode: payload.vehicleMode,
+          movementStatus: payload.movementStatus,
           appState: payload.appState,
           speed: payload.speed,
           accuracy: payload.accuracy,
         });
-        await setWorkerLive(workerIdValue, payload);
+        await updateWorkerLive(workerIdValue, {
+          ...payload,
+          routeVehicleMode: null,
+          trackable: null,
+        });
       } catch (error) {
         trace('WL-08E', 'writeLiveLocation:rtdb-set-error', {
           message: error instanceof Error ? error.message : String(error),
@@ -462,7 +554,7 @@ export function useWorkerLiveLocation({
       setState(current => ({
         ...current,
         lastLocation: payload,
-        lastSyncedAt: now,
+        lastSyncedAt: nextSnapshot.sentAt,
       }));
       return true;
     },
@@ -531,34 +623,24 @@ export function useWorkerLiveLocation({
 
   const startHeartbeat = useCallback(() => {
     clearHeartbeat();
-    log('heartbeat:start', {
-      intervalMs: LOCATION_TRACKING_CONFIG.heartbeatIntervalMs,
-    });
-
     heartbeatIntervalRef.current = setInterval(() => {
       const workerIdValue = workerIdRef.current;
-      if (!workerIdValue || !isOnlineRef.current) {
-        return;
-      }
-
-      if (!canWriteRealtimeData()) {
-        log('heartbeat:skip-cannot-write');
-        return;
-      }
+      if (!workerIdValue || !isOnlineRef.current) return;
+      if (!canWriteRealtimeData()) return;
 
       void updateWorkerLive(workerIdValue, {
-        heartbeatAt: Date.now(),
-        isTrackable: true,
+        isOnline: true,
         isAvailable: isAvailableRef.current,
-        vehicleMode: vehicleModeRef.current,
         appState: appStateRef.current,
+        heartbeatAt: Date.now(),
+        updatedAt: Date.now(),
       }).catch(error => {
         if (isFirebaseSessionError(error)) {
           markFirebaseReauthRequired();
         }
-        log('heartbeat:error', error);
+        log('heartbeat:updateError', error);
       });
-    }, LOCATION_TRACKING_CONFIG.heartbeatIntervalMs);
+    }, ONLINE_PRESENCE_HEARTBEAT_MS);
   }, [canWriteRealtimeData, clearHeartbeat, log]);
 
   const startForegroundWatch = useCallback(async () => {
@@ -571,14 +653,16 @@ export function useWorkerLiveLocation({
     watchSubscriptionRef.current = await Location.watchPositionAsync(
       {
         accuracy: trackingProfile.accuracy,
-        timeInterval: trackingProfile.timeIntervalMs,
         distanceInterval: trackingProfile.distanceIntervalMeters,
       },
       location => {
         log('startForegroundWatch:onLocation', {
+          timestamp: location.timestamp,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           accuracy: location.coords.accuracy,
+          speed: location.coords.speed,
+          heading: location.coords.heading,
         });
         void writeLiveLocation(location, { force: false }).catch(error => {
           log('foregroundWatch:writeError', error);
@@ -599,7 +683,6 @@ export function useWorkerLiveLocation({
 
     await Location.startLocationUpdatesAsync(WORKER_BACKGROUND_LOCATION_TASK_NAME, {
       accuracy: trackingProfile.accuracy,
-      timeInterval: trackingProfile.timeIntervalMs,
       distanceInterval: trackingProfile.distanceIntervalMeters,
       pausesUpdatesAutomatically: true,
     });
@@ -724,10 +807,9 @@ export function useWorkerLiveLocation({
           hasFirebaseCustomToken: Boolean(firebaseCustomToken),
           forceReauth: shouldForceFirebaseReauth(),
         });
-        if (firebaseCustomToken) {
-          await ensureFirebaseSessionWithCustomToken(firebaseCustomToken, {
-            forceReauth: shouldForceFirebaseReauth(),
-          });
+        if (!hasFirebaseAuthenticatedUser()) {
+          const recovered = await recoverFirebaseSessionForRealtime();
+          log('goOnline:firebase-session-recovery:result', { recovered });
         }
       }
 
@@ -740,6 +822,7 @@ export function useWorkerLiveLocation({
       const nextIsAvailable = true;
       isOnlineRef.current = true;
       isAvailableRef.current = nextIsAvailable;
+      backgroundRuntimeContext.isOnline = true;
       const initialLocation = await refreshCurrentLocation();
       if (!initialLocation) {
         trace('WL-06E', 'goOnline:initial-location-write-failed');
@@ -749,12 +832,16 @@ export function useWorkerLiveLocation({
 
       await registerWorkerLiveOnDisconnect(workerIdValue).update({
         workerId: workerIdValue,
-        isTrackable: false,
+        isOnline: false,
         isAvailable: false,
-        vehicleMode: vehicleModeRef.current,
+        vehicleMode: 'UNKNOWN',
+        movementStatus: 'STATIONARY',
         appState: 'INACTIVE',
+        routeVehicleMode: null,
+        trackable: null,
         heartbeatAt: getRealtimeServerTimestamp(),
         disconnectedAt: getRealtimeServerTimestamp(),
+        updatedAt: getRealtimeServerTimestamp(),
       });
       trace('WL-05', 'goOnline:onDisconnect-registered', {
         path: getWorkerLivePath(workerIdValue),
@@ -772,6 +859,7 @@ export function useWorkerLiveLocation({
       }));
 
       backgroundRuntimeContext.workerId = workerIdValue;
+      backgroundRuntimeContext.isOnline = true;
       backgroundRuntimeContext.isAvailable = nextIsAvailable;
       backgroundRuntimeContext.appState = appStateRef.current;
       backgroundRuntimeContext.vehicleMode = vehicleModeRef.current;
@@ -790,6 +878,7 @@ export function useWorkerLiveLocation({
       isOnlineRef.current = false;
       isAvailableRef.current = false;
       backgroundRuntimeContext.workerId = null;
+      backgroundRuntimeContext.isOnline = false;
       backgroundRuntimeContext.isAvailable = false;
       setState(current => ({
         ...current,
@@ -801,7 +890,7 @@ export function useWorkerLiveLocation({
       log('goOnline:error', error);
       return false;
     }
-  }, [canWriteRealtimeData, log, refreshCurrentLocation, setError, startTracking, trace]);
+  }, [canWriteRealtimeData, log, recoverFirebaseSessionForRealtime, refreshCurrentLocation, setError, startTracking, trace]);
 
   const goOffline = useCallback(async () => {
     const workerIdValue = workerIdRef.current;
@@ -813,8 +902,11 @@ export function useWorkerLiveLocation({
     await stopTracking();
     isOnlineRef.current = false;
     isAvailableRef.current = false;
+    vehicleModeRef.current = 'UNKNOWN';
     backgroundRuntimeContext.workerId = null;
+    backgroundRuntimeContext.isOnline = false;
     backgroundRuntimeContext.isAvailable = false;
+    backgroundRuntimeContext.vehicleMode = 'UNKNOWN';
     lastSentLocationRef.current = null;
 
     setState(current => ({
@@ -822,6 +914,7 @@ export function useWorkerLiveLocation({
       isOnline: false,
       isTracking: false,
       isAvailable: false,
+      vehicleMode: 'UNKNOWN',
     }));
 
     if (!workerIdValue) return;
@@ -837,11 +930,15 @@ export function useWorkerLiveLocation({
         await removeWorkerLive(workerIdValue);
       } else {
         await updateWorkerLive(workerIdValue, {
-          isTrackable: false,
+          isOnline: false,
           isAvailable: false,
-          vehicleMode: vehicleModeRef.current,
+          vehicleMode: 'UNKNOWN',
+          movementStatus: 'STATIONARY',
           appState: appStateRef.current,
+          routeVehicleMode: null,
+          trackable: null,
           heartbeatAt: Date.now(),
+          updatedAt: Date.now(),
         });
       }
       setError(null);
@@ -881,12 +978,13 @@ export function useWorkerLiveLocation({
     try {
       await updateWorkerLive(workerIdValue, {
         vehicleMode,
+        movementStatus: 'UNKNOWN',
+        routeVehicleMode: null,
+        trackable: null,
         heartbeatAt: Date.now(),
+        updatedAt: Date.now(),
       });
 
-      if (isTrackingRef.current) {
-        await refreshCurrentLocation();
-      }
     } catch (error) {
       const message = resolveRealtimeDatabaseErrorMessage(error, 'Unable to update travel mode.');
       setError(message);
@@ -913,8 +1011,12 @@ export function useWorkerLiveLocation({
       }
 
       void updateWorkerLive(workerIdValue, {
+        isOnline: true,
         appState: nextWorkerState,
+        routeVehicleMode: null,
+        trackable: null,
         heartbeatAt: Date.now(),
+        updatedAt: Date.now(),
       }).catch(error => {
         if (isFirebaseSessionError(error)) {
           markFirebaseReauthRequired();
@@ -936,6 +1038,41 @@ export function useWorkerLiveLocation({
     void stopTracking();
   }, [stopTracking]);
 
+  const updateAvailability = useCallback(async (isAvailable: boolean) => {
+    isAvailableRef.current = isAvailable;
+    backgroundRuntimeContext.isAvailable = isAvailable;
+
+    setState(current => ({
+      ...current,
+      isAvailable,
+      lastLocation: current.lastLocation
+        ? {
+            ...current.lastLocation,
+            isAvailable,
+          }
+        : current.lastLocation,
+    }));
+
+    const workerIdValue = workerIdRef.current;
+    if (!workerIdValue || !canWriteRealtimeData()) {
+      return;
+    }
+
+    try {
+      await updateWorkerLive(workerIdValue, {
+        isAvailable,
+        routeVehicleMode: null,
+        trackable: null,
+        heartbeatAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    } catch (error) {
+      const message = resolveRealtimeDatabaseErrorMessage(error, 'Unable to update availability.');
+      setError(message);
+      log('updateAvailability:error', error);
+    }
+  }, [canWriteRealtimeData, log, setError]);
+
   return useMemo(() => ({
     ...state,
     goOnline,
@@ -943,6 +1080,7 @@ export function useWorkerLiveLocation({
     startTracking,
     stopTracking,
     updateVehicleMode,
+    updateAvailability,
     refreshCurrentLocation,
   }), [
     goOffline,
@@ -951,6 +1089,7 @@ export function useWorkerLiveLocation({
     startTracking,
     state,
     stopTracking,
+    updateAvailability,
     updateVehicleMode,
   ]);
 }

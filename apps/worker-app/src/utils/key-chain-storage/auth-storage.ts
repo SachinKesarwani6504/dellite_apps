@@ -31,12 +31,21 @@ function normalizeAuthTokens(raw: unknown): AuthTokens | null {
   const nestedTokens = isRecord(raw.tokens) ? raw.tokens : undefined;
   const nestedAccess = nestedTokens ? (asToken(nestedTokens.accessToken) ?? asToken(nestedTokens.access_token)) : undefined;
   const nestedRefresh = nestedTokens ? (asToken(nestedTokens.refreshToken) ?? asToken(nestedTokens.refresh_token)) : undefined;
+  const directFirebaseCustomToken = asToken(raw.firebaseCustomToken) ?? asToken(raw.firebase_custom_token);
+  const nestedFirebaseCustomToken = nestedTokens
+    ? (asToken(nestedTokens.firebaseCustomToken) ?? asToken(nestedTokens.firebase_custom_token))
+    : undefined;
 
   const accessToken = directAccess ?? nestedAccess;
   const refreshToken = directRefresh ?? nestedRefresh;
+  const firebaseCustomToken = directFirebaseCustomToken ?? nestedFirebaseCustomToken;
 
   if (!accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+    ...(firebaseCustomToken ? { firebaseCustomToken } : {}),
+  };
 }
 
 export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
@@ -56,17 +65,11 @@ export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
 
 export async function getAuthTokens(): Promise<AuthTokens | null> {
   const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
-  logAuthStorage('get:raw', {
-    service: keyChainValues.authService,
-    username: keyChainValues.authUsername,
-    value,
-  });
   if (!value) return null;
 
   try {
     const parsed = JSON.parse(value);
     const normalized = normalizeAuthTokens(parsed);
-    logAuthStorage('get:normalized', { normalized });
     return normalized;
   } catch {
     logAuthStorage('get:parse-failed');

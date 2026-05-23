@@ -1,5 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, Text, View, useColorScheme, Pressable } from 'react-native';
 import { updateBookingInvite } from '@/actions/workerActions';
@@ -20,7 +21,6 @@ import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import type { BookingDetailsServiceLine } from '@/types/booking-details';
 import { BOOKING_STATUS, CUSTOMER_BOOKING_TYPE, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
-import type { RouteVehicleMode } from '@/types/live-route';
 import type { JobStackParamList } from '@/types/navigation';
 import { APP_TEXT } from '@/utils/appText';
 import {
@@ -72,25 +72,9 @@ function getInviteStatusFromDetails(details: unknown): WorkerJobInviteStatus | n
   return typeof inviteStatus === 'string' ? (inviteStatus as WorkerJobInviteStatus) : null;
 }
 
-function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // metres
-  const p1 = (lat1 * Math.PI) / 180;
-  const p2 = (lat2 * Math.PI) / 180;
-  const dp = ((lat2 - lat1) * Math.PI) / 180;
-  const dl = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(dp / 2) * Math.sin(dp / 2) +
-    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
-
 export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<JobStackParamList, 'JobDetails'>) {
   const isDark = useColorScheme() === 'dark';
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
-  const [selectedVehicleMode, setSelectedVehicleMode] = useState<RouteVehicleMode>('CAR');
   const [refreshing, setRefreshing] = useState(false);
   const [inviteActionLoading, setInviteActionLoading] = useState<null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED>(null);
   const { user, me } = useAuthContext();
@@ -98,7 +82,15 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
     [me, user],
   );
-  const { vehicleMode: liveVehicleMode, updateVehicleMode } = useWorkerLiveLocation({ workerId });
+  const {
+    vehicleMode: liveVehicleMode,
+    permissionStatus,
+    error: liveLocationError,
+    goOnline,
+    updateAvailability,
+    updateVehicleMode,
+  } = useWorkerLiveLocation({ workerId });
+  const routeVehicleMode = liveVehicleMode === 'UNKNOWN' ? 'CAR' : liveVehicleMode;
   const {
     details,
     loading,
@@ -133,23 +125,11 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   }, [workerLiveState.location?.lat, workerLiveState.location?.lng]);
   const destinationCoordinates = getBookingMapDestinationCoordinates(details?.address);
 
-  const distanceMeters = useMemo(() => {
-    if (!originCoordinates || !destinationCoordinates) return null;
-    return getDistanceMeters(
-      originCoordinates.latitude,
-      originCoordinates.longitude,
-      destinationCoordinates.latitude,
-      destinationCoordinates.longitude
-    );
-  }, [originCoordinates, destinationCoordinates]);
-
-  const showRoute = distanceMeters === null || distanceMeters >= 20;
-
   const routeState = useBookingLiveRoute({
     origin: originCoordinates,
     destination: destinationCoordinates,
-    vehicleMode: selectedVehicleMode,
-    enabled: Boolean(details) && showLiveLocation && showRoute,
+    vehicleMode: routeVehicleMode,
+    enabled: Boolean(details) && showLiveLocation,
   });
 
   const inviteStatus = useMemo(
@@ -172,12 +152,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     }
   }, [activeTab, showLiveLocation, details]);
 
-  useEffect(() => {
-    if (liveVehicleMode && liveVehicleMode !== 'UNKNOWN') {
-      setSelectedVehicleMode(liveVehicleMode);
-    }
-  }, [liveVehicleMode]);
-
   const refreshDetails = useCallback(async () => {
     setActiveTab('BILL');
     setRefreshing(true);
@@ -196,6 +170,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     setInviteActionLoading(WORKER_JOB_INVITE_STATUS.ACCEPTED);
     try {
       await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.ACCEPTED);
+      await updateAvailability(false);
       await refetch();
     } finally {
       setInviteActionLoading(null);
@@ -282,6 +257,40 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     }
 
     if (activeTab === 'LIVE_LOCATION') {
+      const shouldShowLocationEnableState = permissionStatus === Location.PermissionStatus.DENIED
+        || (!originCoordinates && Boolean(liveLocationError));
+
+      if (shouldShowLocationEnableState) {
+        return (
+          <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
+            <View className="flex-row items-start">
+              <View
+                className="h-11 w-11 items-center justify-center rounded-full"
+                style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+              >
+                <Ionicons name="location-outline" size={20} color={theme.colors.primary} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                  {APP_TEXT.jobs.liveLocation.locationAccessTitle}
+                </Text>
+                <Text className="mt-1 text-sm leading-5" style={{ color: mutedTextColor }}>
+                  {APP_TEXT.jobs.liveLocation.locationAccessSubtitle}
+                </Text>
+              </View>
+            </View>
+            <View className="mt-4">
+              <Button
+                label={APP_TEXT.jobs.liveLocation.locationAccessButton}
+                onPress={() => {
+                  void goOnline();
+                }}
+              />
+            </View>
+          </View>
+        );
+      }
+
       if (!originCoordinates) {
         return (
           <ListEmptyState
@@ -296,17 +305,17 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
       return (
         <View className="mt-4 gap-3">
           <WorkerBookingRouteMap
+            workerLiveLocation={workerLiveState.location}
             originCoordinates={originCoordinates}
             destinationCoordinates={destinationCoordinates}
-            vehicleMode={selectedVehicleMode}
+            vehicleMode={routeVehicleMode}
+            route={routeState.route}
+            isDark={isDark}
+            loading={workerLiveState.loading || routeState.loading}
+            error={routeState.error ?? workerLiveState.error}
             onVehicleModeChange={(mode) => {
-              setSelectedVehicleMode(mode);
               void updateVehicleMode(mode);
             }}
-            route={showRoute ? routeState.route : undefined}
-            isDark={isDark}
-            loading={workerLiveState.loading || (showRoute && routeState.loading)}
-            error={routeState.error ?? workerLiveState.error}
           />
         </View>
       );

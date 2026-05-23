@@ -2,6 +2,7 @@ import type { ComponentProps, ElementRef } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 import type { Image, ImageBackground, ImageSourcePropType, StyleProp, TextInput, ViewProps, ViewStyle } from 'react-native';
 import type { LiveRouteResult } from '@/types/live-route';
+import type { LiveTrackingCard } from '@/types/live-tracking';
 import type { LocationCoordinates } from '@/modules/location/types/location.types';
 import type { Booking } from '@/types/api';
 import type { CustomerBookableService, CustomerServicePriceOption, CustomerServiceTask } from '@/types/customer';
@@ -138,6 +139,13 @@ export type WorkerLiveRouteMapProps = {
 
 export type WorkerLiveMarkerProps = {
   headingDegrees: number;
+};
+
+export type LiveTrackingStatusCardProps = {
+  card: LiveTrackingCard;
+  isDark: boolean;
+  liveBadgeText: string;
+  error?: string | null;
 };
 
 export type ScrollablePillTabItem<T extends string> = {

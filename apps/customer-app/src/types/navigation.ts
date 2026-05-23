@@ -8,6 +8,10 @@ export type RootStackParamList = {
     screen: string;
     params?: unknown;
   };
+  [ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR]: {
+    screen: string;
+    params?: unknown;
+  };
 };
 
 export type AuthStackParamList = {

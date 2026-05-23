@@ -12,6 +12,7 @@ export * from '@/utils/home';
 export * from '@/utils/home-screen';
 export * from '@/utils/booking-flow';
 export * from '@/utils/booking-details';
+export * from '@/utils/live-tracking';
 export * from '@/utils/live-route';
 export * from '@/utils/svgicons';
 export * from '@/utils/booking-catalog';
