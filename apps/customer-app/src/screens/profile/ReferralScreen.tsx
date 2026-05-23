@@ -71,6 +71,10 @@ export function ReferralScreen() {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
     borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
   };
+  const showLoadingState = referralLoading && !referral;
+  const showErrorState = Boolean(referralError) && !referral;
+  const showDataState = !showLoadingState && !showErrorState && Boolean(referral);
+  const showEmptyState = !showLoadingState && !showErrorState && !referral;
 
   const handleCopy = async () => {
     if (!referralCode || referralCode === APP_TEXT.profile.referral.codeFallback) {
@@ -200,14 +204,14 @@ export function ReferralScreen() {
         {APP_TEXT.profile.referral.howItWorksTitle}
       </Text>
 
-      {referralLoading && !referral ? (
+      {showLoadingState ? (
         <View className="mt-3 flex-row items-center rounded-xl border px-3 py-2" style={cardStyle}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
           <Text className="ml-2 text-sm text-textPrimary/70 dark:text-white/70">Loading referral info...</Text>
         </View>
       ) : null}
 
-      {referralError && !referral ? (
+      {showErrorState ? (
         <View className="mt-3 rounded-xl border px-3 py-2" style={cardStyle}>
           <Text className="text-sm text-negative">{referralError}</Text>
           <Pressable
@@ -224,24 +228,36 @@ export function ReferralScreen() {
         </View>
       ) : null}
 
-      {renderInviteBlock(APP_TEXT.profile.referral.inviteCustomerTitle, 'person-outline', REFERRAL_ROLES.CUSTOMER, customerInvite)}
-      {renderInviteBlock(APP_TEXT.profile.referral.inviteWorkerTitle, 'flash-outline', REFERRAL_ROLES.WORKER, workerInvite)}
-
-      {referral?.bothRolesRule ? (
-        <View
-          className="mt-3 rounded-xl border px-3 py-2"
-          style={{
-            borderColor: isDark ? uiColors.toast.dark.warning.borderColor : uiColors.toast.light.warning.borderColor,
-            backgroundColor: isDark ? uiColors.toast.dark.warning.backgroundColor : uiColors.toast.light.warning.backgroundColor,
-          }}
-        >
-          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.toast.dark.warning.textColor : uiColors.toast.light.warning.textColor }}>
-            Both roles?
-          </Text>
-          <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.toast.dark.warning.textColor : uiColors.toast.light.warning.textColor }}>
-            {referral.bothRolesRule}
+      {showEmptyState ? (
+        <View className="mt-3 rounded-xl border px-3 py-2" style={cardStyle}>
+          <Text className="text-sm text-textPrimary/70 dark:text-white/70">
+            No referral info available right now.
           </Text>
         </View>
+      ) : null}
+
+      {showDataState ? (
+        <>
+          {renderInviteBlock(APP_TEXT.profile.referral.inviteCustomerTitle, 'person-outline', REFERRAL_ROLES.CUSTOMER, customerInvite)}
+          {renderInviteBlock(APP_TEXT.profile.referral.inviteWorkerTitle, 'flash-outline', REFERRAL_ROLES.WORKER, workerInvite)}
+
+          {referral?.bothRolesRule ? (
+            <View
+              className="mt-3 rounded-xl border px-3 py-2"
+              style={{
+                borderColor: isDark ? uiColors.toast.dark.warning.borderColor : uiColors.toast.light.warning.borderColor,
+                backgroundColor: isDark ? uiColors.toast.dark.warning.backgroundColor : uiColors.toast.light.warning.backgroundColor,
+              }}
+            >
+              <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.toast.dark.warning.textColor : uiColors.toast.light.warning.textColor }}>
+                Both roles?
+              </Text>
+              <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.toast.dark.warning.textColor : uiColors.toast.light.warning.textColor }}>
+                {referral.bothRolesRule}
+              </Text>
+            </View>
+          ) : null}
+        </>
       ) : null}
 
       <View className="mt-4 rounded-2xl border p-3" style={cardStyle}>

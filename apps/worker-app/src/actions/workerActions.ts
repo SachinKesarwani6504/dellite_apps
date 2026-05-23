@@ -22,6 +22,7 @@ import {
   WorkerStatusResponse,
 } from '@/types/auth';
 import type { BookingDetailsResponse } from '@/types/booking-details';
+import type { WorkerJobsSummary } from '@/types/jobs';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 import { toFormData } from '@/utils/form-data';
 import type { MultipartFile } from '@/types/http';
@@ -64,6 +65,11 @@ function toOptionalNumber(value: unknown): number | undefined {
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
+}
+
+function normalizeCount(value: unknown): number {
+  const parsed = toOptionalNumber(value);
+  return typeof parsed === 'number' && parsed >= 0 ? parsed : 0;
 }
 
 function toOptionalString(value: unknown): string | undefined {
@@ -299,6 +305,24 @@ function buildWorkerCertificatesFormData(payload: WorkerCertificateCreatePayload
 export async function listWorkers<T = unknown>() {
   const response = await apiGet<ApiEnvelope<T>>('/worker', { auth: true });
   return unwrapData(response);
+}
+
+export async function getWorkerJobsSummary(): Promise<WorkerJobsSummary> {
+  const response = await apiGet<ApiEnvelope<WorkerJobsSummary> | WorkerJobsSummary>(
+    '/jobs/summary',
+    {
+      auth: true,
+      cache: 'no-store',
+      toast: { showError: false },
+    },
+  );
+  const data = unwrapData(response) as Partial<WorkerJobsSummary>;
+  return {
+    allJobs: normalizeCount(data.allJobs),
+    newJobs: normalizeCount(data.newJobs),
+    ongoingJobs: normalizeCount(data.ongoingJobs),
+    completedJobs: normalizeCount(data.completedJobs),
+  };
 }
 
 function toQueryString(query: CategoriesQuery) {

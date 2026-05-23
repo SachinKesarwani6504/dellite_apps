@@ -1,8 +1,10 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { getWorkerJobsSummary } from '@/actions';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -10,6 +12,7 @@ import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { useAuthContext } from '@/contexts/AuthContext';
+import type { WorkerJobsSummary } from '@/types/jobs';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
@@ -24,11 +27,19 @@ type ProfileStats = {
   certificates: number;
 };
 
+const DEFAULT_JOBS_SUMMARY: WorkerJobsSummary = {
+  allJobs: 0,
+  newJobs: 0,
+  ongoingJobs: 0,
+  completedJobs: 0,
+};
+
 export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { user, me, phone, logout, loading, refreshMe } = useAuthContext();
   const [refreshing, setRefreshing] = useState(false);
+  const [jobsSummary, setJobsSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
 
   const displayFirstName = typeof me?.user?.firstName === 'string' && me.user.firstName.trim().length > 0
     ? me.user.firstName.trim()
@@ -106,10 +117,10 @@ export function ProfileHomeScreen({ navigation }: Props) {
       ?? toOptionalCount(roleLinkFromMe?.totalSkills);
     return {
       totalSkills: totalSkillsFromApprovedCollections ?? totalSkillsFromMeCount ?? toCount(source?.skillCount),
-      completedJobs: toCount(source?.completedJobCount),
+      completedJobs: jobsSummary.completedJobs,
       certificates: toCount(source?.certificatesCount),
     };
-  }, [me, user?.workerLink]);
+  }, [jobsSummary.completedJobs, me, user?.workerLink]);
   const currentStatus = useMemo(() => {
     const toBoolean = (value: unknown): boolean | undefined => {
       if (typeof value === 'boolean') return value;
@@ -163,15 +174,27 @@ export function ProfileHomeScreen({ navigation }: Props) {
     void refreshMe();
   }, [refreshMe]);
 
+  const refreshJobsSummary = useCallback(async () => {
+    try {
+      setJobsSummary(await getWorkerJobsSummary());
+    } catch {
+      setJobsSummary(DEFAULT_JOBS_SUMMARY);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    void refreshJobsSummary();
+  }, [refreshJobsSummary]));
+
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await refreshMe();
+      await Promise.all([refreshMe(), refreshJobsSummary()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshMe, refreshing]);
+  }, [refreshJobsSummary, refreshMe, refreshing]);
 
   const cardStyle = {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,

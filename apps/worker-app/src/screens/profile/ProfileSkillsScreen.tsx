@@ -8,10 +8,10 @@ import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { GradientWord } from '@/components/common/GradientWord';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SkillCertificateStatusCard } from '@/components/common/SkillCertificateStatusCard';
+import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
@@ -146,11 +146,11 @@ export function ProfileSkillsScreen({ navigation }: Props) {
         {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
         <View className="mt-1">
-          <Text className="text-4xl font-extrabold leading-[40px] text-baseDark dark:text-white">All</Text>
-          <GradientWord word="Skills" className="text-4xl font-extrabold leading-[40px]" />
-          <Text className="mt-1 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            {APP_TEXT.profile.allSkills.subtitle}
-          </Text>
+          <SplitGradientTitle
+            prefix={APP_TEXT.profile.allSkills.titlePrefix}
+            highlight={APP_TEXT.profile.allSkills.titleHighlight}
+            subtitle={APP_TEXT.profile.allSkills.subtitle}
+          />
         </View>
 
         <View className="mt-4 flex-row gap-3">

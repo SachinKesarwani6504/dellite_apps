@@ -1,7 +1,8 @@
-import { useNavigation } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshControl, View } from 'react-native';
 import { apiGet } from '@/actions/http/httpClient';
+import { getWorkerJobsSummary } from '@/actions';
 import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -12,31 +13,52 @@ import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
 import { JOB_STACK_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
-import type { WorkerJobListItem, WorkerJobListTab } from '@/types/jobs';
+import type { WorkerJobListItem, WorkerJobListTab, WorkerJobsSummary } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
 import { buildWorkerJobsListPath, getErrorMessage } from '@/utils';
 
 const LIMIT = 10;
+const DEFAULT_JOBS_SUMMARY: WorkerJobsSummary = {
+  allJobs: 0,
+  newJobs: 0,
+  ongoingJobs: 0,
+  completedJobs: 0,
+};
 
 export function JobsScreen() {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
   const [items, setItems] = useState<WorkerJobListItem[]>([]);
+  const [summary, setSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const initialLoadIdRef = useRef(0);
+  const refreshLoadIdRef = useRef(0);
+  const loadMoreIdRef = useRef(0);
 
   const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: WorkerJobListTab; refresh?: boolean }) => {
     const { nextPage, append, tab, refresh } = options;
+    let requestId = 0;
 
     try {
       setError(null);
-      if (append) setLoadingMore(true);
-      else if (refresh) setRefreshing(true);
-      else setLoading(true);
+      if (append) {
+        requestId = loadMoreIdRef.current + 1;
+        loadMoreIdRef.current = requestId;
+        setLoadingMore(true);
+      } else if (refresh) {
+        requestId = refreshLoadIdRef.current + 1;
+        refreshLoadIdRef.current = requestId;
+        setRefreshing(true);
+      } else {
+        requestId = initialLoadIdRef.current + 1;
+        initialLoadIdRef.current = requestId;
+        setLoading(true);
+      }
 
       const url = buildWorkerJobsListPath({ page: nextPage, limit: LIMIT, tab });
       const response = await apiGet<{ data?: WorkerJobListItem[] } | WorkerJobListItem[]>(url, { auth: true });
@@ -51,16 +73,35 @@ export function JobsScreen() {
       setError(getErrorMessage(fetchError, 'Unable to load jobs.'));
       setHasMore(false);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
+      if (append) {
+        if (requestId === loadMoreIdRef.current) {
+          setLoadingMore(false);
+        }
+      } else if (refresh) {
+        if (requestId === refreshLoadIdRef.current) {
+          setRefreshing(false);
+        }
+      } else if (requestId === initialLoadIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  const refreshSummary = useCallback(async () => {
+    try {
+      setSummary(await getWorkerJobsSummary());
+    } catch {
+      setSummary(DEFAULT_JOBS_SUMMARY);
     }
   }, []);
 
   const onRefresh = useCallback(async () => {
     setHasMore(true);
-    await runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true });
-  }, [activeTab, runFetch]);
+    await Promise.all([
+      refreshSummary(),
+      runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true }),
+    ]);
+  }, [activeTab, refreshSummary, runFetch]);
 
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
 
@@ -71,6 +112,10 @@ export function JobsScreen() {
     setError(null);
     void runFetch({ nextPage: 1, append: false, tab: activeTab });
   }, [activeTab, runFetch]);
+
+  useFocusEffect(useCallback(() => {
+    void refreshSummary();
+  }, [refreshSummary]));
 
   const listEmpty = !loading && !error && items.length === 0;
   const showInitialLoader = loading && !loadingMore && !refreshing;
@@ -96,7 +141,7 @@ export function JobsScreen() {
         />
       ))}
 
-      {hasMore ? (
+      {hasMore && !refreshing ? (
         <View className="my-4">
           <LoadMoreButton
             label={loadingMore ? 'Loading more...' : 'Load more'}
@@ -133,10 +178,10 @@ export function JobsScreen() {
         value={activeTab}
         onChange={(value) => setActiveTab(value as WorkerJobListTab)}
         items={[
-          { label: APP_TEXT.jobs.tabs.all || 'All', value: 'ALL' },
-          { label: APP_TEXT.jobs.tabs.newJobs || 'New Jobs', value: 'NEW_JOBS' },
-          { label: APP_TEXT.jobs.tabs.ongoing || 'Ongoing', value: 'ONGOING' },
-          { label: APP_TEXT.jobs.tabs.completed || 'Completed', value: 'COMPLETED' },
+          { label: APP_TEXT.jobs.tabs.all || 'All', count: summary.allJobs, value: 'ALL' },
+          { label: APP_TEXT.jobs.tabs.newJobs || 'New Jobs', count: summary.newJobs, value: 'NEW_JOBS' },
+          { label: APP_TEXT.jobs.tabs.ongoing || 'Ongoing', count: summary.ongoingJobs, value: 'ONGOING' },
+          { label: APP_TEXT.jobs.tabs.completed || 'Completed', count: summary.completedJobs, value: 'COMPLETED' },
         ]}
       />
 

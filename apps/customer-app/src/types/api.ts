@@ -80,6 +80,12 @@ export type BookingListServiceLine = {
   subCategory?: string | null;
 };
 
+export type CustomerBookingsSummary = {
+  allBookings: number;
+  ongoingBookings: number;
+  completedBookings: number;
+};
+
 export type BookingListAddressSummary = {
   area?: string | null;
   addressLine1?: string | null;

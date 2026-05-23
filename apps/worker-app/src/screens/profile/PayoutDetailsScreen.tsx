@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { Text, View, useColorScheme } from 'react-native';
 import { createUserBankInfo, getUserBankInfo, updateUserBankInfo } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { Button } from '@/components/common/Button';
@@ -9,13 +9,16 @@ import { AppInput } from '@/components/common/AppInput';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { TwoOptionPillTabs } from '@/components/common/TwoOptionPillTabs';
+import { useDeviceAuthGuard } from '@/hooks/useDeviceAuthGuard';
 import { PayoutMethodType, UserBankInfo } from '@/types/auth';
+import { DEVICE_AUTH_STATUS } from '@/types/device-auth';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { formatDateToDdMmmYyyy, mapBankInfoToForm } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { theme, uiColors } from '@/utils/theme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.payoutDetails>;
 
@@ -37,6 +40,16 @@ export function PayoutDetailsScreen({ navigation }: Props) {
   const [bankIfscCode, setBankIfscCode] = useState('');
   const [upiId, setUpiId] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
+  const {
+    status: deviceAuthStatus,
+    isUnlocked,
+    authenticate,
+    lock,
+  } = useDeviceAuthGuard({
+    promptMessage: APP_TEXT.profile.payout.verifyPromptTitle,
+    promptSubtitle: APP_TEXT.profile.payout.verifyPromptSubtitle,
+    cancelLabel: APP_TEXT.profile.payout.verifyPromptCancel,
+  });
 
   const formLocked = saveLoading;
   const hasExistingBankInfo = Boolean(bankInfo?.id);
@@ -74,8 +87,14 @@ export function PayoutDetailsScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
+    void authenticate();
+  }, [authenticate]);
+
+  useEffect(() => {
     void loadBankInfo(true);
   }, [loadBankInfo]);
+
+  useEffect(() => lock, [lock]);
 
   const validate = useCallback((): FieldErrors => {
     const nextErrors: FieldErrors = {};
@@ -153,13 +172,6 @@ export function PayoutDetailsScreen({ navigation }: Props) {
     validate,
   ]);
 
-  const contentCardStyle = useMemo(
-    () => ({
-      backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card,
-    }),
-    [isDark],
-  );
-
   const hintCardStyle = useMemo(
     () => ({
       backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
@@ -168,11 +180,83 @@ export function PayoutDetailsScreen({ navigation }: Props) {
     [isDark],
   );
 
+  const payoutMethodTabs = useMemo<[{
+    label: string;
+    value: PayoutMethodType;
+    iconName: 'wallet-outline' | 'card-outline';
+  }, {
+    label: string;
+    value: PayoutMethodType;
+    iconName: 'wallet-outline' | 'card-outline';
+  }]>(
+    () => ([
+      { label: APP_TEXT.profile.payout.upiOption, value: 'UPI' as const, iconName: 'wallet-outline' as const },
+      { label: APP_TEXT.profile.payout.bankOption, value: 'BANK_ACCOUNT' as const, iconName: 'card-outline' as const },
+    ]),
+    [],
+  );
+
   return (
     <GradientScreen contentContainerStyle={{ flexGrow: 1, paddingBottom: 24, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}>
       {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
-      <View className="rounded-3xl pb-6 pt-4" style={contentCardStyle}>
+      {!isUnlocked ? (
+        <View className="pb-6 pt-4">
+          <SplitGradientTitle
+            eyebrow="PAYOUT SETUP"
+            prefix="Manage your"
+            highlight="bank info"
+            subtitle={APP_TEXT.profile.payout.subtitle}
+          />
+
+          <View
+            className="mt-5 rounded-2xl border p-4"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.overlayLight95,
+            }}
+          >
+            <View className="flex-row items-start">
+              <View
+                className="h-11 w-11 items-center justify-center rounded-full"
+                style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+              >
+                <Ionicons
+                  name={deviceAuthStatus === DEVICE_AUTH_STATUS.UNAVAILABLE ? 'shield-outline' : 'lock-closed-outline'}
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                  {deviceAuthStatus === DEVICE_AUTH_STATUS.UNAVAILABLE
+                    ? APP_TEXT.profile.payout.phoneLockRequiredTitle
+                    : APP_TEXT.profile.payout.lockedTitle}
+                </Text>
+                <Text className="mt-1 text-sm leading-5" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                  {deviceAuthStatus === DEVICE_AUTH_STATUS.UNAVAILABLE
+                    ? APP_TEXT.profile.payout.phoneLockRequiredSubtitle
+                    : APP_TEXT.profile.payout.lockedSubtitle}
+                </Text>
+              </View>
+            </View>
+            <View className="mt-4">
+              <Button
+                label={deviceAuthStatus === DEVICE_AUTH_STATUS.UNAVAILABLE
+                  ? APP_TEXT.profile.payout.phoneLockRequiredButton
+                  : APP_TEXT.profile.payout.lockedButton}
+                onPress={() => {
+                  void authenticate();
+                }}
+                loading={deviceAuthStatus === DEVICE_AUTH_STATUS.LOADING}
+              />
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {isUnlocked ? (
+      <View className="pb-6 pt-4">
         <SplitGradientTitle
           eyebrow="PAYOUT SETUP"
           prefix="Manage your"
@@ -189,31 +273,19 @@ export function PayoutDetailsScreen({ navigation }: Props) {
             <Text className="mb-2 text-sm font-semibold text-baseDark dark:text-white">
               {APP_TEXT.profile.payout.methodTypeLabel}
             </Text>
-            <View className="flex-row gap-3">
-              <Pressable
-                onPress={() => {
-                  if (formLocked) return;
-                  setMethodType('UPI');
-                  setErrors(prev => ({ ...prev, upiId: undefined }));
-                }}
-                disabled={formLocked}
-                className={`flex-1 items-center rounded-xl border px-3 py-3 ${formLocked ? 'opacity-60' : ''}`}
-                style={{
-                  borderColor: methodType === 'UPI'
-                    ? theme.colors.primary
-                    : (isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight),
-                  backgroundColor: methodType === 'UPI'
-                    ? uiColors.surface.accentSoft20
-                    : (isDark ? uiColors.surface.cardMutedDark : uiColors.surface.trackLight),
-                }}
-              >
-                <Text className={`text-sm font-semibold ${methodType === 'UPI' ? 'text-primary' : 'text-textPrimary dark:text-white'}`}>
-                  {APP_TEXT.profile.payout.upiOption}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  if (formLocked) return;
+            <View className={formLocked ? 'opacity-60' : ''}>
+              <TwoOptionPillTabs
+                items={payoutMethodTabs}
+                value={methodType}
+                isDark={isDark}
+                onChange={(nextMethodType) => {
+                  if (formLocked || nextMethodType === methodType) return;
+                  if (nextMethodType === 'UPI') {
+                    setMethodType('UPI');
+                    setErrors(prev => ({ ...prev, upiId: undefined }));
+                    return;
+                  }
+
                   setMethodType('BANK_ACCOUNT');
                   setErrors(prev => ({
                     ...prev,
@@ -222,21 +294,7 @@ export function PayoutDetailsScreen({ navigation }: Props) {
                     bankIfscCode: undefined,
                   }));
                 }}
-                disabled={formLocked}
-                className={`flex-1 items-center rounded-xl border px-3 py-3 ${formLocked ? 'opacity-60' : ''}`}
-                style={{
-                  borderColor: methodType === 'BANK_ACCOUNT'
-                    ? theme.colors.primary
-                    : (isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight),
-                  backgroundColor: methodType === 'BANK_ACCOUNT'
-                    ? uiColors.surface.accentSoft20
-                    : (isDark ? uiColors.surface.cardMutedDark : uiColors.surface.trackLight),
-                }}
-              >
-                <Text className={`text-sm font-semibold ${methodType === 'BANK_ACCOUNT' ? 'text-primary' : 'text-textPrimary dark:text-white'}`}>
-                  {APP_TEXT.profile.payout.bankOption}
-                </Text>
-              </Pressable>
+              />
             </View>
 
             <View className="mt-4 gap-3">
@@ -350,6 +408,7 @@ export function PayoutDetailsScreen({ navigation }: Props) {
           />
         </View>
       </View>
+      ) : null}
     </GradientScreen>
   );
 }

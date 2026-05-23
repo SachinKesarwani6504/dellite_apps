@@ -1,6 +1,7 @@
 import { normalizeCityName } from '@dellite/app-core';
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiError, type ApiEnvelope } from '@/types/api';
+import type { CustomerBookingsSummary } from '@/types/api';
 import type {
   BookingFlowDraft,
   BookingFlowQuoteRequest,
@@ -281,6 +282,11 @@ function toOptionalNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function normalizeCount(value: unknown): number {
+  const parsed = toOptionalNumber(value);
+  return typeof parsed === 'number' && parsed >= 0 ? parsed : 0;
+}
+
 function toEnumValue<T extends string>(value: unknown, allowedValues: readonly T[]): T | undefined {
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim().toUpperCase();
@@ -445,6 +451,23 @@ export async function getCustomerProfile(): Promise<CustomerProfile> {
     { auth: true },
   );
   return unwrapData(response).profile;
+}
+
+export async function getCustomerBookingsSummary(): Promise<CustomerBookingsSummary> {
+  const response = await apiGet<ApiEnvelope<CustomerBookingsSummary> | CustomerBookingsSummary>(
+    '/bookings/summary',
+    {
+      auth: true,
+      cache: 'no-store',
+      toast: { showError: false },
+    },
+  );
+  const data = unwrapData(response) as Partial<CustomerBookingsSummary>;
+  return {
+    allBookings: normalizeCount(data.allBookings),
+    ongoingBookings: normalizeCount(data.ongoingBookings),
+    completedBookings: normalizeCount(data.completedBookings),
+  };
 }
 
 export function getCachedCustomerHome(city: string): CustomerHomePayload | null {

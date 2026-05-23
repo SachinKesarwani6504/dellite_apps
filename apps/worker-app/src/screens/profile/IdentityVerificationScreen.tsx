@@ -8,6 +8,7 @@ import { Button } from '@/components/common/Button';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { UserAadharData } from '@/types/auth';
 import type { IdentityVerificationScreenProps, SelectedAadhaarFile } from '@/types/screen-props';
@@ -62,6 +63,20 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
 
   const status = normalizeStatusLabel(aadhar?.status);
   const statusTone = statusColor(status);
+  const normalizedStatus = status.trim().toUpperCase();
+  const statusBadgeType =
+    normalizedStatus === 'REJECTED'
+      ? 'CANCELLED'
+      : (
+        normalizedStatus === 'APPROVED'
+        || normalizedStatus === 'VERIFIED'
+        || normalizedStatus === 'SUCCESS'
+        || normalizedStatus === 'LIVE'
+        || normalizedStatus === 'ACTIVE'
+        || normalizedStatus === 'ONLINE'
+      )
+        ? 'ONGOING'
+        : 'PENDING';
   const isRejected = status.trim().toUpperCase() === 'REJECTED';
   const frontUrl = extractImageUrl(aadhar?.aadharFrontFile);
   const backUrl = extractImageUrl(aadhar?.aadharBackFile);
@@ -133,7 +148,6 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
 
       <View className="mb-4">
         <SplitGradientTitle
-          eyebrow={APP_TEXT.profile.identityVerification.step}
           prefix={APP_TEXT.profile.identityVerification.titlePrefix}
           highlight={APP_TEXT.profile.identityVerification.titleHighlight}
           subtitle={APP_TEXT.profile.identityVerification.subtitle}
@@ -157,9 +171,7 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
               {APP_TEXT.profile.identityVerification.menuTitle}
             </Text>
           </View>
-          <View className="rounded-full px-3 py-1" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.accentSoft20, borderWidth: 1, borderColor: statusTone }}>
-            <Text className="text-[11px] font-semibold" style={{ color: statusTone }}>{status}</Text>
-          </View>
+          <StatusBadge status={statusBadgeType} label={status} dotColor={statusTone} />
         </View>
 
         {isRejected ? (
@@ -179,8 +191,8 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
               <AadhaarUploadInput
                 label={APP_TEXT.profile.identityVerification.aadhaarFrontTitle}
                 required
-                fileName={frontFile?.name ?? null}
-                previewUri={frontFile?.uri ?? null}
+                fileName={frontFile?.name ?? aadhar?.aadharFrontFile?.filename ?? null}
+                previewUri={frontFile?.uri ?? frontUrl ?? null}
                 showPreview
                 isLoading={pickingSide === 'front'}
                 disabled={isUploading || loading}
@@ -215,8 +227,8 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
               <AadhaarUploadInput
                 label={APP_TEXT.profile.identityVerification.aadhaarBackTitle}
                 required
-                fileName={backFile?.name ?? null}
-                previewUri={backFile?.uri ?? null}
+                fileName={backFile?.name ?? aadhar?.aadharBackFile?.filename ?? null}
+                previewUri={backFile?.uri ?? backUrl ?? null}
                 showPreview
                 isLoading={pickingSide === 'back'}
                 disabled={isUploading || loading}

@@ -1,7 +1,7 @@
 import { Text, View, useColorScheme } from 'react-native';
 import { theme, uiColors } from '@/utils/theme';
 
-type StatusBadgeType = 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+type StatusBadgeType = 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'PENDING';
 
 type StatusBadgeProps = {
   status: StatusBadgeType;
@@ -13,12 +13,14 @@ const STATUS_LABELS: Record<StatusBadgeType, string> = {
   ONGOING: 'Ongoing',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
+  PENDING: 'Pending',
 };
 
 const STATUS_COLORS: Record<StatusBadgeType, { light: string; dark: string; text: string }> = {
   ONGOING: { light: uiColors.status.successLight, dark: uiColors.status.successDark, text: uiColors.status.successText },
   COMPLETED: { light: uiColors.status.infoLight, dark: uiColors.status.infoDark, text: uiColors.status.infoText },
   CANCELLED: { light: uiColors.status.dangerLight, dark: uiColors.status.dangerDark, text: uiColors.status.dangerText },
+  PENDING: { light: uiColors.status.warningLight, dark: uiColors.status.warningDark, text: uiColors.status.warningText },
 };
 
 export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {

@@ -36,11 +36,23 @@ function toOptionalBoolean(value: unknown): boolean | undefined {
 function normalizeAadharFile(value: unknown): AadharFileMeta | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
+  const nestedFile = raw.file && typeof raw.file === 'object' ? raw.file as Record<string, unknown> : null;
   return {
-    id: toOptionalString(raw.id),
-    filename: toOptionalString(raw.filename),
-    filepath: toOptionalString(raw.filepath),
-    url: toOptionalString(raw.url),
+    id: toOptionalString(raw.id ?? raw.fileId ?? raw.file_id ?? nestedFile?.id),
+    filename: toOptionalString(raw.filename ?? raw.fileName ?? raw.file_name ?? nestedFile?.filename ?? nestedFile?.fileName),
+    filepath: toOptionalString(raw.filepath ?? raw.filePath ?? raw.file_path ?? nestedFile?.filepath ?? nestedFile?.filePath),
+    url: toOptionalString(
+      raw.url
+        ?? raw.fileUrl
+        ?? raw.file_url
+        ?? raw.signedUrl
+        ?? raw.signed_url
+        ?? raw.publicUrl
+        ?? raw.public_url
+        ?? nestedFile?.url
+        ?? nestedFile?.fileUrl
+        ?? nestedFile?.signedUrl,
+    ),
   };
 }
 
@@ -55,8 +67,20 @@ function normalizeAadhar(value: unknown): UserAadharData | null {
     hasAadharBackFile: toOptionalBoolean(raw.hasAadharBackFile ?? raw.hasAadhaarBackFile),
     aadharFrontFileId: toOptionalString(raw.aadharFrontFileId ?? raw.aadhaarFrontFileId),
     aadharBackFileId: toOptionalString(raw.aadharBackFileId ?? raw.aadhaarBackFileId),
-    aadharFrontFile: normalizeAadharFile(raw.aadharFrontFile ?? raw.aadhaarFrontFile),
-    aadharBackFile: normalizeAadharFile(raw.aadharBackFile ?? raw.aadhaarBackFile),
+    aadharFrontFile: normalizeAadharFile(
+      raw.aadharFrontFile
+        ?? raw.aadhaarFrontFile
+        ?? raw.aadharFront
+        ?? raw.aadhaarFront
+        ?? raw.frontFile,
+    ),
+    aadharBackFile: normalizeAadharFile(
+      raw.aadharBackFile
+        ?? raw.aadhaarBackFile
+        ?? raw.aadharBack
+        ?? raw.aadhaarBack
+        ?? raw.backFile,
+    ),
     createdAt: toOptionalString(raw.createdAt),
     updatedAt: toOptionalString(raw.updatedAt),
   };

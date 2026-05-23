@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 
+import { getCustomerBookingsSummary } from '@/actions/customerActions';
 import { AppImage } from '@/components/common/AppImage';
 import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -12,21 +13,40 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
+import type { CustomerBookingsSummary } from '@/types/api';
 import { PROFILE_SCREEN } from '@/types/screen-names';
-import { normalizeCustomerBookingCounts } from '@/utils/customer-booking-counts';
+
+const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
+  allBookings: 0,
+  ongoingBookings: 0,
+  completedBookings: 0,
+};
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
   const { authState, logout, loading, refreshMe } = useAuthContext();
   const navigation = useNavigation();
   const user = authState.user;
+  const [summary, setSummary] = useState<CustomerBookingsSummary>(DEFAULT_BOOKINGS_SUMMARY);
+
+  const refreshSummary = useCallback(async () => {
+    try {
+      setSummary(await getCustomerBookingsSummary());
+    } catch {
+      setSummary(DEFAULT_BOOKINGS_SUMMARY);
+    }
+  }, []);
   const refreshControlProps = useBrandRefreshControl(async () => {
-    await refreshMe();
+    await Promise.all([refreshMe(), refreshSummary()]);
   });
 
   useEffect(() => {
     void refreshMe();
   }, [refreshMe]);
+
+  useFocusEffect(useCallback(() => {
+    void refreshSummary();
+  }, [refreshSummary]));
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || APP_TEXT.profile.nameFallback;
   const profileImageUrl = useMemo(() => {
@@ -51,13 +71,12 @@ export function ProfileScreen() {
   const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${formatDateToDdMmmYyyy(getUserCreatedAt(user))}`;
 
   const stats = useMemo(() => {
-    const bookingCounts = normalizeCustomerBookingCounts(user?.bookingCounts);
     return {
-      bookings: bookingCounts.totalBookingsCount,
-      active: bookingCounts.activeBookingsCount,
-      completed: bookingCounts.completedBookingsCount,
+      bookings: summary.allBookings,
+      active: summary.ongoingBookings,
+      completed: summary.completedBookings,
     };
-  }, [user?.bookingCounts]);
+  }, [summary.allBookings, summary.completedBookings, summary.ongoingBookings]);
 
   const cardStyle = {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
@@ -69,8 +88,8 @@ export function ProfileScreen() {
   };
 
   const handleRefresh = useCallback(async () => {
-    await refreshMe();
-  }, [refreshMe]);
+    await Promise.all([refreshMe(), refreshSummary()]);
+  }, [refreshMe, refreshSummary]);
 
   return (
     <GradientScreen

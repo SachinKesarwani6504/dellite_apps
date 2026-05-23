@@ -28,6 +28,13 @@ export type WorkerJobAssignmentStatus =
 
 export type WorkerJobListTab = 'ALL' | 'NEW_JOBS' | 'ONGOING' | 'COMPLETED';
 
+export type WorkerJobsSummary = {
+  allJobs: number;
+  newJobs: number;
+  ongoingJobs: number;
+  completedJobs: number;
+};
+
 export type WorkerJobListItem = {
   booking: {
     id: string;
