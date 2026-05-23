@@ -34,7 +34,16 @@ export function normalizeStatusLabel(value: unknown) {
 
 export function statusColor(status: string) {
   const normalized = status.trim().toUpperCase();
-  if (normalized === 'APPROVED') return theme.colors.positive;
+  if (
+    normalized === 'APPROVED'
+    || normalized === 'VERIFIED'
+    || normalized === 'SUCCESS'
+    || normalized === 'LIVE'
+    || normalized === 'ACTIVE'
+    || normalized === 'ONLINE'
+  ) {
+    return theme.colors.positive;
+  }
   if (normalized === 'REJECTED') return theme.colors.negative;
   return theme.colors.caution;
 }

@@ -15,7 +15,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow Dellite Partner to use your location for service and job updates."
+        "NSLocationWhenInUseUsageDescription": "Allow Dellite Partner to use your location for service and job updates.",
+        "NSFaceIDUsageDescription": "Dellite uses Face ID to protect your payout information."
       }
     },
     "android": {

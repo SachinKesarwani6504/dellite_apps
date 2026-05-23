@@ -191,14 +191,7 @@ export function EditProfileScreen({ navigation }: Props) {
     >
       {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
-      <View
-        className="rounded-3xl pb-6"
-        style={{
-          backgroundColor: isDark
-            ? uiColors.surface.cardElevatedDark
-            : palette.light.card,
-        }}
-      >
+      <View className="pb-6">
         <SplitGradientTitle
           prefix={APP_TEXT.profile.edit.titlePrefix}
           highlight={APP_TEXT.profile.edit.titleGradientWord}
