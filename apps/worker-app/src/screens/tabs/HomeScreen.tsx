@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { getCachedWorkerHome, getWorkerHome } from '@/actions';
+import { getAppBanners, getCachedWorkerHome, getWorkerHome } from '@/actions';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
-import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
+import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { NearbyJobCard } from '@/components/common/NearbyJobCard';
@@ -20,7 +21,9 @@ import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { WorkerHomeData } from '@/types/auth';
+import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
 import {
+  handleBannerAction,
   formatInrCurrency,
   formatSignedPercent,
   getErrorMessage,
@@ -34,6 +37,7 @@ const logo = require('@/assets/images/png/dellite_logo.png');
 const homePageDoodles = require('@/assets/images/png/home_page_doddles.png');
 
 export function HomeScreen() {
+  const navigation = useNavigation();
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { locationState, user, me, isAuthenticated } = useAuthContext();
@@ -73,6 +77,7 @@ export function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
+  const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
   const locationInitTriggeredRef = useRef(false);
 
@@ -88,8 +93,15 @@ export function HomeScreen() {
       return;
     }
     try {
-      const data = await getWorkerHome(selectedCity);
+      const [data, banners] = await Promise.all([
+        getWorkerHome(selectedCity),
+        getAppBanners({
+          placementKey: APP_BANNER_PLACEMENT_KEY.WORKER_HOME,
+          city: selectedCity,
+        }),
+      ]);
       setHomeData(data);
+      setHomeBanners(Array.isArray(banners) ? banners : []);
     } catch (loadError) {
       if (loadError instanceof ApiError && loadError.statusCode === 404) {
         setCityUnavailable(true);
@@ -97,6 +109,7 @@ export function HomeScreen() {
       } else {
         setError(getErrorMessage(loadError, APP_TEXT.home.loadError));
       }
+      setHomeBanners([]);
     } finally {
       setLoading(false);
     }
@@ -131,16 +144,6 @@ export function HomeScreen() {
     [homeData?.availableNearbyJobs],
   );
   const shouldShowCurrentStatusBanner = homeData?.currentStatus?.showStatusInUi === true;
-  const headerBannerName = homeData?.headerBanner?.name?.trim() || APP_TEXT.home.welcomeFallbackName;
-  const ratingLabel = useMemo(() => {
-    const averageRating = typeof homeData?.headerBanner?.averageRating === 'number'
-      ? homeData.headerBanner.averageRating.toFixed(1)
-      : APP_TEXT.home.ratingFallback;
-    const reviewsCount = typeof homeData?.headerBanner?.reviewsCount === 'number'
-      ? homeData.headerBanner.reviewsCount.toLocaleString('en-IN')
-      : '0';
-    return `${averageRating} (${reviewsCount} ${APP_TEXT.home.reviewsSuffix})`;
-  }, [homeData?.headerBanner?.averageRating, homeData?.headerBanner?.reviewsCount]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -291,15 +294,19 @@ export function HomeScreen() {
             <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
           ) : null}
 
-          <View className={shouldShowCurrentStatusBanner ? 'mt-4' : ''}>
-            <ImageOverlayBanner
-              imageUrl={homeData.headerBanner?.imageUrl}
-              overline={APP_TEXT.home.welcomeBack}
-              title={headerBannerName}
-              subtitle={ratingLabel}
-              pillText={cityLabel}
+          {homeBanners.length > 0 ? (
+            <ImageOverlayBannerCarousel
+              containerClassName={shouldShowCurrentStatusBanner ? 'mt-4' : ''}
+              banners={homeBanners}
+              onPressBanner={(banner) => {
+                void handleBannerAction({
+                  action: banner.action,
+                  navigation: { navigate: navigation.navigate },
+                  city: selectedCity,
+                });
+              }}
             />
-          </View>
+          ) : null}
 
           <View className="mt-3 flex-row gap-2">
             <View

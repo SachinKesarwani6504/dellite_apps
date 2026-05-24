@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Text, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppImageBackground } from '@/components/common/AppImageBackground';
 import { palette, safeImageUrl, uiColors } from '@/utils';
 
@@ -9,6 +9,7 @@ type ImageOverlayBannerProps = {
   title: string;
   subtitle?: string;
   pillText?: string;
+  onPress?: () => void;
 };
 
 export function ImageOverlayBanner({
@@ -17,12 +18,15 @@ export function ImageOverlayBanner({
   title,
   subtitle,
   pillText,
+  onPress,
 }: ImageOverlayBannerProps) {
   const isDark = useColorScheme() === 'dark';
   const resolvedImageUrl = safeImageUrl(imageUrl);
 
   return (
-    <View
+    <Pressable
+      disabled={!onPress}
+      onPress={onPress}
       className="overflow-hidden rounded-3xl border"
       style={{
         aspectRatio: 16 / 9,
@@ -57,6 +61,6 @@ export function ImageOverlayBanner({
           ) : null}
         </LinearGradient>
       </AppImageBackground>
-    </View>
+    </Pressable>
   );
 }

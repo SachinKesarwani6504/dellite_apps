@@ -7,7 +7,7 @@ import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
-import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
+import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
 import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { useCategoryServicesScreenController } from '@/hooks/useCategoryServicesScreenController';
@@ -18,6 +18,7 @@ import type {
 } from '@/types/main-screens';
 import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
+import { handleBannerAction } from '@/utils/banner-navigation';
 import { getSubcategoryServiceCount } from '@/utils/booking-catalog';
 import { safeImageUrl, titleCase } from '@/utils';
 
@@ -36,8 +37,7 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     subcategories,
     services,
     selectedServiceIdSet,
-    headerBannerImage,
-    headerBannerTitle,
+    banners,
     showInitialLoader,
     activeCategoryId,
     refresh,
@@ -171,13 +171,19 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     >
       <DetailsTopBar onBack={() => navigation.goBack()} />
 
-      <ImageOverlayBanner
-        imageUrl={headerBannerImage}
-        overline={showSubcategoryPicker ? APP_TEXT.main.bookingFlow.categoryTitle : APP_TEXT.main.bookingFlow.serviceTitle}
-        title={headerBannerTitle}
-        subtitle={showSubcategoryPicker ? APP_TEXT.main.bookingFlow.categorySubtitle : APP_TEXT.main.bookingFlow.serviceSubtitle}
-        pillText={showSubcategoryPicker ? undefined : `${selectedServices.length.toString()} Selected`}
-      />
+      {banners.length > 0 ? (
+        <ImageOverlayBannerCarousel
+          containerClassName="mt-4"
+          banners={banners}
+          onPressBanner={(banner) => {
+            void handleBannerAction({
+              action: banner.action,
+              navigation,
+              city: selectedCity,
+            });
+          }}
+        />
+      ) : null}
 
       {screenContent}
     </GradientScreen>

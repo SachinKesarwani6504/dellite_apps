@@ -11,6 +11,7 @@ import type {
   CustomerImageUsageType,
   CustomerBookingType,
 } from '@/types/customer';
+import type { AppBannerItem } from '@/types/app-banner';
 import type { LocationCoordinates } from '@/modules/location/types/location.types';
 
 export type BaseNavigation = {
@@ -154,6 +155,7 @@ export type CategoryServicesScreenControllerValue = {
   headerBannerImage: string | null;
   headerBannerTitle: string;
   showInitialLoader: boolean;
+  banners: AppBannerItem[];
   activeCategoryId: string | null;
   activeSubcategory: CustomerCatalogSubcategory | null;
   refresh: () => Promise<void>;

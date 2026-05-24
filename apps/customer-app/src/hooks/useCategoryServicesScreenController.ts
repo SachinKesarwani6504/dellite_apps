@@ -5,6 +5,7 @@ import { customerActions } from '@/actions';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
+import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
 import type {
   CategoryCatalogUsageTypes,
   CategoryServicesScreenControllerArgs,
@@ -58,6 +59,7 @@ export function useCategoryServicesScreenController(
   const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [banners, setBanners] = useState<AppBannerItem[]>([]);
   const initialServiceAppliedRef = useRef(false);
   const selectedServiceIdSetRef = useRef<Set<string>>(new Set());
   const selectedCity = route.params.city ?? resolvedLocation.serviceableCity ?? '';
@@ -84,16 +86,24 @@ export function useCategoryServicesScreenController(
         if (!categoryId) {
           throw new Error('Category is required to load subcategories.');
         }
-        const category = await customerActions.getCustomerCategoryById(categoryId, {
-          city: selectedCity,
-          includeSubcategory: true,
-          includeServices: false,
-          includeImage: true,
-          usageType: CATALOG_USAGE_TYPES,
-        });
+        const [category, bannerData] = await Promise.all([
+          customerActions.getCustomerCategoryById(categoryId, {
+            city: selectedCity,
+            includeSubcategory: true,
+            includeServices: false,
+            includeImage: true,
+            usageType: CATALOG_USAGE_TYPES,
+          }),
+          customerActions.getAppBanners({
+            placementKey: APP_BANNER_PLACEMENT_KEY.SUBCATEGORY_SELECT,
+            city: selectedCity,
+            categoryId,
+          }),
+        ]);
         setActiveCategory(category);
         setActiveSubcategory(null);
         setCategory({ id: category.id, name: category.name });
+        setBanners(Array.isArray(bannerData) ? bannerData : []);
         return;
       }
 
@@ -119,15 +129,22 @@ export function useCategoryServicesScreenController(
         throw new Error('Subcategory is required to load services.');
       }
 
-      const subcategory = await customerActions.getCustomerSubcategoryById(resolvedSubcategoryId, {
-        city: selectedCity,
-        includeCategory: true,
-        includeServices: true,
-        includePriceOptions: true,
-        includeTask: true,
-        includeImage: true,
-        usageType: CATALOG_USAGE_TYPES,
-      });
+      const [subcategory, bannerData] = await Promise.all([
+        customerActions.getCustomerSubcategoryById(resolvedSubcategoryId, {
+          city: selectedCity,
+          includeCategory: true,
+          includeServices: true,
+          includePriceOptions: true,
+          includeTask: true,
+          includeImage: true,
+          usageType: CATALOG_USAGE_TYPES,
+        }),
+        customerActions.getAppBanners({
+          placementKey: APP_BANNER_PLACEMENT_KEY.SERVICE_SELECT,
+          city: selectedCity,
+          subcategoryId: resolvedSubcategoryId,
+        }),
+      ]);
 
       const maybeCategory = (subcategory as unknown as { category?: CustomerHomeCategory }).category;
       if (resolvedCategoryId) {
@@ -139,6 +156,7 @@ export function useCategoryServicesScreenController(
       if (maybeCategory) {
         setActiveCategory(maybeCategory);
       }
+      setBanners(Array.isArray(bannerData) ? bannerData : []);
 
       if (seedServiceId && !initialServiceAppliedRef.current) {
         if (selectedServiceIdSetRef.current.has(seedServiceId)) {
@@ -158,6 +176,7 @@ export function useCategoryServicesScreenController(
       }
     } catch (loadError) {
       setError(getErrorMessage(loadError, APP_TEXT.main.bookingFlow.loadingError));
+      setBanners([]);
     } finally {
       setLoading(false);
     }
@@ -229,6 +248,7 @@ export function useCategoryServicesScreenController(
     headerBannerImage,
     headerBannerTitle,
     showInitialLoader,
+    banners,
     activeCategoryId: activeCategory?.id ?? null,
     activeSubcategory,
     refresh,

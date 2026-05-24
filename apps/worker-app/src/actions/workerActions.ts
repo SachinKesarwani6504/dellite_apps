@@ -1,6 +1,13 @@
 import { normalizeCityName } from '@/utils/location';
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope, ApiError } from '@/types/api';
+import type {
+  AppBannerAction,
+  AppBannerItem,
+  AppBannerQuery,
+  AppBannerTargetScreen,
+  AppBannerTargetType,
+} from '@/types/app-banner';
 import {
   CategoryService,
   CategoriesQuery,
@@ -36,9 +43,107 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
 }
 
 const workerHomeCacheByCity = new Map<string, WorkerHomeData>();
+const appBannerCacheByQuery = new Map<string, AppBannerItem[]>();
 
 function normalizeCity(city: string) {
   return normalizeCityName(city).toUpperCase();
+}
+
+function normalizeOptionalQueryValue(value?: string) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
+function toAppBannerQueryString(query: AppBannerQuery) {
+  const params = new URLSearchParams();
+  params.set('placementKey', query.placementKey);
+
+  const city = normalizeOptionalQueryValue(query.city);
+  if (city) params.set('city', normalizeCity(city));
+
+  const cityId = normalizeOptionalQueryValue(query.cityId);
+  if (cityId) params.set('cityId', cityId);
+
+  const categoryId = normalizeOptionalQueryValue(query.categoryId);
+  if (categoryId) params.set('categoryId', categoryId);
+
+  const subcategoryId = normalizeOptionalQueryValue(query.subcategoryId);
+  if (subcategoryId) params.set('subcategoryId', subcategoryId);
+
+  const serviceId = normalizeOptionalQueryValue(query.serviceId);
+  if (serviceId) params.set('serviceId', serviceId);
+
+  return params.toString();
+}
+
+function toAppBannerCacheKey(query: AppBannerQuery) {
+  return [
+    query.placementKey,
+    normalizeOptionalQueryValue(query.city).toUpperCase(),
+    normalizeOptionalQueryValue(query.cityId),
+    normalizeOptionalQueryValue(query.categoryId),
+    normalizeOptionalQueryValue(query.subcategoryId),
+    normalizeOptionalQueryValue(query.serviceId),
+  ].join('|');
+}
+
+function normalizeBannerTargetType(value: unknown): AppBannerTargetType | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'CATEGORY' || normalized === 'SUBCATEGORY' || normalized === 'SERVICE' || normalized === 'URL' || normalized === 'SCREEN') {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeBannerAction(value: unknown): AppBannerAction | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const targetType = normalizeBannerTargetType(raw.targetType);
+  if (!targetType) return null;
+  const action: AppBannerAction = {
+    targetType,
+    targetId: typeof raw.targetId === 'string' ? raw.targetId : undefined,
+    targetUrl: typeof raw.targetUrl === 'string' ? raw.targetUrl : undefined,
+    targetScreen: typeof raw.targetScreen === 'string' ? raw.targetScreen.trim().toUpperCase() as AppBannerTargetScreen : undefined,
+  };
+
+  if ((targetType === 'CATEGORY' || targetType === 'SUBCATEGORY' || targetType === 'SERVICE') && !action.targetId) {
+    return null;
+  }
+
+  if (targetType === 'URL') {
+    if (!action.targetUrl) return null;
+    const isValidUrl = /^https?:\/\//i.test(action.targetUrl);
+    if (!isValidUrl) return null;
+  }
+
+  if (targetType === 'SCREEN' && !action.targetScreen) {
+    return null;
+  }
+
+  return action;
+}
+
+function normalizeAppBannerItem(value: unknown): AppBannerItem | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.id !== 'string' || typeof raw.imageUrl !== 'string' || raw.imageUrl.trim().length === 0) {
+    return null;
+  }
+  const isClickable = Boolean(raw.isClickable);
+  const action = isClickable ? normalizeBannerAction(raw.action) : null;
+  return {
+    id: raw.id,
+    overline: typeof raw.overline === 'string' ? raw.overline : null,
+    title: typeof raw.title === 'string' ? raw.title : null,
+    subtitle: typeof raw.subtitle === 'string' ? raw.subtitle : null,
+    imageUrl: raw.imageUrl.trim(),
+    backgroundColor: typeof raw.backgroundColor === 'string' ? raw.backgroundColor : null,
+    textColor: typeof raw.textColor === 'string' ? raw.textColor : null,
+    isClickable,
+    action,
+  };
 }
 
 type RawServiceSubcategory = Omit<ServiceSubcategory, 'services'> & {
@@ -581,6 +686,29 @@ export async function getWorkerStatus<T = WorkerStatusData>(query?: WorkerStatus
 
 export function getCachedWorkerHome(city: string): WorkerHomeData | null {
   return workerHomeCacheByCity.get(normalizeCity(city)) ?? null;
+}
+
+export function getCachedAppBanners(query: AppBannerQuery): AppBannerItem[] | null {
+  return appBannerCacheByQuery.get(toAppBannerCacheKey(query)) ?? null;
+}
+
+export async function getAppBanners(query: AppBannerQuery): Promise<AppBannerItem[]> {
+  const queryString = toAppBannerQueryString(query);
+  const response = await apiGet<ApiEnvelope<unknown> | unknown>(
+    `/app-banners?${queryString}`,
+    {
+      auth: true,
+      retryOnAuthFailure: true,
+      cache: 'no-store',
+      toast: { showError: false },
+    },
+  );
+  const data = unwrapData(response);
+  const normalized = Array.isArray(data)
+    ? data.map(normalizeAppBannerItem).filter((item): item is AppBannerItem => Boolean(item))
+    : [];
+  appBannerCacheByQuery.set(toAppBannerCacheKey(query), normalized);
+  return normalized;
 }
 
 export async function getWorkerHome(city: string): Promise<WorkerHomeData> {
