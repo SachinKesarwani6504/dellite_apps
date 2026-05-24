@@ -2,8 +2,7 @@
   "name": "dellite-monorepo",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
     "start:worker": "npm --prefix apps/worker-app run start",

@@ -1,4 +1,4 @@
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope, ApiError } from '@/types/api';
 import {

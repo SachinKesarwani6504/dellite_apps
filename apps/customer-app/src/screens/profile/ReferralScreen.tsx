@@ -4,6 +4,8 @@ import * as Clipboard from 'expo-clipboard';
 import { ActivityIndicator, Pressable, Text, View, useColorScheme } from 'react-native';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { SectionCard } from '@/components/common/SectionCard';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useApiGet } from '@/hooks/useApiGet';
@@ -212,28 +214,24 @@ export function ReferralScreen() {
       ) : null}
 
       {showErrorState ? (
-        <View className="mt-3 rounded-xl border px-3 py-2" style={cardStyle}>
-          <Text className="text-sm text-negative">{referralError}</Text>
-          <Pressable
-            className="mt-2 self-start rounded-full px-3 py-1.5"
-            style={{ backgroundColor: theme.colors.primary }}
-            onPress={() => {
-              void refetchReferralInfo();
-            }}
-          >
-            <Text className="text-xs font-semibold" style={{ color: theme.colors.onPrimary }}>
-              Retry
-            </Text>
-          </Pressable>
-        </View>
+        <ListErrorState
+          containerClassName="mt-3"
+          title={referralError ?? 'Unable to load referral info'}
+          description={APP_TEXT.profile.referral.pageSubtitle}
+          actionLabel="Retry"
+          onAction={() => {
+            void refetchReferralInfo();
+          }}
+        />
       ) : null}
 
       {showEmptyState ? (
-        <View className="mt-3 rounded-xl border px-3 py-2" style={cardStyle}>
-          <Text className="text-sm text-textPrimary/70 dark:text-white/70">
-            No referral info available right now.
-          </Text>
-        </View>
+        <ListEmptyState
+          containerClassName="mt-3"
+          title="No referral info available"
+          description="Please check back in a moment."
+          icon="gift-outline"
+        />
       ) : null}
 
       {showDataState ? (

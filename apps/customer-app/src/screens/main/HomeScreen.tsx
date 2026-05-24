@@ -10,11 +10,12 @@ import {
 import { customerActions } from '@/actions';
 import { AppImage } from '@/components/common/AppImage';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
-import { Button } from '@/components/common/Button';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
@@ -214,17 +215,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             </ScrollView>
           ) : (
-            <View
-              className="mt-2 rounded-xl border px-3 py-3"
-              style={{
-                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-              }}
-            >
-              <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                No popular services available right now.
-              </Text>
-            </View>
+            <ListEmptyState
+              containerClassName="mt-2"
+              title="No popular services available"
+              description="Please check back in a moment."
+              icon="briefcase-outline"
+            />
           )}
         </View>
       );
@@ -247,17 +243,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               }}
             />
           ) : (
-            <View
-              className="mt-2 rounded-xl border px-3 py-3"
-              style={{
-                borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
-              }}
-            >
-              <Text className="text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                No categories available right now.
-              </Text>
-            </View>
+            <ListEmptyState
+              containerClassName="mt-2"
+              title="No categories available"
+              description="Please check back in a moment."
+              icon="grid-outline"
+            />
           )}
         </View>
       );
@@ -343,35 +334,24 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     cityUnavailable ? (
       <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
     ) : error ? (
-      <View
-        className="rounded-2xl border p-4"
-        style={{
-          borderColor: theme.colors.negative,
-          backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayLight85,
+      <ListErrorState
+        title={error}
+        description="Please try again."
+        actionLabel="Retry"
+        onAction={() => {
+          void fetchHome({ showFullScreenLoader: true });
         }}
-      >
-        <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>
-          {error}
-        </Text>
-        <View className="mt-3">
-          <Button label="Retry" onPress={() => void fetchHome({ showFullScreenLoader: true })} />
-        </View>
-      </View>
+      />
     ) : (
-      <View
-        className="rounded-2xl border p-4"
-        style={{
-          borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
+      <ListEmptyState
+        title="No home content available"
+        description="Please refresh and try again."
+        actionLabel="Retry"
+        onAction={() => {
+          void fetchHome({ showFullScreenLoader: true });
         }}
-      >
-        <Text className="text-sm font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
-          No home content available for now.
-        </Text>
-        <View className="mt-3">
-          <Button label="Retry" onPress={() => void fetchHome({ showFullScreenLoader: true })} />
-        </View>
-      </View>
+        icon="home-outline"
+      />
     )
   ) : null;
 

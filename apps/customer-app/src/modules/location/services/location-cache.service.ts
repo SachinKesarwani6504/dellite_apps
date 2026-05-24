@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import type { LocationPermissionStatus, NormalizedLocation } from '@/modules/location/types/location.types';
 
 const LOCATION_CACHE_KEY = 'location_cache_v1';

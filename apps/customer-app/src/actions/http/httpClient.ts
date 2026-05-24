@@ -14,7 +14,7 @@ import {
 import {
   applyFirebaseCustomToken,
 } from '@/utils/firebase-session';
-import { sanitizeErrorMessage } from '@/utils/error-message';
+import { parseApiError, sanitizeApiMessage } from '@/utils/api-error';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 import { ENV } from '@/utils/env';
@@ -37,17 +37,17 @@ function normalizePath(path: string) {
 }
 
 function extractApiMessage(payload: unknown, fallback: string) {
-  if (typeof payload === 'string') return sanitizeErrorMessage(payload, fallback);
+  if (typeof payload === 'string') return sanitizeApiMessage(payload, fallback);
   if (!payload || typeof payload !== 'object') return fallback;
 
   const obj = payload as { message?: unknown; error?: unknown; data?: unknown };
-  if (typeof obj.message === 'string') return sanitizeErrorMessage(obj.message, fallback);
-  if (typeof obj.error === 'string') return sanitizeErrorMessage(obj.error, fallback);
+  if (typeof obj.message === 'string') return sanitizeApiMessage(obj.message, fallback);
+  if (typeof obj.error === 'string') return sanitizeApiMessage(obj.error, fallback);
 
   if (obj.data && typeof obj.data === 'object') {
     const nested = obj.data as { message?: unknown; error?: unknown };
-    if (typeof nested.message === 'string') return sanitizeErrorMessage(nested.message, fallback);
-    if (typeof nested.error === 'string') return sanitizeErrorMessage(nested.error, fallback);
+    if (typeof nested.message === 'string') return sanitizeApiMessage(nested.message, fallback);
+    if (typeof nested.error === 'string') return sanitizeApiMessage(nested.error, fallback);
   }
   return fallback;
 }
@@ -132,11 +132,20 @@ function buildRequestUrl(path: string) {
 
 async function parseFetchPayload(response: Response) {
   const text = await response.text();
-  if (!text) return null;
+  const contentType = response.headers?.get?.('content-type') ?? '';
+  if (!text) return { payload: null, contentType, malformedResponse: false };
   try {
-    return JSON.parse(text) as unknown;
+    return {
+      payload: JSON.parse(text) as unknown,
+      contentType,
+      malformedResponse: false,
+    };
   } catch {
-    return text;
+    return {
+      payload: text,
+      contentType,
+      malformedResponse: true,
+    };
   }
 }
 
@@ -199,7 +208,8 @@ async function request<TResponse, TBody = unknown>(
         });
       }
 
-      const payload = await parseFetchPayload(multipartResponse);
+      const parsedPayload = await parseFetchPayload(multipartResponse);
+      const payload = parsedPayload.payload;
       if (!multipartResponse.ok) {
         if (tokenType === 'phone' && (multipartResponse.status === 401 || multipartResponse.status === 403)) {
           await clearPhoneTokenOnly();
@@ -208,7 +218,13 @@ async function request<TResponse, TBody = unknown>(
           }
           throw new ApiError(PHONE_TOKEN_EXPIRED_MESSAGE, multipartResponse.status, payload);
         }
-        const message = extractApiMessage(payload, multipartResponse.statusText || 'Request failed');
+        const parsedError = parseApiError({
+          statusCode: multipartResponse.status,
+          payload,
+          headers: { 'content-type': parsedPayload.contentType },
+          malformedResponse: parsedPayload.malformedResponse,
+        });
+        const message = extractApiMessage(payload, parsedError.friendlyMessage);
         if (method !== 'GET' && options.toast?.showError !== false) {
           showApiErrorToast(message);
         }
@@ -223,10 +239,15 @@ async function request<TResponse, TBody = unknown>(
       if (error instanceof ApiError) {
         throw error;
       }
-      if (method !== 'GET' && options.toast?.showError !== false) {
-        showApiErrorToast('Network Error');
+      const parsedError = parseApiError({ error });
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-http] multipart-request-error', parsedError.rawError);
       }
-      throw new ApiError('Network Error', 500, error);
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast(parsedError.friendlyMessage);
+      }
+      throw new ApiError(parsedError.friendlyMessage, parsedError.statusCode ?? 500, error);
     }
   }
 
@@ -238,10 +259,15 @@ async function request<TResponse, TBody = unknown>(
     return response.data;
   } catch (error: unknown) {
     if (!axios.isAxiosError(error)) {
-      if (method !== 'GET' && options.toast?.showError !== false) {
-        showApiErrorToast('Unknown network error');
+      const parsedError = parseApiError({ error });
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-http] unknown-request-error', parsedError.rawError);
       }
-      throw new ApiError('Unknown network error', 500, error);
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast(parsedError.friendlyMessage);
+      }
+      throw new ApiError(parsedError.friendlyMessage, parsedError.statusCode ?? 500, error);
     }
 
     if (shouldRefresh(error.response?.status, tokenType, options, hasExplicitAuthorization)) {
@@ -280,7 +306,17 @@ async function request<TResponse, TBody = unknown>(
 
     const statusCode = error.response?.status ?? 500;
     const payload = error.response?.data;
-    const message = extractApiMessage(payload, error.message ?? 'Request failed');
+    const parsedError = parseApiError({
+      error,
+      statusCode,
+      payload,
+      headers: error.response?.headers,
+    });
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[customer-http] request-error', parsedError.rawError);
+    }
+    const message = extractApiMessage(payload, parsedError.friendlyMessage);
     if (method !== 'GET' && options.toast?.showError !== false) {
       showApiErrorToast(message);
     }
