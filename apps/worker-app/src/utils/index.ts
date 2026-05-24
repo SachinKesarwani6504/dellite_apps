@@ -1,4 +1,5 @@
-export { normalizeCityName } from '@dellite/app-core';
+export { normalizeCityName } from '@/utils/location';
+import { parseApiError } from '@/utils/api-error';
 
 export function toBearerToken(value: string): string {
   const trimmed = value.trim();
@@ -47,9 +48,8 @@ export function formatDateToDdMmmYyyy(value?: string | number | Date | null): st
 
 // Keep reusable helpers here (avoid defining helpers inside screens/components).
 export function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && typeof error.message === 'string' && error.message.trim().length > 0) {
-    return error.message.trim();
-  }
+  const parsed = parseApiError({ error });
+  if (parsed.friendlyMessage) return parsed.friendlyMessage;
   return fallback;
 }
 
@@ -108,5 +108,6 @@ export * from '@/utils/otp';
 export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
 export * from '@/utils/worker-jobs';
+export * from '@/utils/api-error';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';

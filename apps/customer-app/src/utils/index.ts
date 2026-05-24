@@ -1,4 +1,4 @@
-export { normalizeCityName } from '@dellite/app-core';
+export { normalizeCityName } from '@/utils/location';
 export * from '@/utils/layout';
 export * from '@/utils/mask';
 export * from '@/utils/options';
@@ -30,6 +30,7 @@ export * from '@/utils/otp';
 export * from '@/utils/validation';
 export * from '@/utils/firebase-session';
 export * from '@/utils/error-message';
+export * from '@/utils/api-error';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';
 

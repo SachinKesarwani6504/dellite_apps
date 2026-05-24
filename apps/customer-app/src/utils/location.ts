@@ -26,3 +26,4 @@ export function normalizeCityName(value: string | null | undefined): string {
     .join(' ')
     .trim();
 }
+

@@ -1,5 +1,5 @@
 import * as ExpoLocation from 'expo-location';
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import {
   CURRENT_POSITION_OPTIONS,
   GOOGLE_GEOCODE_ENDPOINT,

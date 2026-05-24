@@ -1,4 +1,4 @@
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import { LocationCoordinates, NormalizedLocation, ShouldRefreshLocationArgs } from '@/modules/location/types/location.types';
 
 function isFiniteNumber(value: unknown): value is number {

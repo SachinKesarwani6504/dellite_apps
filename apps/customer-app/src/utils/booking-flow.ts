@@ -11,7 +11,7 @@
 import { CUSTOMER_BOOKING_TYPE, PRICE_COMPUTATION_MODE, PRICE_TYPE } from '@/types/customer';
 import { HOURLY_DURATION_CHIP_STEP_MINUTES } from '@/utils/pricing/pricing.constants';
 import { calculateLineSubtotal } from '@/utils/pricing/calculateLineSubtotal';
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import type {
   BookingFlowDraft,
   BookingFlowAddressDraft,

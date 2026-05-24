@@ -1,4 +1,4 @@
-import { normalizeCityName } from '@dellite/app-core';
+import { normalizeCityName } from '@/utils/location';
 import type {
   BookingServiceabilityResult,
   LocationResolutionInput,
