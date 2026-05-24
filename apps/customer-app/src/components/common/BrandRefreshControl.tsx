@@ -1,26 +1,32 @@
-import { useCallback, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useMemo } from 'react';
+import { Platform, RefreshControlProps, useColorScheme } from 'react-native';
 
 import { uiColors } from '@/utils/theme';
 
-export function useBrandRefreshControl(onRefresh: () => Promise<void>) {
-  const [refreshing, setRefreshing] = useState(false);
-  const isDark = useColorScheme() === 'dark';
+type BrandRefreshControlStyleProps = Pick<
+  RefreshControlProps,
+  'tintColor' | 'colors' | 'progressBackgroundColor'
+>;
 
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [onRefresh]);
+type BrandRefreshControlConfig = {
+  modeKey: 'dark' | 'light';
+  refreshProps: BrandRefreshControlStyleProps;
+};
 
-  return {
-    refreshing,
-    onRefresh: refresh,
-    tintColor: isDark ? uiColors.refresh.darkSpinner : uiColors.refresh.lightSpinner,
-    colors: [isDark ? uiColors.refresh.darkSpinner : uiColors.refresh.lightSpinner],
-    progressBackgroundColor: isDark ? uiColors.refresh.darkTrack : uiColors.refresh.lightTrack,
-  };
+export function useBrandRefreshControlProps(): BrandRefreshControlConfig {
+  const modeKey = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const spinnerColor = modeKey === 'dark' ? uiColors.refresh.darkSpinner : uiColors.refresh.lightSpinner;
+  const progressBackgroundColor = modeKey === 'dark' ? uiColors.refresh.darkTrack : uiColors.refresh.lightTrack;
+
+  return useMemo(
+    () => ({
+      modeKey,
+      refreshProps: {
+        tintColor: spinnerColor,
+        colors: [spinnerColor],
+        ...(Platform.OS === 'android' ? { progressBackgroundColor } : {}),
+      },
+    }),
+    [modeKey, progressBackgroundColor, spinnerColor],
+  );
 }

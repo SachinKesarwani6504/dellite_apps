@@ -16,9 +16,10 @@ import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import type { CustomerImageUsageType, CustomerServiceListItem } from '@/types/customer';
 import type { AllServicesScreenProps } from '@/types/main-screens';
@@ -36,6 +37,7 @@ const CATALOG_USAGE_TYPES: CustomerImageUsageType[] = ['MAIN', 'ICON'];
 
 export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { width: screenWidth } = useWindowDimensions();
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
@@ -63,14 +65,13 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const [items, setItems] = useState<CustomerServiceListItem[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; refresh?: boolean }) => {
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean }) => {
     if (!selectedCity) return;
-    const { nextPage, append, refresh } = options;
+    const { nextPage, append } = options;
 
     const isPaginated = PAGINATION_ENABLED;
     const query = {
@@ -89,7 +90,6 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
     try {
       setError(null);
       if (append) setLoadingMore(true);
-      else if (refresh) setRefreshing(true);
       else setLoading(true);
 
       const data = await customerActions.getCustomerServices(query);
@@ -107,16 +107,15 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       setHasMore(false);
     } finally {
       setLoading(false);
-      setRefreshing(false);
       setLoadingMore(false);
     }
   }, [debouncedSearch, selectedCity]);
 
-  const onRefresh = useCallback(async () => {
+  const onRefreshData = useCallback(async () => {
     setHasMore(true);
-    await runFetch({ nextPage: 1, append: false, refresh: true });
+    await runFetch({ nextPage: 1, append: false });
   }, [runFetch]);
-  const refreshControlProps = useBrandRefreshControl(onRefresh);
+  const { refreshing, onRefresh } = usePullToRefresh(onRefreshData);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -148,7 +147,7 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
       title={error}
       description={APP_TEXT.main.allServices.pullToRefreshHint}
       actionLabel={APP_TEXT.main.bookingFlow.retry}
-      onAction={() => void onRefresh()}
+      onAction={onRefresh}
     />
   ) : items.length > 0 ? (
     <>
@@ -207,7 +206,14 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 24 }}
-      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <View className="mb-4">
         <View className="flex-row items-center justify-between">

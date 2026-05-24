@@ -57,8 +57,9 @@ export function PayoutDetailsScreen({ navigation }: Props) {
     ? `${APP_TEXT.profile.payout.updatedAtPrefix}${formatDateToDdMmmYyyy(bankInfo.updatedAt)}`
     : null;
 
-  const loadBankInfo = useCallback(async (showLoader: boolean) => {
-    if (showLoader) {
+  const loadBankInfo = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
+    if (showFullScreenLoader) {
       setFetchLoading(true);
     }
     try {
@@ -80,7 +81,7 @@ export function PayoutDetailsScreen({ navigation }: Props) {
       setUpiId('');
       setErrors({});
     } finally {
-      if (showLoader) {
+      if (showFullScreenLoader) {
         setFetchLoading(false);
       }
     }
@@ -91,7 +92,7 @@ export function PayoutDetailsScreen({ navigation }: Props) {
   }, [authenticate]);
 
   useEffect(() => {
-    void loadBankInfo(true);
+    void loadBankInfo({ showFullScreenLoader: true });
   }, [loadBankInfo]);
 
   useEffect(() => lock, [lock]);

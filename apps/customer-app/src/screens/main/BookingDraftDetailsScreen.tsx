@@ -1,6 +1,6 @@
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { AppInput } from '@/components/common/AppInput';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { BookingServiceDetailCard } from '@/components/common/BookingServiceDetailCard';
 import { Button } from '@/components/common/Button';
 import { CardWrapper } from '@/components/common/CardWrapper';
@@ -9,6 +9,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { TwoOptionPillTabs } from '@/components/common/TwoOptionPillTabs';
 import { useBookingDraftDetailsScreenController } from '@/hooks/useBookingDraftDetailsScreenController';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { CUSTOMER_BOOKING_TYPE } from '@/types/customer';
 import type { BookingDraftDetailsScreenProps } from '@/types/main-screens';
 import { HOME_SCREEN } from '@/types/screen-names';
@@ -22,6 +23,7 @@ import {
 import { palette, theme, uiColors } from '@/utils/theme';
 
 export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScreenProps) {
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const {
     isDark,
     categoryName,
@@ -60,7 +62,7 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
     onNavigateToConfirmation: () => navigation.navigate(HOME_SCREEN.BOOKING_CONFIRMATION),
     onNavigateBackToServices: () => navigation.goBack(),
   });
-  const refreshControlProps = useBrandRefreshControl(refreshBookingDetails);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshBookingDetails);
 
   return (
     <GradientScreen
@@ -68,8 +70,10 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
       keyboardExtraScrollHeight={200}
       refreshControl={(
         <RefreshControl
-          {...refreshControlProps}
-          refreshing={refreshControlProps.refreshing}
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
         />
       )}
     >

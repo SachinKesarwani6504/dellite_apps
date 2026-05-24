@@ -5,13 +5,14 @@ import { RefreshControl, Text, View } from 'react-native';
 import { apiGet } from '@/actions/http/httpClient';
 import { getCustomerBookingsSummary } from '@/actions/customerActions';
 import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { CustomerBookingCard } from '@/components/common/CustomerBookingCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { Booking } from '@/types/api';
 import type { CustomerBookingsSummary } from '@/types/api';
 import { BOOKINGS_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
@@ -27,6 +28,7 @@ const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
 };
 
 export function BookingsScreen() {
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const navigation = useNavigation() as any;
 
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
@@ -34,16 +36,14 @@ export function BookingsScreen() {
   const [summary, setSummary] = useState<CustomerBookingsSummary>(DEFAULT_BOOKINGS_SUMMARY);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const initialLoadIdRef = useRef(0);
-  const refreshLoadIdRef = useRef(0);
   const loadMoreIdRef = useRef(0);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType; refresh?: boolean }) => {
-    const { nextPage, append, tab, refresh } = options;
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType }) => {
+    const { nextPage, append, tab } = options;
     let requestId = 0;
 
     try {
@@ -52,10 +52,6 @@ export function BookingsScreen() {
         requestId = loadMoreIdRef.current + 1;
         loadMoreIdRef.current = requestId;
         setLoadingMore(true);
-      } else if (refresh) {
-        requestId = refreshLoadIdRef.current + 1;
-        refreshLoadIdRef.current = requestId;
-        setRefreshing(true);
       } else {
         requestId = initialLoadIdRef.current + 1;
         initialLoadIdRef.current = requestId;
@@ -77,10 +73,6 @@ export function BookingsScreen() {
         if (requestId === loadMoreIdRef.current) {
           setLoadingMore(false);
         }
-      } else if (refresh) {
-        if (requestId === refreshLoadIdRef.current) {
-          setRefreshing(false);
-        }
       } else if (requestId === initialLoadIdRef.current) {
         setLoading(false);
       }
@@ -95,15 +87,15 @@ export function BookingsScreen() {
     }
   }, []);
 
-  const onRefresh = useCallback(async () => {
+  const onRefreshData = useCallback(async () => {
     setHasMore(true);
     await Promise.all([
       refreshSummary(),
-      runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true }),
+      runFetch({ nextPage: 1, append: false, tab: activeTab }),
     ]);
   }, [activeTab, refreshSummary, runFetch]);
 
-  const refreshControlProps = useBrandRefreshControl(onRefresh);
+  const { refreshing, onRefresh } = usePullToRefresh(onRefreshData);
 
   useEffect(() => {
     setHasMore(true);
@@ -126,7 +118,7 @@ export function BookingsScreen() {
       title={error}
       description="Pull to refresh and try again."
       actionLabel="Retry"
-      onAction={() => void onRefresh()}
+      onAction={onRefresh}
     />
   ) : items.length > 0 ? (
     <View>
@@ -166,7 +158,14 @@ export function BookingsScreen() {
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
-      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <Text className="text-2xl font-extrabold text-baseDark dark:text-white">
         {APP_TEXT.main.bookingsTitle}

@@ -12,6 +12,7 @@ import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { WorkerJobsSummary } from '@/types/jobs';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
@@ -38,7 +39,6 @@ export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { user, me, phone, logout, loading, refreshMe } = useAuthContext();
-  const [refreshing, setRefreshing] = useState(false);
   const [jobsSummary, setJobsSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
 
   const displayFirstName = typeof me?.user?.firstName === 'string' && me.user.firstName.trim().length > 0
@@ -187,14 +187,9 @@ export function ProfileHomeScreen({ navigation }: Props) {
   }, [refreshJobsSummary]));
 
   const handleRefresh = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      await Promise.all([refreshMe(), refreshJobsSummary()]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refreshJobsSummary, refreshMe, refreshing]);
+    await Promise.all([refreshMe(), refreshJobsSummary()]);
+  }, [refreshJobsSummary, refreshMe]);
+  const { refreshing, onRefresh } = usePullToRefresh(handleRefresh);
 
   const cardStyle = {
     backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
@@ -212,9 +207,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
         <RefreshControl
           key={modeKey}
           refreshing={refreshing}
-          onRefresh={() => {
-            void handleRefresh();
-          }}
+          onRefresh={onRefresh}
           {...refreshProps}
         />
       )}

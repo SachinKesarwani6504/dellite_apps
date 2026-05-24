@@ -15,6 +15,7 @@ import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStat
 import { LoadingState } from '@/components/common/LoadingState';
 import { AppImage } from '@/components/common/AppImage';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
@@ -34,6 +35,7 @@ const homePageDoodles = require('@/assets/images/png/home_page_doddles.png');
 
 export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { locationState, user, me, isAuthenticated } = useAuthContext();
   const workerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
@@ -56,7 +58,6 @@ export function HomeScreen() {
     loading: locationLoading,
     refreshing: locationRefreshing,
   } = locationState;
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
     locality,
@@ -69,21 +70,19 @@ export function HomeScreen() {
   const cityLabel = resolvedLocation.displayCity || 'Locating...';
   const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
   const locationInitTriggeredRef = useRef(false);
 
-  const loadHomeData = useCallback(async (showLoader = true) => {
-    if (showLoader) setLoading(true);
-    else setRefreshing(true);
+  const loadHomeData = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
+    if (showFullScreenLoader) setLoading(true);
     setError(null);
     setCityUnavailable(false);
     if (!selectedCity) {
       setLoading(false);
-      setRefreshing(false);
       setError(null);
       setCityUnavailable(true);
       return;
@@ -100,9 +99,12 @@ export function HomeScreen() {
       }
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [selectedCity]);
+
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
+    await loadHomeData({ showFullScreenLoader: false });
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -117,17 +119,12 @@ export function HomeScreen() {
       if (cached) {
         setHomeData(cached);
         setLoading(false);
-        void loadHomeData(false);
+        void loadHomeData({ showFullScreenLoader: false });
         return;
       }
-      void loadHomeData(true);
+      void loadHomeData({ showFullScreenLoader: true });
     }, [isLocationPending, loadHomeData, selectedCity]),
   );
-
-  const onRefresh = useCallback(() => {
-    if (refreshing) return;
-    void loadHomeData(false);
-  }, [loadHomeData, refreshing]);
 
   const nearbyJobs = useMemo(
     () => (Array.isArray(homeData?.availableNearbyJobs) ? homeData.availableNearbyJobs : []),
@@ -230,7 +227,7 @@ export function HomeScreen() {
         title="Could not load home"
         description={error}
         onAction={() => {
-          void loadHomeData(true);
+          void loadHomeData({ showFullScreenLoader: true });
         }}
       />
     ) : cityUnavailable ? (

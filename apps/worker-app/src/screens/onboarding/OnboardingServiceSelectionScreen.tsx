@@ -14,6 +14,7 @@ import { Button } from '@/components/common/Button';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import {
   CategoryService,
   ServiceCategory,
@@ -34,14 +35,13 @@ const SKILL_LOG_PREFIX = '[OnboardingServiceSelection]';
 
 export function OnboardingServiceSelectionScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const {
     getOnboardingRedirect,
     refreshOnboardingRoute,
     markOnboardingStepSeen,
   } = useOnboardingContext();
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [serviceSaving, setServiceSaving] = useState(false);
   const [skipLoading, setSkipLoading] = useState(false);
   const [step, setStep] = useState<SkillStep>('select');
@@ -63,13 +63,12 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
     }
   }, [getOnboardingRedirect, navigation]);
 
-  const fetchCategories = useCallback(async (showLoader = false) => {
+  const fetchCategories = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? false;
     try {
-      logSelectionDebug('fetch_categories_start', { showLoader });
-      if (showLoader) {
+      logSelectionDebug('fetch_categories_start', { showFullScreenLoader });
+      if (showFullScreenLoader) {
         setCategoriesLoading(true);
-      } else {
-        setRefreshing(true);
       }
 
       const categoriesResponse = await getCategories({
@@ -117,20 +116,20 @@ export function OnboardingServiceSelectionScreen({ navigation }: Props) {
         return nextSelectedCategory;
       });
     } finally {
-      logSelectionDebug('fetch_categories_end', { showLoader });
+      logSelectionDebug('fetch_categories_end', { showFullScreenLoader });
       setCategoriesLoading(false);
-      setRefreshing(false);
     }
   }, [logSelectionDebug]);
 
   useEffect(() => {
-    void fetchCategories(true);
+    void fetchCategories({ showFullScreenLoader: true });
   }, [fetchCategories]);
 
-  const onRefresh = useCallback(() => {
+  const refreshCategories = useCallback(async () => {
     if (categoriesLoading || formLocked) return;
-    void fetchCategories(false);
+    await fetchCategories({ showFullScreenLoader: false });
   }, [categoriesLoading, fetchCategories, formLocked]);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshCategories);
 
   const currentServices = useMemo(
     () => normalizeServices(selectedSubcategory ?? undefined),

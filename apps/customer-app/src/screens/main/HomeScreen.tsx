@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { customerActions } from '@/actions';
 import { AppImage } from '@/components/common/AppImage';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
@@ -20,6 +20,7 @@ import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { HomeScreenProps } from '@/types/main-screens';
@@ -57,6 +58,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     refreshing: locationRefreshing,
   } = locationState;
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
     locality,
@@ -86,8 +88,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     [homeData?.content],
   );
 
-  const fetchHome = useCallback(async (showLoader = true) => {
-    if (showLoader) setLoading(true);
+  const fetchHome = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
+    if (showFullScreenLoader) setLoading(true);
     setError(null);
     setCityUnavailable(false);
     if (!homeQueryCity) {
@@ -135,14 +138,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     if (cached) {
       setHomeData(cached);
       setLoading(false);
-      void fetchHome(false);
+      void fetchHome({ showFullScreenLoader: false });
       return;
     }
-    void fetchHome(true);
+    void fetchHome({ showFullScreenLoader: true });
   }, [fetchHome, homeQueryCity, isLocationPending]);
 
-  const refreshControlProps = useBrandRefreshControl(async () => {
-    await fetchHome(false);
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
+    await fetchHome({ showFullScreenLoader: false });
   });
 
   const onOpenService = useCallback((service: CustomerHomeService) => {
@@ -351,7 +354,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           {error}
         </Text>
         <View className="mt-3">
-          <Button label="Retry" onPress={() => void fetchHome(true)} />
+          <Button label="Retry" onPress={() => void fetchHome({ showFullScreenLoader: true })} />
         </View>
       </View>
     ) : (
@@ -366,7 +369,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           No home content available for now.
         </Text>
         <View className="mt-3">
-          <Button label="Retry" onPress={() => void fetchHome(true)} />
+          <Button label="Retry" onPress={() => void fetchHome({ showFullScreenLoader: true })} />
         </View>
       </View>
     )
@@ -386,7 +389,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
-      refreshControl={<RefreshControl {...refreshControlProps} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
       floatingBackground={(
         <AppImage
           source={HOME_DOODLES}

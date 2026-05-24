@@ -13,6 +13,7 @@ import { ListErrorState } from '@/components/common/ListErrorState';
 import { SkillCertificateStatusCard } from '@/components/common/SkillCertificateStatusCard';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 import { normalizeWorkerSkillStatus, titleCase } from '@/utils';
@@ -38,16 +39,14 @@ export function ProfileSkillsScreen({ navigation }: Props) {
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { me } = useAuthContext();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [skills, setSkills] = useState<WorkerSkill[]>([]);
   const [skillsLoadError, setSkillsLoadError] = useState(false);
   const [activeBySkillId, setActiveBySkillId] = useState<Record<string, boolean>>({});
   const [togglingBySkillId, setTogglingBySkillId] = useState<Record<string, boolean>>({});
 
-  const loadSkills = useCallback(async (isPullToRefresh = false) => {
-    if (isPullToRefresh) {
-      setRefreshing(true);
-    } else {
+  const loadSkills = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
+    if (showFullScreenLoader) {
       setLoading(true);
     }
 
@@ -70,16 +69,15 @@ export function ProfileSkillsScreen({ navigation }: Props) {
       setSkillsLoadError(true);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadSkills(false);
+    void loadSkills({ showFullScreenLoader: true });
   }, [loadSkills]);
 
   useFocusEffect(useCallback(() => {
-    void loadSkills(false);
+    void loadSkills({ showFullScreenLoader: true });
   }, [loadSkills]));
 
   const totalApproved = useMemo(
@@ -105,10 +103,9 @@ export function ProfileSkillsScreen({ navigation }: Props) {
     return skills.length;
   }, [me?.links?.worker, skills.length]);
 
-  const onRefresh = useCallback(() => {
-    if (refreshing) return;
-    void loadSkills(true);
-  }, [loadSkills, refreshing]);
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
+    await loadSkills({ showFullScreenLoader: false });
+  });
 
   const onToggleSkillAvailability = useCallback(async (skill: WorkerSkill, nextIsAvailable: boolean) => {
     const skillId = skill.workerSkillId ?? skill.id;
@@ -185,7 +182,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
               title="Could not load skills"
               description="Pull to refresh or tap retry."
               onAction={() => {
-                void loadSkills(false);
+                void loadSkills({ showFullScreenLoader: true });
               }}
             />
           ) : skills.length === 0 ? (

@@ -5,13 +5,14 @@ import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
 import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { useCategoryServicesScreenController } from '@/hooks/useCategoryServicesScreenController';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type {
   CategoryServicesScreenProps,
 } from '@/types/main-screens';
@@ -22,6 +23,7 @@ import { safeImageUrl, titleCase } from '@/utils';
 
 export function CategoryServicesScreen({ navigation, route }: CategoryServicesScreenProps) {
   const { width: screenWidth } = useWindowDimensions();
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const {
     selectedServices,
   } = useBookingFlowContext();
@@ -42,10 +44,9 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
     pickSubcategory,
     toggleServiceSelection,
   } = useCategoryServicesScreenController({ route });
-  const onRefreshCatalog = async () => {
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await refresh();
-  };
-  const refreshControlProps = useBrandRefreshControl(onRefreshCatalog);
+  });
   const cardGap = 12;
   const horizontalPadding = 16;
   const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
@@ -159,7 +160,14 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
-      refreshControl={<RefreshControl {...refreshControlProps} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <DetailsTopBar onBack={() => navigation.goBack()} />
 

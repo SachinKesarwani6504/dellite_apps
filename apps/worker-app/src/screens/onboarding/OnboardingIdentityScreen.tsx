@@ -12,6 +12,7 @@ import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Gender, ServiceLaunchedCity } from '@/types/auth';
 import { OnboardingStackParamList } from '@/types/navigation';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
@@ -50,9 +51,9 @@ function logOnboardingIdentityScreen(step: string, payload?: unknown) {
 
 export function OnboardingIdentityScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { onboardingPrefill, fetchOnboardingPrefill } = useAuthContext();
   const canEdit = onboardingPrefill?.canEdit ?? {};
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -68,7 +69,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [cityLoading, setCityLoading] = useState(false);
   const [cityLoadError, setCityLoadError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const didRunInitialRouteCheckRef = useRef(false);
   const didRequestPrefillRef = useRef(false);
   const {
@@ -79,7 +79,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   } = useOnboardingContext();
   const formDisabled = loading || isSubmitting;
 
-  const onRefreshPrefill = async () => {
+  const refreshPrefill = async () => {
     const token = await getOnboardingPhoneToken();
     const normalizedToken = token ? stripBearerPrefix(token) : '';
     if (!normalizedToken) {
@@ -87,15 +87,13 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       return;
     }
 
-    setRefreshing(true);
     try {
       await fetchOnboardingPrefill(normalizedToken);
     } catch {
       showError('Couldn’t fetch prefill. Please enter details manually.');
-    } finally {
-      setRefreshing(false);
     }
   };
+  const { refreshing, onRefresh } = usePullToRefresh(refreshPrefill);
 
   useEffect(() => {
     if (didRequestPrefillRef.current) return;
@@ -323,9 +321,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         <RefreshControl
           key={modeKey}
           refreshing={refreshing}
-          onRefresh={() => {
-            void onRefreshPrefill();
-          }}
+          onRefresh={onRefresh}
           {...refreshProps}
         />
       )}

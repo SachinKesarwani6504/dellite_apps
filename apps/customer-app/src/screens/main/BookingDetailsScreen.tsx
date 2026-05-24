@@ -7,7 +7,7 @@ import { BookingDetailsLiveLocationTab } from '@/components/booking-details/Book
 import { BookingDetailsPaymentTab } from '@/components/booking-details/BookingDetailsPaymentTab';
 import { BookingDetailsServicesTab } from '@/components/booking-details/BookingDetailsServicesTab';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -15,6 +15,7 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
 import { AppImage } from '@/components/common/AppImage';
 import { BookingDetailsProvider, useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { BOOKING_STATUS } from '@/types/booking';
 import type { BookingDetailsTabValue } from '@/types/booking-details';
 import type { BookingDetailsScreenProps } from '@/types/main-screens';
@@ -32,6 +33,7 @@ import { palette, theme, uiColors } from '@/utils/theme';
 
 function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, 'navigation'>) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [activeTab, setActiveTab] = useState<BookingDetailsTabValue>('BILL');
   const {
     details,
@@ -51,7 +53,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
     await refresh();
   }, [refresh]);
 
-  const refreshControlProps = useBrandRefreshControl(handleRefresh);
+  const { refreshing, onRefresh } = usePullToRefresh(handleRefresh);
   const cardStyle = {
     borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
     backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
@@ -98,7 +100,14 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
-      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <DetailsTopBar
         onBack={() => navigation.goBack()}

@@ -11,6 +11,7 @@ import { GradientScreen } from "@/components/common/GradientScreen";
 import { ProfilePhotoUploadPlaceholder } from "@/components/common/ProfilePhotoUploadPlaceholder";
 import { SplitGradientTitle } from "@/components/common/SplitGradientTitle";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Gender } from "@/types/auth";
 import { ProfileStackParamList } from "@/types/navigation";
 import { PROFILE_SCREENS } from "@/types/screen-names";
@@ -35,6 +36,7 @@ const PROFILE_IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 
 export function EditProfileScreen({ navigation }: Props) {
   const isDark = useColorScheme() === "dark";
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { user, me, refreshMe } = useAuthContext();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -46,9 +48,7 @@ export function EditProfileScreen({ navigation }: Props) {
     type: string;
   } | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const roleLink = (me as Record<string, unknown> | null | undefined)?.roleLink as Record<string, unknown> | undefined;
 
   useEffect(() => {
@@ -97,14 +97,7 @@ export function EditProfileScreen({ navigation }: Props) {
     return merged;
   }, [me, selectedCities]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refreshMe();
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  const { refreshing, onRefresh } = usePullToRefresh(refreshMe);
   const existingProfileImageUrl = (() => {
     const rawUser = user as Record<string, unknown> | null | undefined;
     return (
@@ -178,16 +171,14 @@ export function EditProfileScreen({ navigation }: Props) {
         paddingBottom: 20,
         paddingHorizontal: APP_LAYOUT.screenHorizontalPadding,
       }}
-      refreshControl={
+      refreshControl={(
         <RefreshControl
           key={modeKey}
           refreshing={refreshing}
-          onRefresh={() => {
-            void onRefresh();
-          }}
+          onRefresh={onRefresh}
           {...refreshProps}
         />
-      }
+      )}
     >
       {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
