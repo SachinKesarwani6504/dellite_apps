@@ -19,9 +19,9 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
   const [layoutWidth, setLayoutWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView | null>(null);
-  const MIN_TAB_WIDTH = 116;
-  const INNER_HORIZONTAL_PADDING = 6;
-  const TAB_HEIGHT = 42;
+  const MIN_TAB_WIDTH = 102;
+  const INNER_HORIZONTAL_PADDING = 0;
+  const TAB_HEIGHT = 40;
 
   const activeIndex = useMemo(
     () => Math.max(items.findIndex(item => item.value === value), 0),
@@ -54,7 +54,7 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
 
   return (
     <View
-      className="mt-4 rounded-full p-1"
+      className="mt-4 rounded-full"
       style={{
         backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
@@ -70,14 +70,12 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
         showsHorizontalScrollIndicator={false}
         style={{ overflow: 'hidden' }}
         className='rounded-full'
-        contentContainerStyle={{ paddingHorizontal: INNER_HORIZONTAL_PADDING }}
       >
         <View  style={{ width: totalTabsWidth, minHeight: TAB_HEIGHT, position: 'relative' }}>
           <Animated.View
             pointerEvents="none"
             className="absolute top-0 rounded-full"
             style={{
-              left: INNER_HORIZONTAL_PADDING,
               width: tabWidth - (INNER_HORIZONTAL_PADDING * 2),
               height: TAB_HEIGHT,
               transform: [{ translateX }],
@@ -89,14 +87,14 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
               elevation: 2,
             }}
           />
-          <View className="flex-row ">
+          <View className="flex-row">
             {items.map(item => {
               const isActive = item.value === value;
               return (
                 <Pressable
                   key={item.value}
                   onPress={() => onChange(item.value)}
-                  className="flex-row items-center justify-center px-1.5"
+                  className="flex-row items-center justify-center"
                   style={{ width: tabWidth, height: TAB_HEIGHT }}
                 >
                   <Text
@@ -107,7 +105,7 @@ export function AnimatedSegmentTabs<T extends string>({ items, value, onChange }
                   </Text>
                   {typeof item.count === 'number' ? (
                     <View
-                      className="ml-1.5 rounded-full px-2 py-0.5"
+                      className="ml-1 rounded-full px-1.5 py-0.5"
                       style={{
                         backgroundColor: isActive
                           ? uiColors.surface.overlayLight95

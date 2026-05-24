@@ -9,7 +9,7 @@ type AnimatedLogoSplashProps = {
   onAnimationEnd?: () => void;
 };
 
-const DEFAULT_LOGO = require('@/assets/images/png/dellite_logo.png');
+const DEFAULT_LOGO = require('@/assets/icon.png');
 
 function AnimatedLogoSplashComponent({
   logoSource = DEFAULT_LOGO,

@@ -36,6 +36,15 @@ import { palette, theme, uiColors } from '@/utils/theme';
 const logo = require('@/assets/images/png/dellite_logo.png');
 const homePageDoodles = require('@/assets/images/png/home_page_doddles.png');
 
+// Keep customer/worker home spacing aligned for visual consistency.
+const HOME_SCREEN_SPACING = {
+  contentHorizontal: 16,
+  contentTop: 16,
+  contentBottom: 28,
+  headerBottom: 16,
+  bannerTopClassName: 'mt-4',
+} as const;
+
 export function HomeScreen() {
   const navigation = useNavigation();
   const isDark = useColorScheme() === 'dark';
@@ -58,7 +67,6 @@ export function HomeScreen() {
     latitude,
     longitude,
     initialized,
-    initializeLocation,
     loading: locationLoading,
     refreshing: locationRefreshing,
   } = locationState;
@@ -79,7 +87,6 @@ export function HomeScreen() {
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
-  const locationInitTriggeredRef = useRef(false);
 
   const loadHomeData = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
     const showFullScreenLoader = options?.showFullScreenLoader ?? true;
@@ -144,20 +151,6 @@ export function HomeScreen() {
     [homeData?.availableNearbyJobs],
   );
   const shouldShowCurrentStatusBanner = homeData?.currentStatus?.showStatusInUi === true;
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      locationInitTriggeredRef.current = false;
-      return;
-    }
-
-    if (locationInitTriggeredRef.current || initialized) {
-      return;
-    }
-
-    locationInitTriggeredRef.current = true;
-    void initializeLocation();
-  }, [initializeLocation, initialized, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -240,6 +233,11 @@ export function HomeScreen() {
 
   return (
     <GradientScreen
+      contentContainerStyle={{
+        paddingHorizontal: HOME_SCREEN_SPACING.contentHorizontal,
+        paddingTop: HOME_SCREEN_SPACING.contentTop,
+        paddingBottom: HOME_SCREEN_SPACING.contentBottom,
+      }}
       refreshControl={(
         <RefreshControl
           key={modeKey}
@@ -258,7 +256,7 @@ export function HomeScreen() {
       )}
       floatingBackgroundTopInset={0}
     >
-      <View className="mb-4 flex-row items-center justify-between">
+      <View className="flex-row items-center justify-between" style={{ marginBottom: HOME_SCREEN_SPACING.headerBottom }}>
         <AppImage source={logo} resizeMode="contain" style={{ width: 104, height: 30 }} />
         <View
           className="flex-row items-center rounded-full border px-3 py-1.5"
@@ -296,7 +294,7 @@ export function HomeScreen() {
 
           {homeBanners.length > 0 ? (
             <ImageOverlayBannerCarousel
-              containerClassName={shouldShowCurrentStatusBanner ? 'mt-4' : ''}
+              containerClassName={HOME_SCREEN_SPACING.bannerTopClassName}
               banners={homeBanners}
               onPressBanner={(banner) => {
                 void handleBannerAction({
