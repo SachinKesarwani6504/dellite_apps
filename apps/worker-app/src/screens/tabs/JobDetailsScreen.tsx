@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, RefreshControl, Text, View, useColorScheme, Pressable } from 'react-native';
+import { Linking, Text, View, useColorScheme, Pressable, RefreshControl } from 'react-native';
 import { updateBookingInvite } from '@/actions/workerActions';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
@@ -16,6 +16,7 @@ import { WorkerBookingRouteMap } from '@/components/common/WorkerBookingRouteMap
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingLiveRoute } from '@/hooks/useBookingLiveRoute';
 import { useBookingDetailsController } from '@/hooks/useBookingDetailsController';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocationReader } from '@/hooks/useWorkerLiveLocationReader';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import type { BookingDetailsServiceLine } from '@/types/booking-details';
@@ -74,8 +75,8 @@ function getInviteStatusFromDetails(details: unknown): WorkerJobInviteStatus | n
 
 export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<JobStackParamList, 'JobDetails'>) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
-  const [refreshing, setRefreshing] = useState(false);
   const [inviteActionLoading, setInviteActionLoading] = useState<null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED>(null);
   const { user, me } = useAuthContext();
   const workerId = useMemo(
@@ -104,7 +105,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   }, [details]);
 
   const workerLiveState = useWorkerLiveLocationReader(workerId, Boolean(details) && showLiveLocation);
-  const { refreshProps } = useBrandRefreshControlProps();
   const cardStyle = {
     borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
     backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
@@ -154,13 +154,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
 
   const refreshDetails = useCallback(async () => {
     setActiveTab('BILL');
-    setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    await refetch();
   }, [refetch]);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshDetails);
 
   const onAccept = useCallback(async () => {
     if (!inviteId) {
@@ -384,7 +380,14 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
-      refreshControl={<RefreshControl {...refreshProps} refreshing={refreshing} onRefresh={() => void refreshDetails()} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <DetailsTopBar onBack={() => navigation.goBack()} />
 

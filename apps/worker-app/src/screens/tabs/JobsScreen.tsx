@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { JOB_STACK_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import type { WorkerJobListItem, WorkerJobListTab, WorkerJobsSummary } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
@@ -26,22 +27,21 @@ const DEFAULT_JOBS_SUMMARY: WorkerJobsSummary = {
 };
 
 export function JobsScreen() {
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
   const [items, setItems] = useState<WorkerJobListItem[]>([]);
   const [summary, setSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const initialLoadIdRef = useRef(0);
-  const refreshLoadIdRef = useRef(0);
   const loadMoreIdRef = useRef(0);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: WorkerJobListTab; refresh?: boolean }) => {
-    const { nextPage, append, tab, refresh } = options;
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: WorkerJobListTab }) => {
+    const { nextPage, append, tab } = options;
     let requestId = 0;
 
     try {
@@ -50,10 +50,6 @@ export function JobsScreen() {
         requestId = loadMoreIdRef.current + 1;
         loadMoreIdRef.current = requestId;
         setLoadingMore(true);
-      } else if (refresh) {
-        requestId = refreshLoadIdRef.current + 1;
-        refreshLoadIdRef.current = requestId;
-        setRefreshing(true);
       } else {
         requestId = initialLoadIdRef.current + 1;
         initialLoadIdRef.current = requestId;
@@ -77,10 +73,6 @@ export function JobsScreen() {
         if (requestId === loadMoreIdRef.current) {
           setLoadingMore(false);
         }
-      } else if (refresh) {
-        if (requestId === refreshLoadIdRef.current) {
-          setRefreshing(false);
-        }
       } else if (requestId === initialLoadIdRef.current) {
         setLoading(false);
       }
@@ -95,15 +87,16 @@ export function JobsScreen() {
     }
   }, []);
 
-  const onRefresh = useCallback(async () => {
+  const onRefreshData = useCallback(async () => {
     setHasMore(true);
     await Promise.all([
       refreshSummary(),
-      runFetch({ nextPage: 1, append: false, tab: activeTab, refresh: true }),
+      runFetch({ nextPage: 1, append: false, tab: activeTab }),
     ]);
   }, [activeTab, refreshSummary, runFetch]);
 
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const { refreshing, onRefresh } = usePullToRefresh(onRefreshData);
+
 
   useEffect(() => {
     setHasMore(true);
@@ -126,7 +119,7 @@ export function JobsScreen() {
       title={error}
       description="Pull to refresh and try again."
       actionLabel="Retry"
-      onAction={() => void onRefresh()}
+      onAction={onRefresh}
     />
   ) : items.length > 0 ? (
     <View>
@@ -166,7 +159,14 @@ export function JobsScreen() {
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
-      refreshControl={<RefreshControl key={modeKey} refreshing={refreshing} onRefresh={() => void onRefresh()} {...refreshProps} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <SplitGradientTitle
         prefix={APP_TEXT.jobs.titlePrefix}

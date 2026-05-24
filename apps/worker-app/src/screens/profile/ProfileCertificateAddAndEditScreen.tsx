@@ -12,6 +12,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { ProfileCertificateManagerScreenProps } from '@/types/screen-props';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
 import { SelectedCertificateFile } from '@/types/onboarding';
@@ -34,7 +35,6 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
   const [certificatesLoadError, setCertificatesLoadError] = useState(false);
@@ -42,12 +42,11 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
   const [selectedFileByCard, setSelectedFileByCard] = useState<Record<string, SelectedCertificateFile>>({});
 
-  const loadCertificates = useCallback(async (showLoader = true) => {
+  const loadCertificates = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
     try {
-      if (showLoader) {
+      if (showFullScreenLoader) {
         setScreenLoading(true);
-      } else {
-        setRefreshing(true);
       }
 
       const status = await getWorkerStatus<{
@@ -75,18 +74,18 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
       showError('Failed to load required certificates. Pull to refresh and try again.');
     } finally {
       setScreenLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadCertificates(true);
+    void loadCertificates({ showFullScreenLoader: true });
   }, [loadCertificates]);
 
-  const onRefresh = useCallback(() => {
+  const refreshCertificates = useCallback(async () => {
     if (screenLoading || isSubmitting) return;
-    void loadCertificates(false);
+    await loadCertificates({ showFullScreenLoader: false });
   }, [isSubmitting, loadCertificates, screenLoading]);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshCertificates);
 
   const onPickFile = async (card: WorkerCertificateCard) => {
     const cardId = getCertificateCardId(card);
@@ -161,7 +160,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
       }
       setSelectedFileByCard({});
       setSelectedTypeByCard({});
-      await loadCertificates(false);
+      await loadCertificates({ showFullScreenLoader: false });
     } catch {
       // Backend toast is shown by action layer.
     } finally {
@@ -212,7 +211,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
           title="Could not load certificates"
           description="Pull to refresh or tap retry."
           onAction={() => {
-            void loadCertificates(false);
+            void loadCertificates({ showFullScreenLoader: false });
           }}
         />
       ) : requiredCertificates.length === 0 ? (

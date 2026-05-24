@@ -12,6 +12,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import type { OnboardingCertificationScreenProps } from '@/types/screen-props';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
@@ -33,6 +34,7 @@ import { showError } from '@/utils/toast';
 
 export function OnboardingCertificationScreen({ navigation }: OnboardingCertificationScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const {
     getOnboardingRedirect,
     refreshOnboardingRoute,
@@ -40,9 +42,7 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
     completeCertificateUpload,
     skipCertificateUpload,
   } = useOnboardingContext();
-  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [screenLoading, setScreenLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pickingCardId, setPickingCardId] = useState<string | null>(null);
   const [certificatesLoadError, setCertificatesLoadError] = useState(false);
@@ -53,12 +53,11 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
   const [hasSubmittedThisSession, setHasSubmittedThisSession] = useState(false);
   const formLocked = isSubmitting || skipLoading;
 
-  const loadCertificates = useCallback(async (showLoader = true) => {
+  const loadCertificates = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
     try {
-      if (showLoader) {
+      if (showFullScreenLoader) {
         setScreenLoading(true);
-      } else {
-        setRefreshing(true);
       }
       const certificates = await getRequiredCertificates();
       setRequiredCertificates(certificates);
@@ -79,12 +78,11 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
       showError('Failed to load required certificates. Pull to refresh and try again.');
     } finally {
       setScreenLoading(false);
-      setRefreshing(false);
     }
   }, [getRequiredCertificates]);
 
   useEffect(() => {
-    void loadCertificates(true);
+    void loadCertificates({ showFullScreenLoader: true });
   }, [loadCertificates]);
 
   const onBackStep = () => {
@@ -94,18 +92,19 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
     }
   };
 
-  const onRefresh = useCallback(() => {
+  const refreshCertificates = useCallback(async () => {
     if (screenLoading || formLocked) return;
     setSelectedFileByCard({});
     setSelectedTypeByCard({});
     setHasSubmittedThisSession(false);
-    void Promise.all([
+    await Promise.all([
       refreshOnboardingRoute(true).catch(() => {
         showError('Could not refresh onboarding flags.');
       }),
-      loadCertificates(false),
+      loadCertificates({ showFullScreenLoader: false }),
     ]);
   }, [formLocked, loadCertificates, refreshOnboardingRoute, screenLoading]);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshCertificates);
 
   useEffect(() => {
     const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.certification);
@@ -279,9 +278,9 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
             containerClassName="mt-4"
             title="Could not load certificates"
             description="Pull to refresh or tap retry."
-            onAction={() => {
-              void loadCertificates(false);
-            }}
+              onAction={() => {
+                void loadCertificates({ showFullScreenLoader: false });
+              }}
           />
         ) : (
           <View className="mt-4">

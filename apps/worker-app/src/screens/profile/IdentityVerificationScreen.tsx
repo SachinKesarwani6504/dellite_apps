@@ -4,12 +4,15 @@ import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getUserAadhar, updateUserAadhar } from '@/actions';
 import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { LoadingState } from '@/components/common/LoadingState';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { UserAadharData } from '@/types/auth';
 import type { IdentityVerificationScreenProps, SelectedAadhaarFile } from '@/types/screen-props';
 import { APP_TEXT } from '@/utils/appText';
@@ -22,11 +25,11 @@ const AADHAAR_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
 export function IdentityVerificationScreen({ navigation }: IdentityVerificationScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [aadhar, setAadhar] = useState<UserAadharData | null>(null);
   const [frontFile, setFrontFile] = useState<SelectedAadhaarFile | null>(null);
   const [backFile, setBackFile] = useState<SelectedAadhaarFile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pickingSide, setPickingSide] = useState<'front' | 'back' | null>(null);
 
@@ -52,14 +55,7 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
     };
   }, [loadAadhar]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await loadAadhar();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadAadhar]);
+  const { refreshing, onRefresh } = usePullToRefresh(loadAadhar);
 
   const status = normalizeStatusLabel(aadhar?.status);
   const statusTone = statusColor(status);
@@ -142,7 +138,14 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: APP_LAYOUT.screenHorizontalPadding, paddingBottom: 20, paddingTop: 12 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void onRefresh(); }} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={() => { void onRefresh(); }}
+          {...refreshProps}
+        />
+      )}
     >
       {navigation.canGoBack() ? <DetailsTopBar onBack={() => navigation.goBack()} /> : null}
 
@@ -154,6 +157,12 @@ export function IdentityVerificationScreen({ navigation }: IdentityVerificationS
           showSparkle={false}
         />
       </View>
+
+      {loading && !aadhar ? (
+        <View className="mb-4">
+          <LoadingState minHeight={240} />
+        </View>
+      ) : null}
 
     
         <View

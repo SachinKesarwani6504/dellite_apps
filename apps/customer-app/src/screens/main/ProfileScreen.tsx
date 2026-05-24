@@ -6,13 +6,14 @@ import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-nat
 
 import { getCustomerBookingsSummary } from '@/actions/customerActions';
 import { AppImage } from '@/components/common/AppImage';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { CustomerBookingsSummary } from '@/types/api';
 import { PROFILE_SCREEN } from '@/types/screen-names';
 
@@ -24,6 +25,7 @@ const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
 
 export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { authState, logout, loading, refreshMe } = useAuthContext();
   const navigation = useNavigation();
   const user = authState.user;
@@ -36,7 +38,7 @@ export function ProfileScreen() {
       setSummary(DEFAULT_BOOKINGS_SUMMARY);
     }
   }, []);
-  const refreshControlProps = useBrandRefreshControl(async () => {
+  const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await Promise.all([refreshMe(), refreshSummary()]);
   });
 
@@ -87,22 +89,15 @@ export function ProfileScreen() {
     borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
   };
 
-  const handleRefresh = useCallback(async () => {
-    await Promise.all([refreshMe(), refreshSummary()]);
-  }, [refreshMe, refreshSummary]);
-
   return (
     <GradientScreen
       contentContainerStyle={{ paddingTop: 12, paddingBottom: 20 }}
       refreshControl={(
         <RefreshControl
-          refreshing={refreshControlProps.refreshing}
-          onRefresh={() => {
-            void handleRefresh();
-          }}
-          tintColor={refreshControlProps.tintColor}
-          colors={refreshControlProps.colors}
-          progressBackgroundColor={refreshControlProps.progressBackgroundColor}
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
         />
       )}
     >

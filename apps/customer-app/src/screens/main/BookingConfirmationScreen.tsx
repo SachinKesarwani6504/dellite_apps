@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
-import { useBrandRefreshControl } from '@/components/common/BrandRefreshControl';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { BOOKING_SERVICE_SUMMARY_CARD_MODE } from '@/types/component-types';
 import { CUSTOMER_BOOKING_TYPE, PRICE_TYPE } from '@/types/customer';
 import type { BookingConfirmationScreenProps } from '@/types/main-screens';
@@ -39,6 +40,7 @@ import { getPriceRowTitle } from '@/utils/pricing.utils';
 
 export function BookingConfirmationScreen({ navigation }: BookingConfirmationScreenProps) {
   const isDark = useColorScheme() === 'dark';
+  const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { locationState } = useAuthContext();
   const {
     bookingDraft,
@@ -155,7 +157,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
       setQuoteError(getErrorMessage(error, APP_TEXT.main.bookingFlow.quoteError));
     }
   }, [canRequestQuote, fetchBookingQuote, setBookingQuote]);
-  const refreshControlProps = useBrandRefreshControl(refreshQuote);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshQuote);
 
   useEffect(() => {
     createAttemptIdempotencyKeyRef.current = null;
@@ -224,7 +226,14 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   return (
     <GradientScreen
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 12 }}
-      refreshControl={<RefreshControl {...refreshControlProps} refreshing={refreshControlProps.refreshing} />}
+      refreshControl={(
+        <RefreshControl
+          key={modeKey}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...refreshProps}
+        />
+      )}
     >
       <DetailsTopBar onBack={() => navigation.goBack()} />
 

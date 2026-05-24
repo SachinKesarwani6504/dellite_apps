@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Platform, RefreshControlProps, useColorScheme } from 'react-native';
+import { Platform, RefreshControl, RefreshControlProps, useColorScheme } from 'react-native';
 import { uiColors } from '@/utils/theme';
 
 type BrandRefreshControlStyleProps = Pick<
@@ -27,5 +27,18 @@ export function useBrandRefreshControlProps(): BrandRefreshControlConfig {
       },
     }),
     [modeKey, spinnerColor, progressBackgroundColor],
+  );
+}
+
+type BrandRefreshControlProps = Pick<RefreshControlProps, 'refreshing' | 'onRefresh'>;
+
+export function BrandRefreshControl({ refreshing, onRefresh }: BrandRefreshControlProps) {
+  const { refreshProps } = useBrandRefreshControlProps();
+  return (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      {...refreshProps}
+    />
   );
 }

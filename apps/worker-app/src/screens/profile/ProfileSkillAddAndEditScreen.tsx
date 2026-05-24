@@ -11,6 +11,7 @@ import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillC
 import { WorkerSkillReviewList } from '@/components/worker-skills/WorkerSkillReviewList';
 import { WorkerSkillServicesList } from '@/components/worker-skills/WorkerSkillServicesList';
 import { WorkerSkillSubcategoryTabs } from '@/components/worker-skills/WorkerSkillSubcategoryTabs';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { createWorkerServices, getCategories } from '@/actions';
 import { CategoryService, ServiceCategory, ServiceSubcategory } from '@/types/auth';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -30,7 +31,6 @@ export function ProfileSkillAddAndEditScreen({ navigation, route }: Props) {
   void route;
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState<SkillStep>('select');
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
@@ -38,10 +38,10 @@ export function ProfileSkillAddAndEditScreen({ navigation, route }: Props) {
   const [selectedSubcategory, setSelectedSubcategory] = useState<ServiceSubcategory | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<Record<string, CategoryService>>({});
 
-  const loadCategories = useCallback(async (showLoader = true) => {
+  const loadCategories = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
+    const showFullScreenLoader = options?.showFullScreenLoader ?? true;
     try {
-      if (showLoader) setLoading(true);
-      else setRefreshing(true);
+      if (showFullScreenLoader) setLoading(true);
 
       const response = await getCategories({
         city: DEFAULT_CITY,
@@ -53,18 +53,18 @@ export function ProfileSkillAddAndEditScreen({ navigation, route }: Props) {
       setCategories(nextCategories);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadCategories(true);
+    void loadCategories({ showFullScreenLoader: true });
   }, [loadCategories]);
 
-  const onRefresh = useCallback(() => {
+  const refreshCategories = useCallback(async () => {
     if (loading || submitting) return;
-    void loadCategories(false);
+    await loadCategories({ showFullScreenLoader: false });
   }, [loadCategories, loading, submitting]);
+  const { refreshing, onRefresh } = usePullToRefresh(refreshCategories);
 
   const categoryList = useMemo(
     () => (Array.isArray(categories) ? categories : []),
