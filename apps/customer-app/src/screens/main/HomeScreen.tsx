@@ -46,6 +46,15 @@ import { getErrorMessage, palette, safeImageUrl, theme, titleCase, uiColors } fr
 const LOGO = require('@/assets/images/png/dellite_logo.png');
 const HOME_DOODLES = require('@/assets/images/png/home_page_doddles.png');
 
+// Keep customer/worker home spacing aligned for visual consistency.
+const HOME_SCREEN_SPACING = {
+  contentHorizontal: 16,
+  contentTop: 16,
+  contentBottom: 28,
+  headerBottom: 16,
+  bannerTopClassName: 'mt-4',
+} as const;
+
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
@@ -363,7 +372,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
   return (
     <GradientScreen
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28 }}
+      contentContainerStyle={{
+        paddingHorizontal: HOME_SCREEN_SPACING.contentHorizontal,
+        paddingTop: HOME_SCREEN_SPACING.contentTop,
+        paddingBottom: HOME_SCREEN_SPACING.contentBottom,
+      }}
       refreshControl={(
         <RefreshControl
           key={modeKey}
@@ -382,7 +395,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       )}
       floatingBackgroundTopInset={0}
     >
-        <View className="mb-4 flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between" style={{ marginBottom: HOME_SCREEN_SPACING.headerBottom }}>
           <AppImage source={LOGO} resizeMode="contain" style={{ width: 104, height: 30 }} />
           <View
             className="flex-row items-center rounded-full border px-3 py-1.5"
@@ -420,6 +433,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <>
             {homeBanners.length > 0 ? (
               <ImageOverlayBannerCarousel
+                containerClassName={HOME_SCREEN_SPACING.bannerTopClassName}
                 banners={homeBanners}
                 onPressBanner={(banner) => {
                   void handleBannerAction({

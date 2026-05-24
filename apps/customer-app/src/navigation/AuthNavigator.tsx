@@ -1,5 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
+import { LoadingState } from '@/components/common/LoadingState';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { OtpVerificationScreen } from '@/screens/auth/OtpVerificationScreen';
 import { PhoneLoginScreen } from '@/screens/auth/PhoneLoginScreen';
@@ -9,6 +9,10 @@ const Stack = createNativeStackNavigator();
 
 export function AuthNavigator() {
   const { authState } = useAuthContext();
+  if (authState.status === AUTH_STATUS.BOOTSTRAPPING) {
+    return <LoadingState minHeight={520} />;
+  }
+
   const initialRouteName = authState.status === AUTH_STATUS.OTP_SENT
     ? AUTH_SCREEN.OTP_VERIFICATION
     : AUTH_SCREEN.PHONE_LOGIN;

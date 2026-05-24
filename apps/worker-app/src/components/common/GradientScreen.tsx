@@ -5,6 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, theme, uiColors } from '@/utils/theme';
 
+type GradientVariant = 'app' | 'hero' | 'cta';
+
 type GradientScrollHandle = {
   scrollToEnd: (animated?: boolean) => void;
 };
@@ -18,6 +20,7 @@ type GradientScreenProps = PropsWithChildren<{
   stickyFooter?: ReactNode;
   stickyFooterContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: ScrollViewProps['refreshControl'];
+  variant?: GradientVariant;
   floatingBackground?: ReactNode;
   floatingBackgroundTopInset?: number;
   keyboardAware?: boolean;
@@ -36,6 +39,7 @@ export function GradientScreen({
   stickyFooter,
   stickyFooterContainerStyle,
   refreshControl,
+  variant,
   floatingBackground,
   floatingBackgroundTopInset = 0,
   keyboardAware = false,
@@ -45,6 +49,8 @@ export function GradientScreen({
 }: GradientScreenProps) {
   const isDark = useColorScheme() === 'dark';
   const insets = useSafeAreaInsets();
+  const resolvedUseGradient = variant ? true : useGradient;
+  const resolvedGradientColors = variant ? theme.gradients[variant] : gradientColors;
   const bottomSafeSpacerHeight = stickyFooter ? 0 : Math.max(insets.bottom + 36, 56);
   const setKeyboardAwareScrollRef = (ref: { scrollToEnd: (animated?: boolean) => void } | null) => {
     scrollRef?.(ref ? { scrollToEnd: (animated = true) => ref.scrollToEnd(animated) } : null);
@@ -98,7 +104,10 @@ export function GradientScreen({
         <View
           className="absolute bottom-0 left-0 right-0 border-t border-accent/30 px-4 pb-5 pt-3 dark:border-white/10"
           style={[
-            { backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95 },
+            {
+              backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95,
+              paddingBottom: Math.max(insets.bottom + 8, 20),
+            },
             stickyFooterContainerStyle,
           ]}
         >
@@ -110,10 +119,10 @@ export function GradientScreen({
   void keyboardVerticalOffset;
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
-      {useGradient ? (
+    <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
+      {resolvedUseGradient ? (
         <LinearGradient
-          colors={gradientColors}
+          colors={resolvedGradientColors}
           start={gradientStart}
           end={gradientEnd}
           style={{ flex: 1 }}
@@ -126,4 +135,3 @@ export function GradientScreen({
     </SafeAreaView>
   );
 }
-

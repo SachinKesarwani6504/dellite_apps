@@ -185,6 +185,8 @@ export function useAuthController(): AuthContextType {
 
     const bootstrap = async () => {
       try {
+        void initializeLocation();
+
         const [tokens, pendingPhoneToken] = await Promise.all([
           getAuthTokens(),
           getOnboardingPhoneToken(),
