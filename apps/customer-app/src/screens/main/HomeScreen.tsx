@@ -13,7 +13,7 @@ import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshCon
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
-import { ImageOverlayBanner } from '@/components/common/ImageOverlayBanner';
+import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -32,7 +32,9 @@ import type {
   CustomerHomeService,
 } from '@/types/customer';
 import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
 import { APP_TEXT } from '@/utils/appText';
+import { handleBannerAction } from '@/utils/banner-navigation';
 import {
   extractFooterOnlyHomePayload,
   isCustomerHomeCategory,
@@ -81,6 +83,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cityUnavailable, setCityUnavailable] = useState(false);
+  const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
   const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
 
@@ -101,8 +104,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       return;
     }
     try {
-      const data = await customerActions.getCustomerHome(homeQueryCity);
+      const [data, banners] = await Promise.all([
+        customerActions.getCustomerHome(homeQueryCity),
+        customerActions.getAppBanners({
+          placementKey: APP_BANNER_PLACEMENT_KEY.CUSTOMER_HOME,
+          city: homeQueryCity,
+        }),
+      ]);
       setHomeData(data);
+      setHomeBanners(Array.isArray(banners) ? banners : []);
       setFailedPopularImages({});
     } catch (fetchError) {
       if (fetchError instanceof ApiError && fetchError.statusCode === 404) {
@@ -121,6 +131,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       } else {
         setError(getErrorMessage(fetchError, APP_TEXT.main.homeLoadError));
       }
+      setHomeBanners([]);
     } finally {
       setLoading(false);
     }
@@ -293,23 +304,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     return null;
   }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
 
-  const headerTitle = homeData?.header?.title ?? 'Home';
-  const headerSubtitle = homeData?.header?.subtitle ?? '';
-  const currentCity = useMemo(() => {
-    const subtitle = headerSubtitle.trim();
-    const cityMatch = subtitle.match(/\bin\s+([A-Za-z\s]+)$/i);
-    if (cityMatch?.[1]?.trim()) {
-      return cityMatch[1].trim();
-    }
-    return selectedCity;
-  }, [headerSubtitle, selectedCity]);
-  const cityLabel = currentCity || resolvedLocation.displayCity || 'Locating...';
+  const cityLabel = selectedCity || resolvedLocation.displayCity || 'Locating...';
   const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
-  const shouldShowBanner = Boolean(
-    (homeData?.header?.title && homeData.header.title.trim().length > 0)
-    || (homeData?.header?.subtitle && homeData.header.subtitle.trim().length > 0)
-    || (homeData?.header?.bannerImageUrl && homeData.header.bannerImageUrl.trim().length > 0),
-  );
   const shouldShowContent = !cityUnavailable && contentSections.length > 0;
 
   useEffect(() => {
@@ -322,14 +318,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       formattedAddress,
       resolvedLocation,
       selectedCity,
-      cityLabel,
       initialized,
       locationLoading,
       locationRefreshing,
     });
-  }, [city, cityLabel, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
+  }, [city, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
 
-  const isHomePayloadEmpty = !homeData || (!shouldShowBanner && !shouldShowContent && !homeData.footer);
+  const isHomePayloadEmpty = !homeData || (!shouldShowContent && !homeData.footer);
   const homeFallbackContent = !homeData && !loading ? (
     cityUnavailable ? (
       <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
@@ -423,12 +418,16 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
         {homeData ? (
           <>
-            {shouldShowBanner ? (
-              <ImageOverlayBanner
-                imageUrl={homeData.header?.bannerImageUrl}
-                overline="Discover"
-                title={headerTitle}
-                subtitle={headerSubtitle}
+            {homeBanners.length > 0 ? (
+              <ImageOverlayBannerCarousel
+                banners={homeBanners}
+                onPressBanner={(banner) => {
+                  void handleBannerAction({
+                    action: banner.action,
+                    navigation,
+                    city: selectedCity,
+                  });
+                }}
               />
             ) : null}
 
