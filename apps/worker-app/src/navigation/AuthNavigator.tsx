@@ -10,9 +10,9 @@ import { AUTH_SCREENS } from '@/types/screen-names';
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator() {
-  const { status, loading } = useAuthContext();
+  const { status, bootstrappingLoading } = useAuthContext();
 
-  if (status === AuthStatus.BOOTSTRAPPING || loading) {
+  if (status === AuthStatus.BOOTSTRAPPING || bootstrappingLoading) {
     return <LoadingState minHeight={520} />;
   }
 

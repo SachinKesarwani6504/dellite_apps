@@ -1,14 +1,16 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { JobDetailsNavigator } from '@/navigation/JobDetailsNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
+import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
 import { ROOT_SCREENS } from '@/types/screen-names';
@@ -22,8 +24,10 @@ function BootstrapScreenFallback() {
 }
 
 export function AppNavigator() {
-  const { status } = useAuthContext();
+  const { status, locationState } = useAuthContext();
   const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
+  const { isOffline, initialized, refresh } = useNetworkStatus();
+  const wasOfflineRef = useRef(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -43,6 +47,9 @@ export function AppNavigator() {
   );
 
   return (
+    initialized && isOffline ? (
+      <OfflineScreen onRetry={refresh} />
+    ) : (
     <NavigationContainer theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {status === AuthStatus.BOOTSTRAPPING || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT) ? (
@@ -62,5 +69,19 @@ export function AppNavigator() {
         )}
       </RootStack.Navigator>
     </NavigationContainer>
+    )
   );
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (isOffline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+
+    if (wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      void locationState.initializeLocation({ forceRefresh: true });
+    }
+  }, [initialized, isOffline, locationState]);
 }

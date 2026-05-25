@@ -90,6 +90,7 @@ export function useAuthController(): AuthContextType {
   const phoneTokenRef = useRef<string | null>(null);
 
   const loading = pendingActionCount > 0;
+  const bootstrappingLoading = status === AuthStatus.BOOTSTRAPPING;
 
   useEffect(() => {
     statusRef.current = status;
@@ -432,6 +433,7 @@ export function useAuthController(): AuthContextType {
     me,
     status,
     loading,
+    bootstrappingLoading,
     phone,
     isAuthenticated: status === AuthStatus.AUTHENTICATED,
     locationState,
@@ -448,6 +450,7 @@ export function useAuthController(): AuthContextType {
     me,
     status,
     loading,
+    bootstrappingLoading,
     phone,
     locationState,
     onboardingPrefill,
