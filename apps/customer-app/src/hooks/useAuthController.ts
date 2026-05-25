@@ -220,6 +220,7 @@ export function useAuthController(): AuthContextType {
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthStatus> | null>(null);
   const loading = pendingActionCount > 0;
+  const bootstrappingLoading = authState.status === AUTH_STATUS.BOOTSTRAPPING;
 
   const runWithActionState = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
     setPendingActionCount((count) => count + 1);
@@ -563,6 +564,7 @@ export function useAuthController(): AuthContextType {
     () => ({
       authState,
       loading,
+      bootstrappingLoading,
       locationState,
       sendOtpCode: sendOtpCodeWithState,
       refreshMe: refreshMeWithState,
@@ -576,6 +578,7 @@ export function useAuthController(): AuthContextType {
     [
       authState,
       loading,
+      bootstrappingLoading,
       locationState,
       sendOtpCodeWithState,
       refreshMeWithState,

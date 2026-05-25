@@ -8,8 +8,8 @@ import { AUTH_SCREEN } from '@/utils';
 const Stack = createNativeStackNavigator();
 
 export function AuthNavigator() {
-  const { authState } = useAuthContext();
-  if (authState.status === AUTH_STATUS.BOOTSTRAPPING) {
+  const { authState, bootstrappingLoading } = useAuthContext();
+  if (bootstrappingLoading || authState.status === AUTH_STATUS.BOOTSTRAPPING) {
     return <LoadingState minHeight={520} />;
   }
 

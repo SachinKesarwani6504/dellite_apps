@@ -1,5 +1,4 @@
 import * as ExpoLocation from 'expo-location';
-import { normalizeCityName } from '@/utils/location';
 import {
   CURRENT_POSITION_OPTIONS,
   GOOGLE_GEOCODE_ENDPOINT,
@@ -27,19 +26,6 @@ function logLocationDebug(message: string, payload?: unknown) {
 function normalizeNullableText(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-function normalizeNullableCity(value: string | null | undefined) {
-  const normalized = normalizeCityName(value);
-  return normalized.length > 0 ? normalized : null;
-}
-
-function logReverseGeocodeCity(rawCity: string | null, normalizedCity: string | null) {
-  if (!__DEV__) return;
-  // eslint-disable-next-line no-console
-  console.log('Raw reverse geocode city:', rawCity);
-  // eslint-disable-next-line no-console
-  console.log('Normalized city:', normalizedCity);
 }
 
 function toPermissionStatus(status: ExpoLocation.PermissionStatus): LocationPermissionStatus {
@@ -90,35 +76,6 @@ export async function getCurrentCoordinates(): Promise<LocationCoordinates> {
   return coordinates;
 }
 
-async function resolveWithExpoReverseGeocode(nextCoordinates: LocationCoordinates): Promise<NormalizedLocation> {
-  const reverse = await ExpoLocation.reverseGeocodeAsync(nextCoordinates);
-  const first = Array.isArray(reverse) ? reverse[0] : null;
-  const rawCity = normalizeNullableText(first?.city) ?? normalizeNullableText(first?.district) ?? normalizeNullableText(first?.subregion);
-  const city = normalizeNullableCity(rawCity);
-  const rawLocality = normalizeNullableText(first?.city) ?? normalizeNullableText(first?.name);
-  const locality = rawLocality === rawCity ? city : rawLocality;
-  const state = normalizeNullableText(first?.region);
-  const country = normalizeNullableText(first?.country);
-  const postalCode = normalizeNullableText(first?.postalCode);
-  const street = [first?.street, first?.name].filter(Boolean).join(', ').trim();
-  const formattedAddress = street || city || state || null;
-
-  logReverseGeocodeCity(rawCity, city);
-
-  const normalized: NormalizedLocation = {
-    ...nextCoordinates,
-    city,
-    locality,
-    state,
-    country,
-    postalCode,
-    formattedAddress,
-  };
-
-  logLocationDebug('reverseGeocode:expo', normalized);
-  return normalized;
-}
-
 export async function getCurrentLocationDetails(
   coordinates?: LocationCoordinates,
 ): Promise<NormalizedLocation> {
@@ -126,8 +83,8 @@ export async function getCurrentLocationDetails(
   const apiKey = ENV.GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    logLocationDebug('reverseGeocode:google:missingApiKey -> fallback expo');
-    return resolveWithExpoReverseGeocode(nextCoordinates);
+    logLocationDebug('reverseGeocode:google:missingApiKey');
+    throw new Error(LOCATION_ERRORS.missingGoogleApiKey);
   }
 
   const params = new URLSearchParams({
@@ -162,8 +119,8 @@ export async function getCurrentLocationDetails(
     logLocationDebug('reverseGeocode:google', normalized);
     return normalized;
   } catch (error) {
-    logLocationDebug('reverseGeocode:google:failed -> fallback expo', error);
-    return resolveWithExpoReverseGeocode(nextCoordinates);
+    logLocationDebug('reverseGeocode:google:failed', error);
+    throw new Error(LOCATION_ERRORS.reverseGeocodeFailed);
   }
 }
 

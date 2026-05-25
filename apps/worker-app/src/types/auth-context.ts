@@ -8,6 +8,7 @@ export type AuthContextType = {
   onboardingPrefill: WorkerOnboardingPrefillData | null;
   status: AuthStatus;
   loading: boolean;
+  bootstrappingLoading: boolean;
   phone: string;
   isAuthenticated: boolean;
   locationState: LocationContextValue;

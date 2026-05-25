@@ -5,6 +5,7 @@ import type { LocationContextValue } from '@/modules/location/types/location.typ
 export type AuthContextType = {
   authState: AuthState;
   loading: boolean;
+  bootstrappingLoading: boolean;
   locationState: LocationContextValue;
   sendOtpCode: (phone: string) => Promise<void>;
   refreshMe: () => Promise<AuthStatus>;

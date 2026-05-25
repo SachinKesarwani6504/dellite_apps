@@ -1,4 +1,12 @@
 export const APP_TEXT = {
+  network: {
+    offlineTitle: 'No internet connection',
+    offlineSubtitle: 'Turn on mobile data or Wi-Fi to continue.',
+    openSettingsButton: 'Turn On Data or Wi-Fi',
+    retryButton: 'Try Again',
+    retryStillOffline: 'Still offline. Please turn on internet and try again.',
+    retryBackOnline: 'You are back online.',
+  },
   auth: {
     loginTitle: 'Welcome to Dellite',
     loginSubtitle: 'Continue with your phone number.',

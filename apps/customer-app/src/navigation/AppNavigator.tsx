@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useColorScheme } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,19 +8,23 @@ import * as SplashScreen from 'expo-splash-screen';
 import { BookingFlowProvider } from '@/contexts/BookingFlowContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { BookingDetailsNavigator } from '@/navigation/BookingDetailsNavigator';
 import { BookingFlowNavigator } from '@/navigation/BookingFlowNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
+import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AUTH_STATUS } from '@/types/auth';
 import { palette, ROOT_SCREEN, theme, uiColors } from '@/utils';
 
 const RootStack = createNativeStackNavigator();
 
 export function AppNavigator() {
-  const { authState } = useAuthContext();
+  const { authState, locationState } = useAuthContext();
   const { isOnboardingActive } = useOnboardingContext();
+  const { isOffline, initialized, refresh } = useNetworkStatus();
+  const wasOfflineRef = useRef(false);
   const isDark = useColorScheme() === 'dark';
   const needsOnboardingSnapshot =
     (authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME)
@@ -36,11 +40,28 @@ export function AppNavigator() {
     });
   }, [authState.status, needsOnboardingSnapshot]);
 
+  useEffect(() => {
+    if (!initialized) return;
+    if (isOffline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+
+    if (wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      void locationState.initializeLocation({ forceRefresh: true });
+    }
+  }, [initialized, isOffline, locationState]);
+
   if (
     authState.status === AUTH_STATUS.BOOTSTRAPPING
     || needsOnboardingSnapshot
   ) {
     return <View style={{ flex: 1, backgroundColor: isDark ? palette.dark.background : palette.light.background }} />;
+  }
+
+  if (initialized && isOffline) {
+    return <OfflineScreen onRetry={refresh} />;
   }
 
   const navigationTheme = {
