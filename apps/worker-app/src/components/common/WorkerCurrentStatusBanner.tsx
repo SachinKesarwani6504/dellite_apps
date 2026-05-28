@@ -20,15 +20,11 @@ export function WorkerCurrentStatusBanner({ currentStatus }: WorkerCurrentStatus
       className="mt-4 overflow-hidden rounded-ui-lg border"
       style={{
         borderColor: tone.color,
+        borderTopWidth: 4,
+        borderTopColor: tone.color,
         backgroundColor: isDark ? uiColors.surface.cardDefaultDark : palette.light.card,
       }}
     >
-      <View
-        className="h-1.5"
-        style={{
-          backgroundColor: tone.color,
-        }}
-      />
       <View className="px-4 py-3">
         <View className="flex-row items-center">
           <View className="mr-3 flex-row items-center">

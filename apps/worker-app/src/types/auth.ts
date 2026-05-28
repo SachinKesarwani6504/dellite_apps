@@ -434,6 +434,37 @@ export interface WorkerHomeNearbyJob {
   city?: string;
   payout?: number;
   imageUrl?: string;
+  booking?: {
+    id?: string;
+    bookingCode?: string;
+    bookingType?: string;
+    bookingStatus?: string;
+    scheduledStartAt?: string | null;
+    totalAmount?: string | number | null;
+    bookingCommissionAmount?: string | number | null;
+  };
+  services?: Array<{
+    id?: string;
+    serviceName?: string;
+    category?: string;
+    subCategory?: string;
+    subcategoryCardImageUrl?: string;
+  }>;
+  address?: {
+    id?: string;
+    addressLine1?: string;
+    area?: string;
+    district?: string;
+    state?: string;
+    country?: string;
+    pincode?: string;
+    latitude?: string;
+    longitude?: string;
+  };
+  invite?: {
+    id?: string;
+    inviteStatus?: string;
+  };
 }
 
 export interface WorkerHomeFooter {
@@ -448,5 +479,6 @@ export interface WorkerHomeData {
   headerBanner?: WorkerHomeHeaderBanner;
   todayStats?: WorkerHomeTodayStats;
   availableNearbyJobs?: WorkerHomeNearbyJob[];
+  isMoreThanThreeAvailableJobs?: boolean;
   footer?: WorkerHomeFooter;
 }

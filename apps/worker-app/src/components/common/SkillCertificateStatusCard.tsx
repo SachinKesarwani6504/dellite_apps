@@ -37,10 +37,11 @@ export function SkillCertificateStatusCard({
       className="mb-3 overflow-hidden rounded-2xl border"
       style={{
         borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+        borderTopWidth: 4,
+        borderTopColor: statusColor,
         backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.overlayLight95,
       }}
     >
-      <View className="h-1.5" style={{ backgroundColor: statusColor }} />
       <View className="p-3">
         <View className="flex-row items-start justify-between">
           <View className="flex-1 pr-2">

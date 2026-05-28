@@ -1,12 +1,13 @@
 import { Text, View, useColorScheme } from 'react-native';
-import { theme, uiColors } from '@/utils/theme';
+import { getWorkerStatusBadgeColors, theme, uiColors, workerStatusBadgeToneMap } from '@/utils/theme';
 
-type StatusBadgeType = 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'PENDING';
+type StatusBadgeType = keyof typeof workerStatusBadgeToneMap;
 
 type StatusBadgeProps = {
   status: StatusBadgeType;
   label?: string;
   dotColor?: string;
+  showDot?: boolean;
 };
 
 const STATUS_LABELS: Record<StatusBadgeType, string> = {
@@ -14,29 +15,29 @@ const STATUS_LABELS: Record<StatusBadgeType, string> = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   PENDING: 'Pending',
+  NEW_JOB_REQUEST: 'New Job Request',
+  VIEWED: 'Viewed',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+  EXPIRED: 'Expired',
 };
 
-const STATUS_COLORS: Record<StatusBadgeType, { light: string; dark: string; text: string }> = {
-  ONGOING: { light: uiColors.status.successLight, dark: uiColors.status.successDark, text: uiColors.status.successText },
-  COMPLETED: { light: uiColors.status.infoLight, dark: uiColors.status.infoDark, text: uiColors.status.infoText },
-  CANCELLED: { light: uiColors.status.dangerLight, dark: uiColors.status.dangerDark, text: uiColors.status.dangerText },
-  PENDING: { light: uiColors.status.warningLight, dark: uiColors.status.warningDark, text: uiColors.status.warningText },
-};
-
-export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {
+export function StatusBadge({ status, label, dotColor, showDot = true }: StatusBadgeProps) {
   const isDark = useColorScheme() === 'dark';
-  const colors = STATUS_COLORS[status];
+  const colors = getWorkerStatusBadgeColors(status, isDark);
   const textColor = isDark ? theme.colors.accent : colors.text;
   return (
     <View
       className="flex-row items-center rounded-full px-3 py-1"
       style={{
-        backgroundColor: isDark ? colors.dark : colors.light,
+        backgroundColor: colors.background,
         borderWidth: 1,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.status.subtleBorderLight,
       }}
     >
-      <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? textColor }} />
+      {showDot ? (
+        <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? textColor }} />
+      ) : null}
       <Text className="text-xs font-bold" style={{ color: textColor }}>
         {label ?? STATUS_LABELS[status]}
       </Text>
@@ -45,6 +46,6 @@ export function StatusBadge({ status, label, dotColor }: StatusBadgeProps) {
 }
 
 export function getStatusBadgeTextColor(status: StatusBadgeType, isDark: boolean) {
-  const colors = STATUS_COLORS[status];
+  const colors = getWorkerStatusBadgeColors(status, isDark);
   return isDark ? theme.colors.accent : colors.text;
 }

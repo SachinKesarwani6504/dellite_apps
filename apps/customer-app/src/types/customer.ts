@@ -62,6 +62,7 @@ export type CustomerImageUsageType =
   | 'WORKER_HOME_BANNER';
 
 export const PRICE_TYPE = {
+  FIXED: 'FIXED',
   VISIT: 'VISIT',
   HOURLY: 'HOURLY',
   DAILY: 'DAILY',
@@ -182,6 +183,13 @@ export type CustomerHomeService = {
     description?: string;
     iconText?: string;
   };
+  priceOptions?: Array<{
+    id?: string;
+    title?: string;
+    price?: number | string;
+    priceType?: PriceType;
+    priceComputationMode?: PriceComputationMode;
+  }>;
 };
 
 export type CustomerBookableService = CustomerCatalogService & {

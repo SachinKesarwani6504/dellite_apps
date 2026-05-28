@@ -113,7 +113,7 @@ export function getBookingUserName(user: BookingDetailsUser | null | undefined) 
     .map(value => toLabel(value))
     .filter((value): value is string => Boolean(value))
     .join(' ');
-  return fullName || user?.phone || 'Not assigned';
+  return fullName || 'Not assigned';
 }
 
 export function getBookingUserInitial(user: BookingDetailsUser | null | undefined) {
@@ -128,18 +128,8 @@ export function getBookingDetailsWorkerCardDisplay(details: BookingDetailsRespon
   return {
     name,
     initial: name ? getBookingUserInitial(user) : 'W',
-    phone: toLabel(user?.phone),
     profileImageUrl: toLabel(user?.profileImage?.url),
   };
-}
-
-export function canCallBookingWorker(details: BookingDetailsResponse | null | undefined) {
-  if (!details?.workerInfo?.id) return false;
-  const bookingStatus = details.booking.bookingStatus;
-  return bookingStatus !== 'CANCELLED'
-    && bookingStatus !== 'EXPIRED'
-    && bookingStatus !== 'CREATED'
-    && bookingStatus !== 'SEARCHING';
 }
 
 export function getBookingWorkerId(details: BookingDetailsResponse | null | undefined) {

@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Pressable,
   RefreshControl,
   Text,
   View,
@@ -24,7 +26,7 @@ import { resolveProductLocation } from '@/modules/location-intelligence';
 import type { CustomerImageUsageType, CustomerServiceListItem } from '@/types/customer';
 import type { AllServicesScreenProps } from '@/types/main-screens';
 import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
-import { pickServiceImage } from '@/utils/booking-catalog';
+import { getServiceCardPriceTypeLabel, getServiceCardPricingLabel, pickServiceImage } from '@/utils/booking-catalog';
 import { createBookingFlowService, getErrorMessage } from '@/utils';
 import { safeImageUrl, titleCase } from '@/utils/home';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -134,6 +136,15 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   }, [debouncedSearch, runFetch, selectedCity]);
 
   const listEmpty = !loading && !error && items.length === 0;
+  const normalizedSearchText = searchText.trim();
+  const normalizedDebouncedSearch = debouncedSearch.trim();
+  const isSearchFetchLoading = (
+    normalizedSearchText.length > 0
+    && normalizedDebouncedSearch === normalizedSearchText
+    && loading
+    && !loadingMore
+    && !refreshing
+  );
 
   const cardGap = 12;
   const horizontalPadding = 16;
@@ -156,6 +167,8 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
           <View key={item.id} style={{ marginBottom: 12 }}>
             <ServiceHeroCard
               title={item.name}
+              subtitle={getServiceCardPricingLabel(item)}
+              topRightPillLabel={getServiceCardPriceTypeLabel(item)}
               imageUrl={pickServiceImage(item)}
               width={serviceCardWidth}
               height={176}
@@ -235,14 +248,40 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
         </View>
 
         <View className="mt-3">
-          <AppInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder={APP_TEXT.main.allServices.searchPlaceholder}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
-          />
+          <View>
+            <AppInput
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder={APP_TEXT.main.allServices.searchPlaceholder}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              style={{ paddingRight: 42 }}
+            />
+            {normalizedSearchText.length > 0 ? (
+              <View className="absolute inset-y-0 right-3 items-center justify-center">
+                {isSearchFetchLoading ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      setSearchText('');
+                      setDebouncedSearch('');
+                    }}
+                    className="h-7 w-7 items-center justify-center rounded-full"
+                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95 }}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={16}
+                      color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
+                    />
+                  </Pressable>
+                )}
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 

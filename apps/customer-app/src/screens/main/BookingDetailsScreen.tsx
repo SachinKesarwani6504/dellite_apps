@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
-import { Linking, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { BookingDetailsAssignmentStatusTab } from '@/components/booking-details/BookingDetailsAssignmentStatusTab';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
 import { BookingDetailsLiveLocationTab } from '@/components/booking-details/BookingDetailsLiveLocationTab';
@@ -14,6 +14,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
 import { AppImage } from '@/components/common/AppImage';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { BookingDetailsProvider, useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { BOOKING_STATUS } from '@/types/booking';
@@ -21,7 +22,6 @@ import type { BookingDetailsTabValue } from '@/types/booking-details';
 import type { BookingDetailsScreenProps } from '@/types/main-screens';
 import { APP_TEXT } from '@/utils/appText';
 import {
-  formatBookingMoney,
   getBookingDetailsHeaderSubtitle,
   getBookingDetailsOverviewChips,
   getBookingDetailsOverviewRows,
@@ -64,6 +64,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
     elevation: 3,
   };
   const mutedTextColor = isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight;
+  const headerBookingStatus = details?.booking.bookingStatus ?? BOOKING_STATUS.SEARCHING;
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -156,9 +157,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                 </View>
               </View>
               <View className="flex-row items-center">
-                <Text className="text-lg font-extrabold text-primary">
-                  {formatBookingMoney(details.booking.totalAmount)}
-                </Text>
+                <StatusBadge status={headerBookingStatus} showDot={false} />
               </View>
             </View>
 
@@ -286,15 +285,6 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                   </Text>
                 </View>
 
-                {workerUser.phone ? (
-                  <Pressable
-                    onPress={() => void Linking.openURL(`tel:${workerUser.phone}`)}
-                    className="h-10 w-10 items-center justify-center rounded-full"
-                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.accentSoft20 }}
-                  >
-                    <Ionicons name="call-outline" size={18} color={theme.colors.primary} />
-                  </Pressable>
-                ) : null}
               </View>
             );
           })()}

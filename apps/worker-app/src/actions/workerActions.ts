@@ -209,13 +209,65 @@ function normalizeWorkerHomeTodayStats(value: unknown): WorkerHomeTodayStats | u
 function normalizeWorkerHomeNearbyJob(value: unknown): WorkerHomeNearbyJob | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
+  const rawBooking = raw.booking && typeof raw.booking === 'object'
+    ? raw.booking as Record<string, unknown>
+    : null;
+  const rawServices = Array.isArray(raw.services) ? raw.services : [];
+  const rawAddress = raw.address && typeof raw.address === 'object'
+    ? raw.address as Record<string, unknown>
+    : null;
+  const rawInvite = raw.invite && typeof raw.invite === 'object'
+    ? raw.invite as Record<string, unknown>
+    : null;
+
+  const normalizedServices = rawServices
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'))
+    .map(entry => ({
+      id: toOptionalString(entry.id),
+      serviceName: toOptionalString(entry.serviceName ?? entry.service_name),
+      category: toOptionalString(entry.category),
+      subCategory: toOptionalString(entry.subCategory ?? entry.sub_category),
+      subcategoryCardImageUrl: toOptionalString(entry.subcategoryCardImageUrl ?? entry.subcategory_card_image_url),
+    }));
+
+  const firstService = normalizedServices[0];
+  const imageFromSubcategory = firstService?.subcategoryCardImageUrl;
+  const inferredTitle = toOptionalString(firstService?.subCategory ?? firstService?.category);
+
   return {
-    id: toOptionalString(raw.id),
-    title: toOptionalString(raw.title ?? raw.name ?? raw.serviceName ?? raw.service_name),
+    id: toOptionalString(raw.id) ?? toOptionalString(rawBooking?.id),
+    title: toOptionalString(raw.title ?? raw.name ?? raw.serviceName ?? raw.service_name) ?? inferredTitle,
     distanceKm: toOptionalNumber(raw.distanceKm ?? raw.distance_km),
-    city: toOptionalString(raw.city),
-    payout: toOptionalNumber(raw.payout),
-    imageUrl: toOptionalString(raw.imageUrl ?? raw.image_url),
+    city: toOptionalString(raw.city) ?? toOptionalString(rawBooking?.city && typeof rawBooking.city === 'object' ? (rawBooking.city as Record<string, unknown>).name : undefined),
+    payout: toOptionalNumber(raw.payout) ?? toOptionalNumber(rawBooking?.totalAmount),
+    imageUrl: imageFromSubcategory ?? toOptionalString(raw.imageUrl ?? raw.image_url),
+    booking: rawBooking ? {
+      id: toOptionalString(rawBooking.id),
+      bookingCode: toOptionalString(rawBooking.bookingCode ?? rawBooking.booking_code),
+      bookingType: toOptionalString(rawBooking.bookingType ?? rawBooking.booking_type),
+      bookingStatus: toOptionalString(rawBooking.bookingStatus ?? rawBooking.booking_status),
+      scheduledStartAt: toOptionalString(rawBooking.scheduledStartAt ?? rawBooking.scheduled_start_at) ?? null,
+      totalAmount: (typeof rawBooking.totalAmount === 'string' || typeof rawBooking.totalAmount === 'number') ? rawBooking.totalAmount : null,
+      bookingCommissionAmount: (typeof rawBooking.bookingCommissionAmount === 'string' || typeof rawBooking.bookingCommissionAmount === 'number')
+        ? rawBooking.bookingCommissionAmount
+        : null,
+    } : undefined,
+    services: normalizedServices,
+    address: rawAddress ? {
+      id: toOptionalString(rawAddress.id),
+      addressLine1: toOptionalString(rawAddress.addressLine1 ?? rawAddress.address_line1),
+      area: toOptionalString(rawAddress.area),
+      district: toOptionalString(rawAddress.district),
+      state: toOptionalString(rawAddress.state),
+      country: toOptionalString(rawAddress.country),
+      pincode: toOptionalString(rawAddress.pincode),
+      latitude: toOptionalString(rawAddress.latitude),
+      longitude: toOptionalString(rawAddress.longitude),
+    } : undefined,
+    invite: rawInvite ? {
+      id: toOptionalString(rawInvite.id),
+      inviteStatus: toOptionalString(rawInvite.inviteStatus ?? rawInvite.invite_status),
+    } : undefined,
   };
 }
 
@@ -261,6 +313,7 @@ function normalizeWorkerHomeData(value: unknown): WorkerHomeData {
     headerBanner: normalizeWorkerHomeHeaderBanner(raw.headerBanner ?? raw.header_banner),
     todayStats: normalizeWorkerHomeTodayStats(raw.todayStats ?? raw.today_stats),
     availableNearbyJobs,
+    isMoreThanThreeAvailableJobs: toOptionalBoolean(raw.isMoreThanThreeAvailableJobs ?? raw.is_more_than_three_available_jobs) ?? false,
     footer: normalizeWorkerHomeFooter(raw.footer),
   };
 }

@@ -9,12 +9,12 @@ import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNoti
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
-import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
-import { NearbyJobCard } from '@/components/common/NearbyJobCard';
+import { WorkerNearbyGoldenJobCard } from '@/components/common/WorkerNearbyGoldenJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { LoadingState } from '@/components/common/LoadingState';
 import { AppImage } from '@/components/common/AppImage';
+import { SectionHeaderRow } from '@/components/common/SectionHeaderRow';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
@@ -22,6 +22,7 @@ import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { WorkerHomeData } from '@/types/auth';
 import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
+import { JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import {
   handleBannerAction,
   formatInrCurrency,
@@ -46,7 +47,7 @@ const HOME_SCREEN_SPACING = {
 } as const;
 
 export function HomeScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { locationState, user, me, isAuthenticated } = useAuthContext();
@@ -342,35 +343,44 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <View className="mt-4">
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{APP_TEXT.home.nearbyJobsTitle}</Text>
-            {nearbyJobs.length === 0 ? (
-              <ListEmptyState
-                containerClassName="mt-3"
-                icon="briefcase-outline"
-                title={APP_TEXT.home.nearbyJobsEmpty}
-                description="New jobs will appear here when available."
+          {nearbyJobs.length > 0 ? (
+            <View className="mt-4">
+              <SectionHeaderRow
+                title={APP_TEXT.home.nearbyJobsTitle}
+                onPressAction={homeData.isMoreThanThreeAvailableJobs ? () => {
+                  navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
+                    screen: MAIN_TAB_SCREENS.jobs,
+                    params: {
+                      screen: JOB_STACK_SCREENS.home,
+                      params: {
+                        initialTab: 'NEW_JOBS',
+                        initialTabRequestKey: Date.now(),
+                      },
+                    },
+                  });
+                } : undefined}
               />
-            ) : (
               <View className="mt-2 gap-3">
                 {nearbyJobs.map((job, index) => {
                   const id = job.id ?? `${job.title ?? APP_TEXT.home.jobFallback}-${index}`;
-                  const title = job.title ?? APP_TEXT.home.jobFallback;
+                  const jobId = job.booking?.id ?? job.id;
                   return (
-                    <NearbyJobCard
+                    <WorkerNearbyGoldenJobCard
                       key={id}
-                      title={title}
-                      city={job.city}
-                      distanceKm={job.distanceKm}
-                      payoutLabel={formatInrCurrency(job.payout)}
-                      imageUrl={job.imageUrl}
+                      item={job}
                       isDark={isDark}
+                      onPress={jobId ? () => {
+                        navigation.navigate(ROOT_SCREENS.jobDetailsNavigator, {
+                          screen: JOB_STACK_SCREENS.details,
+                          params: { jobId, inviteStatus: job.invite?.inviteStatus ?? null },
+                        });
+                      } : undefined}
                     />
                   );
                 })}
               </View>
-            )}
-          </View>
+            </View>
+          ) : null}
 
           {homeData.footer ? (
             <View className="mt-6">

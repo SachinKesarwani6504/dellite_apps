@@ -1,4 +1,3 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { customerActions } from '@/actions';
@@ -6,33 +5,28 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
-import type {
-  CategoryCatalogUsageTypes,
-  CategoryServicesScreenControllerArgs,
-  CategoryServicesScreenControllerValue,
-} from '@/types/main-screens';
-import type {
-  CustomerBookableService,
-  CustomerCatalogSubcategory,
-  CustomerHomeCategory,
-} from '@/types/customer';
-import { HOME_SCREEN } from '@/types/screen-names';
+import type { CustomerBookableService, CustomerCatalogSubcategory, CustomerHomeCategory, CustomerImageUsageType } from '@/types/customer';
 import { APP_TEXT } from '@/utils/appText';
 import { createBookingFlowService, getErrorMessage, safeImageUrl, titleCase } from '@/utils';
 
-const CATALOG_USAGE_TYPES: CategoryCatalogUsageTypes = ['MAIN', 'ICON'];
+const CATALOG_USAGE_TYPES: CustomerImageUsageType[] = ['MAIN', 'ICON'];
 
 function toBookableServices(source?: CustomerCatalogSubcategory | null): CustomerBookableService[] {
   if (!Array.isArray(source?.services)) return [];
   return source.services as CustomerBookableService[];
 }
 
-export function useCategoryServicesScreenController(
-  args: CategoryServicesScreenControllerArgs,
-): CategoryServicesScreenControllerValue {
+type UseServiceSelectScreenControllerArgs = {
+  categoryId?: string;
+  subcategoryId?: string;
+  serviceId?: string;
+  city?: string;
+};
+
+export function useServiceSelectScreenController(args: UseServiceSelectScreenControllerArgs) {
   const isDark = useColorScheme() === 'dark';
-  const { route } = args;
   const { locationState } = useAuthContext();
+  const { selectedServices, setCategory, setSubcategory, toggleService } = useBookingFlowContext();
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city: locationState.city,
     locality: locationState.locality,
@@ -48,68 +42,27 @@ export function useCategoryServicesScreenController(
     locationState.longitude,
     locationState.state,
   ]);
-  const {
-    setCategory,
-    setSubcategory,
-    selectedServices,
-    clearSubcategorySelection,
-    toggleService,
-  } = useBookingFlowContext();
+  const selectedCity = args.city ?? resolvedLocation.serviceableCity ?? '';
   const [activeCategory, setActiveCategory] = useState<CustomerHomeCategory | null>(null);
   const [activeSubcategory, setActiveSubcategory] = useState<CustomerCatalogSubcategory | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banners, setBanners] = useState<AppBannerItem[]>([]);
-  const initialServiceAppliedRef = useRef(false);
   const selectedServiceIdSetRef = useRef<Set<string>>(new Set());
-  const selectedCity = route.params.city ?? resolvedLocation.serviceableCity ?? '';
-  const showSubcategoryPicker = route.name === HOME_SCREEN.CATEGORY_SUBCATEGORIES;
+  const initialServiceAppliedRef = useRef(false);
 
   useEffect(() => {
     selectedServiceIdSetRef.current = new Set(selectedServices.map(line => line.service.id));
   }, [selectedServices]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!showSubcategoryPicker) return;
-      clearSubcategorySelection();
-    }, [clearSubcategorySelection, showSubcategoryPicker]),
-  );
-
-  const loadScreenData = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!selectedCity) return;
     setLoading(true);
     setError(null);
     try {
-      if (showSubcategoryPicker) {
-        const categoryId = route.params.categoryId?.trim();
-        if (!categoryId) {
-          throw new Error('Category is required to load subcategories.');
-        }
-        const [category, bannerData] = await Promise.all([
-          customerActions.getCustomerCategoryById(categoryId, {
-            city: selectedCity,
-            includeSubcategory: true,
-            includeServices: false,
-            includeImage: true,
-            usageType: CATALOG_USAGE_TYPES,
-          }),
-          customerActions.getAppBanners({
-            placementKey: APP_BANNER_PLACEMENT_KEY.SUBCATEGORY_SELECT,
-            city: selectedCity,
-            categoryId,
-          }),
-        ]);
-        setActiveCategory(category);
-        setActiveSubcategory(null);
-        setCategory({ id: category.id, name: category.name });
-        setBanners(Array.isArray(bannerData) ? bannerData : []);
-        return;
-      }
-
-      let resolvedSubcategoryId = route.params.subcategoryId?.trim() ?? '';
-      let resolvedCategoryId = route.params.categoryId?.trim() ?? '';
-      const seedServiceId = route.params.serviceId?.trim() ?? '';
+      let resolvedSubcategoryId = args.subcategoryId?.trim() ?? '';
+      let resolvedCategoryId = args.categoryId?.trim() ?? '';
+      const seedServiceId = args.serviceId?.trim() ?? '';
 
       if (!resolvedSubcategoryId && seedServiceId) {
         const service = await customerActions.getCustomerServiceById(seedServiceId, {
@@ -152,26 +105,22 @@ export function useCategoryServicesScreenController(
       }
       setSubcategory({ id: subcategory.id, name: subcategory.name });
       setActiveSubcategory(subcategory);
-
-      if (maybeCategory) {
-        setActiveCategory(maybeCategory);
-      }
+      if (maybeCategory) setActiveCategory(maybeCategory);
       setBanners(Array.isArray(bannerData) ? bannerData : []);
 
       if (seedServiceId && !initialServiceAppliedRef.current) {
         if (selectedServiceIdSetRef.current.has(seedServiceId)) {
           initialServiceAppliedRef.current = true;
-          return;
-        }
-
-        const initialService = toBookableServices(subcategory).find(service => service.id === seedServiceId);
-        if (initialService) {
-          toggleService(createBookingFlowService({
-            ...initialService,
-            category: maybeCategory ?? undefined,
-            subCategory: subcategory,
-          }));
-          initialServiceAppliedRef.current = true;
+        } else {
+          const initialService = toBookableServices(subcategory).find(service => service.id === seedServiceId);
+          if (initialService) {
+            toggleService(createBookingFlowService({
+              ...initialService,
+              category: maybeCategory ?? undefined,
+              subCategory: subcategory,
+            }));
+            initialServiceAppliedRef.current = true;
+          }
         }
       }
     } catch (loadError) {
@@ -180,52 +129,20 @@ export function useCategoryServicesScreenController(
     } finally {
       setLoading(false);
     }
-  }, [
-    route.params.categoryId,
-    route.params.serviceId,
-    route.params.subcategoryId,
-    selectedCity,
-    setCategory,
-    setSubcategory,
-    showSubcategoryPicker,
-    toggleService,
-  ]);
-
-  const refresh = useCallback(async () => {
-    await loadScreenData();
-  }, [loadScreenData]);
+  }, [args.categoryId, args.serviceId, args.subcategoryId, selectedCity, setCategory, setSubcategory, toggleService]);
 
   useEffect(() => {
-    void loadScreenData();
-  }, [loadScreenData]);
+    void refresh();
+  }, [refresh]);
 
-  const subcategories = useMemo(
-    () => (Array.isArray(activeCategory?.subcategories) ? activeCategory.subcategories : []),
-    [activeCategory],
-  );
   const services = useMemo(() => toBookableServices(activeSubcategory), [activeSubcategory]);
-  const selectedServiceIdSet = useMemo(
-    () => new Set(selectedServices.map(line => line.service.id)),
-    [selectedServices],
-  );
-
-  const headerBannerImage = showSubcategoryPicker
-    ? (safeImageUrl(activeCategory?.bannerImage?.url)
-      ?? safeImageUrl(activeCategory?.cardImage?.url)
-      ?? safeImageUrl(activeCategory?.iconImage?.url)
-      ?? safeImageUrl(activeCategory?.mainImage?.url))
-    : (safeImageUrl(activeSubcategory?.bannerImage?.url)
-      ?? safeImageUrl(activeSubcategory?.cardImage?.url)
-      ?? safeImageUrl(activeSubcategory?.iconImage?.url)
-      ?? safeImageUrl(activeSubcategory?.mainImage?.url));
-  const headerBannerTitle = showSubcategoryPicker
-    ? (activeCategory ? titleCase(activeCategory.name) : 'Services')
-    : (activeSubcategory ? titleCase(activeSubcategory.name) : 'Services');
-  const showInitialLoader = loading && !error && (showSubcategoryPicker ? subcategories.length === 0 : services.length === 0);
-
-  const pickSubcategory = (subcategory: CustomerCatalogSubcategory) => {
-    setSubcategory({ id: subcategory.id, name: subcategory.name });
-  };
+  const selectedServiceIdSet = useMemo(() => new Set(selectedServices.map(line => line.service.id)), [selectedServices]);
+  const showInitialLoader = loading && !error && services.length === 0;
+  const headerBannerImage = safeImageUrl(activeSubcategory?.bannerImage?.url)
+    ?? safeImageUrl(activeSubcategory?.cardImage?.url)
+    ?? safeImageUrl(activeSubcategory?.iconImage?.url)
+    ?? safeImageUrl(activeSubcategory?.mainImage?.url);
+  const headerBannerTitle = activeSubcategory ? titleCase(activeSubcategory.name) : 'Services';
 
   const toggleServiceSelection = (service: CustomerBookableService) => {
     toggleService(createBookingFlowService({
@@ -239,20 +156,15 @@ export function useCategoryServicesScreenController(
     isDark,
     selectedCity,
     displayCityLabel: resolvedLocation.displayCity,
-    showSubcategoryPicker,
     loading,
     error,
-    subcategories,
     services,
     selectedServiceIdSet,
     headerBannerImage,
     headerBannerTitle,
     showInitialLoader,
     banners,
-    activeCategoryId: activeCategory?.id ?? null,
-    activeSubcategory,
     refresh,
-    pickSubcategory,
     toggleServiceSelection,
   };
 }

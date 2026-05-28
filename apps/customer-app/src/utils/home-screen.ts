@@ -1,5 +1,7 @@
 import { normalizeCityName } from '@/utils/location';
 import type { CustomerHomeCategory, CustomerHomePayload, CustomerHomeService } from '@/types/customer';
+import { PRICE_TYPE, PRICE_COMPUTATION_MODE } from '@/types/customer';
+import { formatPriceOptionPricingLabel } from '@/utils/booking-flow';
 
 export function normalizeForCompare(value?: string | null) {
   if (!value || !value.trim()) return '';
@@ -45,6 +47,50 @@ export function getPopularFallbackLabel(service: CustomerHomeService) {
   if (service.category?.iconText?.trim()) return service.category.iconText.trim();
   if (service.name?.trim()) return service.name.trim().charAt(0).toUpperCase();
   return '?';
+}
+
+function toNumericPrice(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function formatPriceTypeLabel(value: string | undefined) {
+  if (value === 'FIXED') return 'Fixed';
+  if (value === PRICE_TYPE.VISIT) return 'Visit';
+  if (value === PRICE_TYPE.HOURLY) return 'Hourly';
+  if (value === PRICE_TYPE.DAILY) return 'Daily';
+  if (value === PRICE_TYPE.PER_UNIT) return 'Per unit';
+  return '';
+}
+
+export function formatPopularServicePrice(service: CustomerHomeService): string | null {
+  const firstOption = Array.isArray(service.priceOptions) ? service.priceOptions[0] : null;
+  if (!firstOption) return null;
+
+  const amount = toNumericPrice(firstOption.price);
+  if (amount === null) return null;
+  if (firstOption.priceType === 'FIXED') {
+    return `\u20B9${amount.toLocaleString('en-IN')} Fixed`;
+  }
+
+  return formatPriceOptionPricingLabel({
+    id: firstOption.id ?? '',
+    title: firstOption.title ?? '',
+    price: amount,
+    priceType: firstOption.priceType ?? PRICE_TYPE.VISIT,
+    priceComputationMode: firstOption.priceComputationMode ?? PRICE_COMPUTATION_MODE.FLAT,
+  });
+}
+
+export function getPopularServicePriceTypePillLabel(service: CustomerHomeService): string | null {
+  const firstOption = Array.isArray(service.priceOptions) ? service.priceOptions[0] : null;
+  if (!firstOption?.priceType) return null;
+  const label = formatPriceTypeLabel(firstOption.priceType);
+  return label || null;
 }
 
 export function isCustomerHomeService(value: unknown): value is CustomerHomeService {

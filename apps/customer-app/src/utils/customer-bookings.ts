@@ -211,7 +211,7 @@ export function getCustomerBookingWorkerInitial(booking: Booking) {
 }
 
 export function getCustomerBookingWorkerSubtitle(booking: Booking) {
-  return normalizeText(booking.workerInfo?.phone) ?? 'Worker';
+  return 'Worker';
 }
 
 export function getCustomerBookingAmountLabel(booking: Booking) {

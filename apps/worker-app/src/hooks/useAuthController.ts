@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
 import {
   createProfileWithPhoneToken,
   getWorkerOnboardingPrefill,
@@ -77,7 +76,6 @@ async function clearAllStoredTokens() {
 
 export function useAuthController(): AuthContextType {
   const locationState = useLocationController();
-  const { initializeLocation } = locationState;
   const [status, setStatus] = useState<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<AuthMeResponse | null>(null);
@@ -186,8 +184,6 @@ export function useAuthController(): AuthContextType {
 
     const bootstrap = async () => {
       try {
-        void initializeLocation();
-
         const [tokens, pendingPhoneToken] = await Promise.all([
           getAuthTokens(),
           getOnboardingPhoneToken(),
@@ -246,20 +242,6 @@ export function useAuthController(): AuthContextType {
       mounted = false;
     };
   }, [ensureFirebaseSession, fetchOnboardingPrefill, logout, refreshMe, resetLocalSession]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextState => {
-      if (nextState !== 'active') {
-        return;
-      }
-
-      void initializeLocation({ forceRefresh: true });
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [initializeLocation]);
 
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
     console.log('[Auth Flow] Sending OTP to phone:', phoneNumber);

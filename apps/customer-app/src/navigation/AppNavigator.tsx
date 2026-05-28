@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useRef } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { useColorScheme } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -22,9 +22,11 @@ const RootStack = createNativeStackNavigator();
 
 export function AppNavigator() {
   const { authState, locationState } = useAuthContext();
+  const { initializeLocation } = locationState;
   const { isOnboardingActive } = useOnboardingContext();
   const { isOffline, initialized, refresh } = useNetworkStatus();
   const wasOfflineRef = useRef(false);
+  const hasInitializedLocationRef = useRef(false);
   const isDark = useColorScheme() === 'dark';
   const needsOnboardingSnapshot =
     (authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME)
@@ -41,6 +43,22 @@ export function AppNavigator() {
   }, [authState.status, needsOnboardingSnapshot]);
 
   useEffect(() => {
+    if (!hasInitializedLocationRef.current) {
+      hasInitializedLocationRef.current = true;
+      void initializeLocation();
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      void initializeLocation({ forceRefresh: true });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [initializeLocation]);
+
+  useEffect(() => {
     if (!initialized) return;
     if (isOffline) {
       wasOfflineRef.current = true;
@@ -49,9 +67,9 @@ export function AppNavigator() {
 
     if (wasOfflineRef.current) {
       wasOfflineRef.current = false;
-      void locationState.initializeLocation({ forceRefresh: true });
+      void initializeLocation({ forceRefresh: true });
     }
-  }, [initialized, isOffline, locationState]);
+  }, [initializeLocation, initialized, isOffline]);
 
   if (
     authState.status === AUTH_STATUS.BOOTSTRAPPING

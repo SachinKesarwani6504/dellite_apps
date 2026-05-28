@@ -122,6 +122,11 @@ export const APP_TEXT = {
     nearbyJobsTitle: 'Available Jobs Nearby',
     nearbyJobsEmpty: 'No nearby jobs available right now.',
     nearbyJobsLoading: 'Loading nearby jobs...',
+    nearbyJobCard: {
+      bookingTypeFallback: 'Booking',
+      totalAmountLabel: 'Total',
+      payoutLabel: 'Your Payout',
+    },
     footerMadeWith: 'Made with',
     footerFrom: 'from',
     footerRegionFallback: 'Your City',
