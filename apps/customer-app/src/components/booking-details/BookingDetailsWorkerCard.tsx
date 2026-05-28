@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Pressable, Text, View, useColorScheme } from 'react-native';
+import { Text, View, useColorScheme } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
 import { useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
 import { APP_TEXT } from '@/utils/appText';
-import { canCallBookingWorker, getBookingDetailsWorkerCardDisplay } from '@/utils/booking-details';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { getBookingDetailsWorkerCardDisplay } from '@/utils/booking-details';
+import { palette, uiColors } from '@/utils/theme';
 
 export function BookingDetailsWorkerCard() {
   const isDark = useColorScheme() === 'dark';
@@ -14,7 +14,6 @@ export function BookingDetailsWorkerCard() {
   const subtitle = worker.name
     ? APP_TEXT.main.bookings.detailsWorkerRole
     : APP_TEXT.main.bookings.detailsWorkerPendingSubtitle;
-  const canCallWorker = Boolean(worker.phone && canCallBookingWorker(details));
 
   return (
     <View
@@ -64,17 +63,6 @@ export function BookingDetailsWorkerCard() {
         </Text>
       </View>
 
-      {canCallWorker ? (
-        <Pressable
-          onPress={() => {
-            if (worker.phone) void Linking.openURL(`tel:${worker.phone}`);
-          }}
-          className="h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.accentSoft20 }}
-        >
-          <Ionicons name="call-outline" size={18} color={theme.colors.primary} />
-        </Pressable>
-      ) : null}
     </View>
   );
 }

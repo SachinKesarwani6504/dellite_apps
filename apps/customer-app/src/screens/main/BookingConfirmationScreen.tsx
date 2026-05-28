@@ -12,6 +12,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { BOOKING_SERVICE_SUMMARY_CARD_MODE } from '@/types/component-types';
 import { CUSTOMER_BOOKING_TYPE, PRICE_TYPE } from '@/types/customer';
 import type { BookingConfirmationScreenProps } from '@/types/main-screens';
+import { HOME_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { apiPost } from '@/actions/http/httpClient';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -159,6 +160,26 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
   }, [canRequestQuote, fetchBookingQuote, setBookingQuote]);
   const { refreshing, onRefresh } = usePullToRefresh(refreshQuote);
 
+  const handleRemoveService = useCallback((serviceId: string) => {
+    const willRemoveLastService = selectedServices.length <= 1
+      && selectedServices.some(line => line.service.id === serviceId);
+    removeService(serviceId);
+    if (willRemoveLastService) {
+      const nextSubcategoryId = bookingDraft.subcategoryId?.trim();
+      if (nextSubcategoryId) {
+        navigation.popToTop();
+        navigation.navigate(HOME_SCREEN.SUBCATEGORY_SERVICES, {
+          sourceType: bookingDraft.sourceType ?? 'category',
+          categoryId: bookingDraft.categoryId ?? undefined,
+          subcategoryId: nextSubcategoryId,
+          city: selectedCity || undefined,
+        });
+        return;
+      }
+      navigation.goBack();
+    }
+  }, [bookingDraft.categoryId, bookingDraft.sourceType, bookingDraft.subcategoryId, navigation, removeService, selectedCity, selectedServices]);
+
   useEffect(() => {
     createAttemptIdempotencyKeyRef.current = null;
   }, [bookingDraft, selectedCity]);
@@ -278,15 +299,6 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
         </View>
 
         <View className="p-3">
-          {confirmTotalLabel ? (
-            <View className="mb-2 flex-row items-center justify-between rounded-xl border px-3 py-2.5" style={{
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-            }}>
-              <Text className="text-sm font-bold text-baseDark dark:text-white">Booking Amount</Text>
-              <Text className="text-lg font-extrabold" style={{ color: theme.colors.caution }}>{confirmTotalLabel}</Text>
-            </View>
-          ) : null}
           <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
             {bookingOverview.cards.map(row => (
               <View
@@ -405,7 +417,7 @@ export function BookingConfirmationScreen({ navigation }: BookingConfirmationScr
                   pricingLabel: normalizedPricingLabel,
                 };
               })}
-              onRemove={() => removeService(line.service.id)}
+              onRemove={() => handleRemoveService(line.service.id)}
             />
           );
         })}

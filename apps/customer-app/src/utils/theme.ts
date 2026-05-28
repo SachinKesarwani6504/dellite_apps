@@ -33,3 +33,47 @@ export const uiColors = {
     status: tokens.colors.primary,
   },
 };
+
+export const statusToneColors = {
+  success: { light: uiColors.status.successLight, dark: uiColors.status.successDark, text: uiColors.status.successText },
+  danger: { light: uiColors.status.dangerLight, dark: uiColors.status.dangerDark, text: uiColors.status.dangerText },
+  warning: { light: uiColors.status.warningLight, dark: uiColors.status.warningDark, text: uiColors.status.warningText },
+  info: { light: uiColors.status.infoLight, dark: uiColors.status.infoDark, text: uiColors.status.infoText },
+  neutral: { light: uiColors.status.neutralLight, dark: uiColors.status.neutralDark, text: uiColors.status.neutralText },
+} as const;
+
+export const customerStatusBadgeToneMap = {
+  ONGOING: 'success',
+  COMPLETED: 'success',
+  CANCELLED: 'danger',
+  CREATED: 'warning',
+  SEARCHING: 'warning',
+  CONFIRMED: 'info',
+  IN_PROGRESS: 'info',
+  EXPIRED: 'danger',
+} as const;
+
+export const liveTrackingToneMap = {
+  success: 'success',
+  warning: 'warning',
+  neutral: 'neutral',
+  offline: 'danger',
+} as const;
+
+export function getStatusToneColors(tone: keyof typeof statusToneColors, isDark: boolean) {
+  const colors = statusToneColors[tone];
+  return {
+    background: isDark ? colors.dark : colors.light,
+    text: colors.text,
+    icon: colors.text,
+  };
+}
+
+export function getCustomerStatusBadgeColors(status: string, isDark: boolean) {
+  const tone = customerStatusBadgeToneMap[status as keyof typeof customerStatusBadgeToneMap] ?? 'neutral';
+  return getStatusToneColors(tone, isDark);
+}
+
+export function getLiveTrackingToneColors(tone: keyof typeof liveTrackingToneMap, isDark: boolean) {
+  return getStatusToneColors(liveTrackingToneMap[tone], isDark);
+}

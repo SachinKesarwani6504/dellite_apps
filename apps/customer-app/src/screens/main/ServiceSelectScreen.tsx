@@ -1,55 +1,52 @@
-import { FlatList, RefreshControl, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, RefreshControl, View, useWindowDimensions } from 'react-native';
 import { Button } from '@/components/common/Button';
+import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { CityAvailabilityNotice } from '@/components/common/CityAvailabilityNotice';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
+import { GradientScreen } from '@/components/common/GradientScreen';
+import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
-import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
-import { GradientScreen } from '@/components/common/GradientScreen';
-import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
-import { ServiceSelectionCard } from '@/components/common/ServiceSelectionCard';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
-import { useCategoryServicesScreenController } from '@/hooks/useCategoryServicesScreenController';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import type {
-  CategoryServicesScreenProps,
-} from '@/types/main-screens';
-import { HOME_SCREEN } from '@/types/screen-names';
+import { useServiceSelectScreenController } from '@/hooks/useServiceSelectScreenController';
 import { APP_TEXT } from '@/utils/appText';
 import { handleBannerAction } from '@/utils/banner-navigation';
-import { getSubcategoryServiceCount } from '@/utils/booking-catalog';
-import { safeImageUrl, titleCase } from '@/utils';
+import { getServiceCardPriceTypeLabel, getServiceCardPricingLabel, safeImageUrl } from '@/utils';
+import { HOME_SCREEN } from '@/types/screen-names';
+import type { CategoryServicesScreenProps } from '@/types/main-screens';
 
-export function CategoryServicesScreen({ navigation, route }: CategoryServicesScreenProps) {
+export function ServiceSelectScreen({ navigation, route }: CategoryServicesScreenProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const { selectedServices } = useBookingFlowContext();
   const {
-    selectedServices,
-  } = useBookingFlowContext();
-  const {
-    isDark,
     selectedCity,
     displayCityLabel,
-    showSubcategoryPicker,
     error,
-    subcategories,
     services,
     selectedServiceIdSet,
     banners,
     showInitialLoader,
-    activeCategoryId,
     refresh,
-    pickSubcategory,
     toggleServiceSelection,
-  } = useCategoryServicesScreenController({ route });
+  } = useServiceSelectScreenController({
+    categoryId: route.params.categoryId,
+    subcategoryId: route.params.subcategoryId,
+    serviceId: route.params.serviceId,
+    city: route.params.city,
+  });
+
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await refresh();
   });
+
   const cardGap = 12;
   const horizontalPadding = 16;
   const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
+
   const screenContent = !selectedCity ? (
     <CityAvailabilityNotice cityLabel={displayCityLabel} />
   ) : showInitialLoader ? (
@@ -64,43 +61,6 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
       actionLabel={APP_TEXT.main.bookingFlow.retry}
       onAction={() => void refresh()}
     />
-  ) : showSubcategoryPicker ? (
-    <View className="mt-4 gap-3">
-      {subcategories.length === 0 ? (
-        <ListEmptyState
-          title={APP_TEXT.main.bookingFlow.noSubcategory}
-          description="Try another category or refresh."
-          icon="grid-outline"
-        />
-      ) : subcategories.map(subcategory => {
-        const imageUrl = safeImageUrl(subcategory.cardImage?.url)
-          ?? safeImageUrl(subcategory.bannerImage?.url)
-          ?? safeImageUrl(subcategory.iconImage?.url)
-          ?? safeImageUrl(subcategory.mainImage?.url);
-        const serviceCount = getSubcategoryServiceCount(subcategory);
-        const label = serviceCount === 1 ? 'service' : 'services';
-
-        return (
-          <ServiceSelectionCard
-            key={subcategory.id}
-            onPress={() => {
-              pickSubcategory(subcategory);
-              navigation.navigate(HOME_SCREEN.SUBCATEGORY_SERVICES, {
-                sourceType: 'category',
-                categoryId: activeCategoryId ?? undefined,
-                subcategoryId: subcategory.id,
-                city: selectedCity,
-              });
-            }}
-            title={titleCase(subcategory.name)}
-            description={subcategory.description}
-            imageUrl={imageUrl}
-            metaText={`${serviceCount.toString()} ${label}`}
-            isDark={isDark}
-          />
-        );
-      })}
-    </View>
   ) : (
     <>
       {services.length === 0 ? (
@@ -130,10 +90,13 @@ export function CategoryServicesScreen({ navigation, route }: CategoryServicesSc
                 <View style={{ marginBottom: 12 }}>
                   <ServiceHeroCard
                     title={item.name}
+                    subtitle={getServiceCardPricingLabel(item)}
+                    topRightPillLabel={getServiceCardPriceTypeLabel(item)}
                     imageUrl={imageUrl}
                     width={serviceCardWidth}
                     height={176}
                     selected={selected}
+                    selectedIndicatorPosition="top-left"
                     onPress={() => {
                       toggleServiceSelection(item);
                     }}

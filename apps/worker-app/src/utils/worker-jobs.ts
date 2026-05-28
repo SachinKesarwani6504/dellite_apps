@@ -130,7 +130,7 @@ export function getWorkerJobCustomerInitial(item: WorkerJobListItem) {
 }
 
 export function getWorkerJobCustomerSubtitle(item: WorkerJobListItem) {
-  return normalizeText(item.customerInfo?.user?.phone) ?? 'Customer';
+  return 'Customer';
 }
 
 export function getWorkerJobBookingAmountLabel(item: WorkerJobListItem) {

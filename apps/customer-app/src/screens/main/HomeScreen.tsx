@@ -17,6 +17,7 @@ import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBann
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
+import { SectionHeaderRow } from '@/components/common/SectionHeaderRow';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -37,6 +38,8 @@ import { APP_TEXT } from '@/utils/appText';
 import { handleBannerAction } from '@/utils/banner-navigation';
 import {
   extractFooterOnlyHomePayload,
+  formatPopularServicePrice,
+  getPopularServicePriceTypePillLabel,
   isCustomerHomeCategory,
   isCustomerHomeService,
   normalizeHomeQueryCity,
@@ -80,6 +83,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
   const selectedCity = resolvedLocation.serviceableCity ?? '';
+  const isLocationReadyForHome = initialized && !locationLoading && !locationRefreshing && Boolean(selectedCity);
   const homeQueryCity = useMemo(() => {
     return normalizeHomeQueryCity(
       resolvedLocation.resolvedCity
@@ -94,7 +98,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
-  const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
+  const isLocationPending = !isLocationReadyForHome;
 
   const contentSections = useMemo(
     () => (Array.isArray(homeData?.content) ? homeData.content : []),
@@ -147,11 +151,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [homeQueryCity]);
 
   useEffect(() => {
-    if (!homeQueryCity) {
-      setLoading(isLocationPending);
+    if (!isLocationReadyForHome || !homeQueryCity) {
+      setLoading(true);
       setHomeData(null);
       setError(null);
-      setCityUnavailable(!isLocationPending);
+      setCityUnavailable(false);
       return;
     }
 
@@ -163,7 +167,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       return;
     }
     void fetchHome({ showFullScreenLoader: true });
-  }, [fetchHome, homeQueryCity, isLocationPending]);
+  }, [fetchHome, homeQueryCity, isLocationPending, isLocationReadyForHome]);
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await fetchHome({ showFullScreenLoader: false });
@@ -208,68 +212,54 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
     if (section.type === 'service') {
       const services = (Array.isArray(section.data) ? section.data : []).filter(isCustomerHomeService);
+      if (services.length === 0) return null;
       return (
         <View key={`service-${sectionTitle ?? index.toString()}`} className={topSpacingClass}>
           {sectionTitle ? (
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{sectionTitle}</Text>
+            <SectionHeaderRow title={sectionTitle} />
           ) : null}
-          {services.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
-              <View className="flex-row gap-3">
-                {services.map(service => {
-                  const imageUrl = safeImageUrl(service.cardImage?.url)
-                    ?? safeImageUrl(service.bannerImage?.url)
-                    ?? safeImageUrl(service.iconImage?.url)
-                    ?? safeImageUrl(service.mainImage?.url);
-                  const hideImage = !imageUrl || Boolean(failedPopularImages[service.id]);
-                  return (
-                    <ServiceHeroCard
-                      key={service.id}
-                      title={service.name}
-                      imageUrl={hideImage ? null : imageUrl}
-                      onPress={() => onOpenService(service)}
-                      onImageError={() => setFailedPopularImages(prev => ({ ...prev, [service.id]: true }))}
-                    />
-          );
-        })}
-              </View>
-            </ScrollView>
-          ) : (
-            <ListEmptyState
-              containerClassName="mt-2"
-              title="No popular services available"
-              description="Please check back in a moment."
-              icon="briefcase-outline"
-            />
-          )}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: 2 }}>
+            <View className="flex-row gap-3">
+              {services.map(service => {
+                const imageUrl = safeImageUrl(service.cardImage?.url)
+                  ?? safeImageUrl(service.bannerImage?.url)
+                  ?? safeImageUrl(service.iconImage?.url)
+                  ?? safeImageUrl(service.mainImage?.url);
+                const hideImage = !imageUrl || Boolean(failedPopularImages[service.id]);
+                return (
+                  <ServiceHeroCard
+                    key={service.id}
+                    title={service.name}
+                    subtitle={formatPopularServicePrice(service)}
+                    topRightPillLabel={getPopularServicePriceTypePillLabel(service)}
+                    imageUrl={hideImage ? null : imageUrl}
+                    onPress={() => onOpenService(service)}
+                    onImageError={() => setFailedPopularImages(prev => ({ ...prev, [service.id]: true }))}
+                  />
+                );
+              })}
+            </View>
+          </ScrollView>
         </View>
       );
     }
 
-            if (section.type === 'category') {
+    if (section.type === 'category') {
       const categories = (Array.isArray(section.data) ? section.data : []).filter(isCustomerHomeCategory);
+      if (categories.length === 0) return null;
       return (
         <View key={`category-${sectionTitle ?? index.toString()}`} className={topSpacingClass}>
           {sectionTitle ? (
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{sectionTitle}</Text>
+            <SectionHeaderRow title={sectionTitle} />
           ) : null}
-          {categories.length > 0 ? (
-            <WorkerSkillCategoryGrid
-              categories={categories}
-              selectedCategoryId={null}
-              isDark={isDark}
-              onSelectCategory={(category) => {
-                onOpenCategory(category.id, category.name);
-              }}
-            />
-          ) : (
-            <ListEmptyState
-              containerClassName="mt-2"
-              title="No categories available"
-              description="Please check back in a moment."
-              icon="grid-outline"
-            />
-          )}
+          <WorkerSkillCategoryGrid
+            categories={categories}
+            selectedCategoryId={null}
+            isDark={isDark}
+            onSelectCategory={(category) => {
+              onOpenCategory(category.id, category.name);
+            }}
+          />
         </View>
       );
     }
@@ -313,7 +303,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     return null;
   }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
 
-  const cityLabel = selectedCity || resolvedLocation.displayCity || 'Locating...';
+  const cityLabel = selectedCity || 'Locating...';
   const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
   const shouldShowContent = !cityUnavailable && contentSections.length > 0;
 

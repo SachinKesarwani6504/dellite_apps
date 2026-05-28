@@ -1,31 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
 import type { LiveTrackingStatusCardProps } from '@/types/component-types';
-import type { LiveTrackingCard, LiveTrackingIcon } from '@/types/live-tracking';
-import { theme, uiColors } from '@/utils/theme';
-
-function getToneColors(tone: LiveTrackingCard['tone'], isDark: boolean) {
-  if (tone === 'success') {
-    return {
-      icon: '#16a34a',
-      background: isDark ? 'rgba(34,197,94,0.16)' : 'rgba(34,197,94,0.12)',
-    };
-  }
-
-  if (tone === 'warning') {
-    return {
-      icon: '#f97316',
-      background: isDark ? 'rgba(249,115,22,0.16)' : 'rgba(249,115,22,0.12)',
-    };
-  }
-
-  return {
-    icon: tone === 'offline' ? '#ef4444' : '#64748b',
-    background: tone === 'offline'
-      ? (isDark ? 'rgba(239,68,68,0.16)' : 'rgba(239,68,68,0.10)')
-      : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20),
-  };
-}
+import type { LiveTrackingIcon } from '@/types/live-tracking';
+import { getLiveTrackingToneColors, getStatusToneColors, theme, uiColors } from '@/utils/theme';
 
 function renderStatusIcon(icon: LiveTrackingIcon, color: string) {
   if (icon === 'bike') return <MaterialCommunityIcons name="motorbike" size={24} color={color} />;
@@ -43,7 +20,8 @@ export function LiveTrackingStatusCard({
   liveBadgeText,
   error,
 }: LiveTrackingStatusCardProps) {
-  const toneColors = getToneColors(card.tone, isDark);
+  const toneColors = getLiveTrackingToneColors(card.tone, isDark);
+  const liveBadgeColors = getStatusToneColors('success', isDark);
 
   return (
     <View
@@ -68,9 +46,9 @@ export function LiveTrackingStatusCard({
             {card.showLivePill ? (
               <View
                 className="rounded-full px-4 py-1.5"
-                style={{ backgroundColor: isDark ? 'rgba(34,197,94,0.16)' : 'rgba(34,197,94,0.12)' }}
+                style={{ backgroundColor: liveBadgeColors.background }}
               >
-                <Text className="text-sm font-bold" style={{ color: '#16a34a' }}>
+                <Text className="text-sm font-bold" style={{ color: liveBadgeColors.text }}>
                   {liveBadgeText}
                 </Text>
               </View>

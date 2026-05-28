@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, Text, View, useColorScheme, Pressable, RefreshControl } from 'react-native';
+import { Text, View, useColorScheme, RefreshControl } from 'react-native';
 import { updateBookingInvite } from '@/actions/workerActions';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
@@ -12,6 +12,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { WorkerBookingRouteMap } from '@/components/common/WorkerBookingRouteMap';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingLiveRoute } from '@/hooks/useBookingLiveRoute';
@@ -20,19 +21,21 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocationReader } from '@/hooks/useWorkerLiveLocationReader';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import type { BookingDetailsServiceLine } from '@/types/booking-details';
-import { BOOKING_STATUS, CUSTOMER_BOOKING_TYPE, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
+import { BOOKING_STATUS, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
 import type { JobStackParamList } from '@/types/navigation';
 import { APP_TEXT } from '@/utils/appText';
 import {
   formatBookingAddress,
   formatBookingDateTime,
+  getBookingDetailsHeaderSubtitle,
+  getBookingDetailsOverviewChips,
+  getBookingDetailsOverviewRows,
   formatBookingMoney,
   getBookingLineDurationMinutes,
   getBookingLineKey,
   getBookingLineQuantity,
   getBookingMapDestinationCoordinates,
-  getBookingStatusLabel,
   getBookingUserName,
   isBookingHourlyLine,
   titleCaseBookingValue,
@@ -136,6 +139,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     () => route.params.inviteStatus ?? getInviteStatusFromDetails(details),
     [details, route.params.inviteStatus],
   );
+  const headerInviteStatus = inviteStatus ?? WORKER_JOB_INVITE_STATUS.NEW_JOB_REQUEST;
   const canAcceptReject = inviteStatus === WORKER_JOB_INVITE_STATUS.VIEWED || inviteStatus === WORKER_JOB_INVITE_STATUS.NEW_JOB_REQUEST;
   const inviteId = useMemo(() => {
     const id = details?.invite?.id;
@@ -217,10 +221,10 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
             <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
 
             <View className="flex-row items-center justify-between px-1 py-1">
-              <Text className="text-sm font-bold text-baseDark dark:text-white">
+              <Text className="text-sm font-bold" style={{ color: theme.colors.positive }}>
                 Your Payout
               </Text>
-              <Text className="text-2xl font-extrabold" style={{ color: theme.colors.caution }}>
+              <Text className="text-2xl font-extrabold" style={{ color: theme.colors.positive }}>
                 {formatBookingMoney(payoutAmount)}
               </Text>
             </View>
@@ -436,39 +440,18 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                     {APP_TEXT.jobs.detailsTitle}
                   </Text>
                   <Text className="mt-0.5 text-xs font-semibold" style={{ color: mutedTextColor }}>
-                    {details.booking.bookingCode ?? details.booking.id}
+                    {getBookingDetailsHeaderSubtitle(details)}
                   </Text>
                 </View>
               </View>
               <View className="flex-row items-center">
-                <Text className="text-lg font-extrabold text-primary">
-                  {formatBookingMoney(details.booking.totalAmount)}
-                </Text>
+                <StatusBadge status={headerInviteStatus} showDot={false} />
               </View>
             </View>
 
             <View className="p-3">
               <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
-                {[
-                  {
-                    key: 'bookingType',
-                value: titleCaseBookingValue(details.booking.bookingType ?? CUSTOMER_BOOKING_TYPE.INSTANT),
-                    iconName: 'flash-outline' as const,
-                    isWide: false,
-                  },
-                  {
-                    key: 'status',
-                    value: getBookingStatusLabel(details),
-                    iconName: 'checkmark-circle-outline' as const,
-                    isWide: false,
-                  },
-                  {
-                    key: 'schedule',
-                    value: formatBookingDateTime(details.booking.scheduledStartAt),
-                    iconName: 'time-outline' as const,
-                    isWide: true,
-                  },
-                ].map(row => (
+                {getBookingDetailsOverviewChips(details).map(row => (
                   <View
                     key={row.key}
                     className="flex-row items-center border px-3 py-3"
@@ -479,7 +462,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                       backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
                     }}
                   >
-                    <Ionicons name={row.iconName} size={15} color={theme.colors.primary} />
+                    <Ionicons name={row.iconName as keyof typeof Ionicons.glyphMap} size={15} color={theme.colors.primary} />
                     <View className="ml-2 flex-1">
                       <Text className="text-sm font-extrabold leading-5 text-baseDark dark:text-white">{row.value}</Text>
                     </View>
@@ -488,18 +471,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               </View>
 
               <View className="mt-2 gap-2">
-                {[
-                  {
-                    key: 'customer',
-                    value: getBookingUserName(details.customerInfo?.user),
-                    iconName: 'person-outline' as const,
-                  },
-                  {
-                    key: 'address',
-                    value: formatBookingAddress(details.address),
-                    iconName: 'location-outline' as const,
-                  },
-                ].map(row => (
+                {getBookingDetailsOverviewRows(details).map(row => (
                   <View
                     key={row.key}
                     className="flex-row items-start border px-3 py-3"
@@ -513,7 +485,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                       className="h-8 w-8 items-center justify-center rounded-full"
                       style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card }}
                     >
-                      <Ionicons name={row.iconName} size={14} color={theme.colors.primary} />
+                      <Ionicons name={row.iconName as keyof typeof Ionicons.glyphMap} size={14} color={theme.colors.primary} />
                     </View>
                     <View className="ml-2 flex-1">
                       <Text className="mt-0.5 text-sm font-bold leading-5 text-baseDark dark:text-white">{row.value}</Text>
@@ -564,17 +536,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               </Text>
             </View>
 
-            {details.customerInfo?.user?.phone ? (
-              <Pressable
-                onPress={() => {
-                  void Linking.openURL(`tel:${details.customerInfo?.user?.phone}`);
-                }}
-                className="h-10 w-10 items-center justify-center rounded-full"
-                style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.accentSoft20 }}
-              >
-                <Ionicons name="call-outline" size={18} color={theme.colors.primary} />
-              </Pressable>
-            ) : null}
           </View>
 
           <ScrollablePillTabs

@@ -1,10 +1,13 @@
 import type {
   CustomerBookableService,
+  CustomerServicePriceOption,
   CustomerCatalogSubcategory,
   CustomerHomeCategory,
   CustomerServiceListItem,
 } from '@/types/customer';
 import { safeImageUrl } from '@/utils/home';
+import { PRICE_COMPUTATION_MODE, PRICE_TYPE } from '@/types/customer';
+import { formatPriceOptionPricingLabel } from '@/utils/booking-flow';
 
 export function pickServiceImage(service: CustomerServiceListItem) {
   return safeImageUrl(service.cardImage?.url)
@@ -57,4 +60,58 @@ export function isCustomerBookableService(value: unknown): value is CustomerBook
   if (!value || typeof value !== 'object') return false;
   const source = value as { id?: unknown; name?: unknown };
   return typeof source.id === 'string' && typeof source.name === 'string';
+}
+
+function toNumericPrice(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function getPrimaryServicePriceOption(service: CustomerBookableService): CustomerServicePriceOption | null {
+  const firstOption = Array.isArray(service.priceOptions) ? service.priceOptions[0] : null;
+  if (!firstOption) return null;
+  const price = toNumericPrice(firstOption.price);
+  if (price == null) return null;
+  const rawType = typeof firstOption.priceType === 'string' ? firstOption.priceType.toUpperCase() : '';
+  if (rawType === 'FIXED') {
+    return {
+      id: firstOption.id ?? '',
+      title: firstOption.title ?? '',
+      price,
+      priceType: PRICE_TYPE.VISIT,
+      priceComputationMode: PRICE_COMPUTATION_MODE.FLAT,
+      minMinutes: 60,
+      maxMinutes: 60,
+      isOptional: false,
+    };
+  }
+  return {
+    id: firstOption.id ?? '',
+    title: firstOption.title ?? '',
+    price,
+    priceType: firstOption.priceType ?? PRICE_TYPE.VISIT,
+    priceComputationMode: firstOption.priceComputationMode ?? PRICE_COMPUTATION_MODE.FLAT,
+  };
+}
+
+export function getServiceCardPricingLabel(service: CustomerBookableService): string | null {
+  const option = getPrimaryServicePriceOption(service);
+  if (!option) return null;
+  return formatPriceOptionPricingLabel(option);
+}
+
+export function getServiceCardPriceTypeLabel(service: CustomerBookableService): string | null {
+  const firstOption = Array.isArray(service.priceOptions) ? service.priceOptions[0] : null;
+  const rawType = typeof firstOption?.priceType === 'string' ? firstOption.priceType.toUpperCase() : '';
+  if (!rawType) return null;
+  if (rawType === 'FIXED') return 'Fixed';
+  if (rawType === PRICE_TYPE.VISIT) return 'Visit';
+  if (rawType === PRICE_TYPE.HOURLY) return 'Hourly';
+  if (rawType === PRICE_TYPE.DAILY) return 'Daily';
+  if (rawType === PRICE_TYPE.PER_UNIT) return 'Per unit';
+  return null;
 }

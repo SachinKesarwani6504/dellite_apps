@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import type { WorkerJobListItem } from '@/types/jobs';
 import {
   getWorkerJobAddressLabel,
@@ -31,6 +32,8 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
   const bookingAmountLabel = getWorkerJobBookingAmountLabel(item);
   const payoutAmountLabel = getWorkerJobPayoutAmountLabel(item);
   const jobId = item.booking.id;
+  const inviteStatus = item.invite?.inviteStatus ?? 'NEW_JOB_REQUEST';
+  const inviteStatusLabel = formatTitle(inviteStatus);
 
   return (
     <View
@@ -48,26 +51,11 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
             <Text className="text-lg font-bold text-baseDark dark:text-white">{subCategoryName}</Text>
             <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
               {(item.services || []).map((service) => (
-                <View
-                  key={service.id}
-                  className="rounded-full px-2.5 py-1"
-                  style={{
-                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
-                  }}
-                >
-                  <Text className="text-xs font-semibold text-primary">{formatTitle(service.serviceName ?? undefined)}</Text>
-                </View>
+                <StatusBadge key={service.id} status="COMPLETED" label={formatTitle(service.serviceName ?? undefined)} showDot={false} />
               ))}
             </View>
           </View>
-          <View
-            className="rounded-full px-3 py-1.5"
-            style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmCardLight }}
-          >
-            <Text className="text-xs font-bold text-primary" numberOfLines={1}>
-              {referenceLabel}
-            </Text>
-          </View>
+          <StatusBadge status={inviteStatus} label={inviteStatusLabel} showDot={false} />
         </View>
 
         <View className="mt-3 gap-2">
@@ -137,12 +125,14 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
 
         <View className="mt-3 gap-2">
           <View className="flex-row items-center justify-between">
-            <Text className="text-[11px] font-semibold uppercase text-baseDark/60 dark:text-white/70">Booking Amount</Text>
-            <Text className="text-base font-extrabold text-baseDark dark:text-white">{bookingAmountLabel}</Text>
-          </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[11px] font-semibold uppercase text-baseDark/60 dark:text-white/70">Your Payout</Text>
-            <Text className="text-lg font-extrabold text-primary">{payoutAmountLabel}</Text>
+            <View className="flex-row items-center">
+              <Ionicons name="wallet-outline" size={14} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+              <Text className="ml-1.5 text-sm font-extrabold text-baseDark dark:text-white">{bookingAmountLabel}</Text>
+            </View>
+            <View className="flex-row items-center">
+              <Ionicons name="cash-outline" size={14} color={theme.colors.positive} />
+              <Text className="ml-1.5 text-lg font-extrabold" style={{ color: theme.colors.positive }}>{payoutAmountLabel}</Text>
+            </View>
           </View>
         </View>
 

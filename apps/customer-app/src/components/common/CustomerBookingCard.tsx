@@ -77,7 +77,7 @@ export function CustomerBookingCard({
               ))}
             </View>
           </View>
-          <StatusBadge status={item.bookingStatus} />
+          <StatusBadge status={item.bookingStatus} showDot={false} />
         </View>
 
         <View className="mt-3 gap-2">

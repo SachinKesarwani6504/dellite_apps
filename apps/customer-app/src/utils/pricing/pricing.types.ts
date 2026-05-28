@@ -1,4 +1,4 @@
-export type PricingPriceType = 'VISIT' | 'HOURLY' | 'DAILY' | 'PER_UNIT';
+export type PricingPriceType = 'FIXED' | 'VISIT' | 'HOURLY' | 'DAILY' | 'PER_UNIT';
 
 export type PricingComputationMode = 'FLAT' | 'PER_MINUTE' | 'PER_BLOCK';
 

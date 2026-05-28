@@ -1,6 +1,6 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshControl, View } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { apiGet } from '@/actions/http/httpClient';
 import { getWorkerJobsSummary } from '@/actions';
 import { AnimatedSegmentTabs } from '@/components/common/AnimatedSegmentTabs';
@@ -10,13 +10,13 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
-import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { JOB_STACK_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import type { WorkerJobListItem, WorkerJobListTab, WorkerJobsSummary } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
 import { buildWorkerJobsListPath, getErrorMessage } from '@/utils';
+import { uiColors } from '@/utils/theme';
 
 const LIMIT = 10;
 const DEFAULT_JOBS_SUMMARY: WorkerJobsSummary = {
@@ -28,7 +28,11 @@ const DEFAULT_JOBS_SUMMARY: WorkerJobsSummary = {
 
 export function JobsScreen() {
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const requestedInitialTab = route?.params?.initialTab as WorkerJobListTab | undefined;
+  const requestedInitialTabKey = route?.params?.initialTabRequestKey as number | undefined;
   const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
   const [items, setItems] = useState<WorkerJobListItem[]>([]);
   const [summary, setSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
@@ -96,6 +100,11 @@ export function JobsScreen() {
   }, [activeTab, refreshSummary, runFetch]);
 
   const { refreshing, onRefresh } = usePullToRefresh(onRefreshData);
+
+  useEffect(() => {
+    if (!requestedInitialTab) return;
+    setActiveTab(requestedInitialTab);
+  }, [requestedInitialTab, requestedInitialTabKey]);
 
 
   useEffect(() => {
@@ -168,11 +177,12 @@ export function JobsScreen() {
         />
       )}
     >
-      <SplitGradientTitle
-        prefix={APP_TEXT.jobs.titlePrefix}
-        highlight={APP_TEXT.jobs.titleHighlight}
-        subtitle={APP_TEXT.jobs.subtitle}
-      />
+      <Text className="text-2xl font-extrabold text-baseDark dark:text-white">
+        {`${APP_TEXT.jobs.titlePrefix} ${APP_TEXT.jobs.titleHighlight}`}
+      </Text>
+      <Text className="mt-1 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+        {APP_TEXT.jobs.subtitle}
+      </Text>
 
       <AnimatedSegmentTabs
         value={activeTab}

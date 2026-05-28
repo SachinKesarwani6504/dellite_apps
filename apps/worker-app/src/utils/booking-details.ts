@@ -135,11 +135,60 @@ export function getBookingUserName(user: BookingDetailsUser | null | undefined) 
     .map(value => toLabel(value))
     .filter((value): value is string => Boolean(value))
     .join(' ');
-  return fullName || user?.phone || 'Not assigned';
+  return fullName || 'Not assigned';
 }
 
 export function getBookingStatusLabel(details: BookingDetailsResponse | null | undefined) {
   return titleCaseBookingValue(details?.booking.bookingStatus);
+}
+
+export function getBookingDetailsHeaderSubtitle(details: BookingDetailsResponse | null | undefined) {
+  const serviceLines = details?.serviceLines ?? [];
+  if (serviceLines.length === 0) return 'Service Booking';
+  const firstService = titleCaseBookingValue(serviceLines[0].serviceName);
+  return serviceLines.length === 1 ? firstService : `${firstService} +${serviceLines.length - 1}`;
+}
+
+export function getBookingDetailsOverviewChips(details: BookingDetailsResponse) {
+  const bookingTypeLabel = details.booking.bookingType
+    ? titleCaseBookingValue(details.booking.bookingType)
+    : 'Instant Booking';
+  const bookingCodeLabel = details.booking.bookingCode ?? details.booking.id;
+  const chips = [
+    {
+      key: 'bookingType',
+      value: bookingTypeLabel,
+      iconName: details.booking.bookingType === 'SCHEDULED' ? 'calendar-outline' : 'flash-outline',
+      isWide: false,
+    },
+    {
+      key: 'reference',
+      value: bookingCodeLabel,
+      iconName: 'receipt-outline',
+      isWide: false,
+    },
+  ];
+
+  if (details.booking.scheduledStartAt) {
+    chips.push({
+      key: 'schedule',
+      value: formatBookingDateTime(details.booking.scheduledStartAt),
+      iconName: 'time-outline',
+      isWide: true,
+    });
+  }
+
+  return chips;
+}
+
+export function getBookingDetailsOverviewRows(details: BookingDetailsResponse) {
+  return [
+    {
+      key: 'address',
+      value: formatBookingAddress(details.address),
+      iconName: 'location-outline',
+    },
+  ];
 }
 
 export function getBookingLineKey(line: BookingDetailsServiceLine) {

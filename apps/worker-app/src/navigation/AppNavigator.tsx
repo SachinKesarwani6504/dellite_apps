@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
@@ -25,9 +25,11 @@ function BootstrapScreenFallback() {
 
 export function AppNavigator() {
   const { status, locationState } = useAuthContext();
+  const { initializeLocation } = locationState;
   const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
   const { isOffline, initialized, refresh } = useNetworkStatus();
   const wasOfflineRef = useRef(false);
+  const hasInitializedLocationRef = useRef(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -45,6 +47,35 @@ export function AppNavigator() {
     }),
     [isDark],
   );
+
+  useEffect(() => {
+    if (!hasInitializedLocationRef.current) {
+      hasInitializedLocationRef.current = true;
+      void initializeLocation();
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      void initializeLocation({ forceRefresh: true });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [initializeLocation]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (isOffline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+
+    if (wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      void initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, initialized, isOffline]);
 
   return (
     initialized && isOffline ? (
@@ -71,17 +102,4 @@ export function AppNavigator() {
     </NavigationContainer>
     )
   );
-
-  useEffect(() => {
-    if (!initialized) return;
-    if (isOffline) {
-      wasOfflineRef.current = true;
-      return;
-    }
-
-    if (wasOfflineRef.current) {
-      wasOfflineRef.current = false;
-      void locationState.initializeLocation({ forceRefresh: true });
-    }
-  }, [initialized, isOffline, locationState]);
 }
