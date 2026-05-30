@@ -34,7 +34,7 @@ import {
   saveOnboardingPhoneToken,
 } from '@/utils/key-chain-storage';
 import { stripBearerPrefix } from '@/utils/token';
-import { showError } from '@/utils/toast';
+import { showApiSuccessToast, showError } from '@/utils/toast';
 
 function normalizeBearerToken(token: string | null | undefined) {
   if (!token) {
@@ -255,6 +255,9 @@ export function useAuthController(): AuthContextType {
     async (phoneNumber: string, otp: string) => {
       console.log('[Auth Flow] Verifying OTP:', { phoneNumber, otp });
       const response = await verifyOtp({ phone: phoneNumber, otp, role: APP_AUTH_ROLE });
+      if (typeof response.message === 'string' && response.message.trim().length > 0) {
+        showApiSuccessToast(response.message);
+      }
       console.log('[Auth Flow] OTP Verification Response:', response);
       setPhone(phoneNumber);
 

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { BookingDetailsAssignmentStatusTab } from '@/components/booking-details/BookingDetailsAssignmentStatusTab';
+import { customerActions } from '@/actions';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
 import { BookingDetailsLiveLocationTab } from '@/components/booking-details/BookingDetailsLiveLocationTab';
 import { BookingDetailsPaymentTab } from '@/components/booking-details/BookingDetailsPaymentTab';
@@ -26,10 +26,13 @@ import {
   getBookingDetailsOverviewChips,
   getBookingDetailsOverviewRows,
   getBookingDetailsTabs,
+  formatBookingDateTime,
+  titleCaseBookingValue,
 } from '@/utils/booking-details';
 import { extractImageUrl } from '@/utils';
 import { showToast } from '@/utils/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
+import type { BookingStartOtp } from '@/types/booking-details';
 
 function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, 'navigation'>) {
   const isDark = useColorScheme() === 'dark';
@@ -65,6 +68,31 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
   };
   const mutedTextColor = isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight;
   const headerBookingStatus = details?.booking.bookingStatus ?? BOOKING_STATUS.SEARCHING;
+  const [startOtp, setStartOtp] = useState<BookingStartOtp | null>(null);
+
+  const bookingStatus = details?.booking.bookingStatus ?? null;
+  const shouldShowOtpBlock = bookingStatus === BOOKING_STATUS.CONFIRMED;
+  const detailsOtp = details?.startOtp?.otp?.trim() ? details.startOtp : null;
+  const visibleOtp = detailsOtp ?? startOtp;
+
+  const fetchStartOtp = useCallback(async () => {
+    if (!details?.booking.id) return;
+    try {
+      const otpData = await customerActions.getCustomerBookingStartOtp(details.booking.id);
+      setStartOtp(otpData);
+    } catch {
+      // Toast handled at API layer.
+    }
+  }, [details?.booking.id]);
+
+  useEffect(() => {
+    if (!shouldShowOtpBlock) {
+      setStartOtp(null);
+      return;
+    }
+    if (detailsOtp?.otp?.trim()) return;
+    void fetchStartOtp();
+  }, [detailsOtp?.otp, fetchStartOtp, shouldShowOtpBlock]);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -85,10 +113,69 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
           );
         }
         return <BookingDetailsLiveLocationTab />;
-      case 'ASSIGNMENTS':
-        return <BookingDetailsAssignmentStatusTab />;
       case 'PAYMENT':
         return <BookingDetailsPaymentTab />;
+      case 'ASSIGNMENTS': {
+        const historyItems = details?.history ?? [];
+        if (historyItems.length === 0) {
+          return (
+            <ListEmptyState
+              containerClassName="mt-4"
+              title="No timeline yet"
+              description="Booking updates will appear here."
+              icon="time-outline"
+            />
+          );
+        }
+
+        return (
+          <View className="mt-4 gap-4">
+            {historyItems.map((item, index) => (
+              <View
+                key={item.id ?? `history-${index}`}
+                className="overflow-hidden rounded-2xl border"
+                style={{
+                  backgroundColor: isDark ? palette.dark.card : palette.light.card,
+                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                  borderTopWidth: 4,
+                  borderTopColor: theme.colors.primary,
+                  shadowColor: uiColors.shadow.base,
+                  shadowOpacity: isDark ? 0 : 0.04,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
+                }}
+              >
+                <View className="p-4">
+                  <View className="flex-row items-center justify-between">
+                    <View className="mr-3 flex-1 flex-row items-center">
+                      <View
+                        className="mr-3 h-8 w-8 items-center justify-center rounded-full"
+                        style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+                      >
+                        <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
+                      </View>
+                      <Text className="flex-1 text-base font-extrabold text-baseDark dark:text-white">
+                        {titleCaseBookingValue(item.title)}
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-semibold" style={{ color: mutedTextColor }}>
+                      {formatBookingDateTime(item.createdAt)}
+                    </Text>
+                  </View>
+                  {item.description ? (
+                    <View className="mt-3 pl-11">
+                      <Text className="text-sm leading-5" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                        {item.description}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        );
+      }
       default:
         return null;
     }
@@ -288,6 +375,30 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
               </View>
             );
           })()}
+
+          {shouldShowOtpBlock && visibleOtp?.otp ? (
+            <View className="mt-3 rounded-2xl border px-4 py-3" style={cardStyle}>
+              <Text
+                className="text-center text-sm font-bold leading-5 text-baseDark dark:text-white"
+              >
+                {APP_TEXT.main.bookings.startOtpTitle}
+              </Text>
+              <View className="mt-3 flex-row items-center justify-center">
+                {(visibleOtp.otp.trim().slice(0, 4).split('')).map((digit, index) => (
+                  <View
+                    key={`otp-${index}`}
+                    className="mx-1 h-11 w-11 items-center justify-center rounded-xl border"
+                    style={{
+                      borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                      backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
+                    }}
+                  >
+                    <Text className="text-xl font-extrabold text-primary">{digit}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <ScrollablePillTabs
             items={getBookingDetailsTabs()}

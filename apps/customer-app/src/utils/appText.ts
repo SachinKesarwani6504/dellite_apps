@@ -113,6 +113,8 @@ export const APP_TEXT = {
       detailsPayNow: 'Pay now',
       detailsPaymentComingSoon: 'Payment will be available soon.',
       detailsRouteFallback: 'Route unavailable, showing approximate path.',
+      startOtpTitle: 'Share this OTP with worker to start job',
+      startOtpRefreshButton: 'Refresh OTP',
     },
     profileTitle: 'Profile',
     loadingHome: 'Loading home...',

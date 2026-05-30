@@ -146,10 +146,16 @@ export type BookingDetailsCommission = {
   commissionAmount?: string | number | null;
 };
 
+export type BookingStartOtp = {
+  bookingId?: string | null;
+  otp?: string | null;
+};
+
 export type BookingDetailsResponse = {
   booking: BookingDetailsBooking;
   customerInfo?: BookingDetailsCustomerInfo | null;
   workerInfo?: BookingDetailsWorkerInfo | null;
+  startOtp?: BookingStartOtp | null;
   address?: BookingDetailsAddress | null;
   serviceLines?: BookingDetailsServiceLine[];
   extraCharges?: BookingDetailsExtraCharge[];
