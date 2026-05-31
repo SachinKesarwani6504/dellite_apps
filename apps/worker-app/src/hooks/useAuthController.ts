@@ -6,7 +6,7 @@ import {
   logoutCurrentSession,
   resendOtp,
   sendOtp,
-  updateDeviceSession,
+  upsertDeviceSession,
   verifyOtp
 } from '@/actions';
 import { ApiError } from '@/types/api';
@@ -24,16 +24,11 @@ import {
 } from '@/types/auth';
 import { useLocationController } from '@/hooks/useLocationController';
 import { clearFirebaseAuthSession, ensureFirebaseSessionWithCustomToken } from '@/utils/firebase-session';
-import { buildDeviceSessionPayload } from '@/utils/device-session';
 import {
-  forcedSessionLogoutMessage,
-  isForcedSessionLogoutError,
-} from '@/utils/session-errors';
-import {
-  getNotificationPermissionStatusFromDevice,
-  requestNotificationPermissionFromDevice,
-  syncPendingPushTokenFromDevice,
-} from '@/lib/permission';
+  buildDeviceSessionPayload,
+  registerFcmTokenRefreshListener,
+  syncPendingFcmTokenFromDevice,
+} from '@/utils/device-session';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -95,8 +90,6 @@ export function useAuthController(): AuthContextType {
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthMeResponse> | null>(null);
-  const inFlightDeviceSessionSyncRef = useRef<Promise<void> | null>(null);
-  const lastDeviceSessionPayloadFingerprintRef = useRef<string | null>(null);
   const statusRef = useRef<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const phoneTokenRef = useRef<string | null>(null);
 
@@ -144,170 +137,47 @@ export function useAuthController(): AuthContextType {
     await ensureFirebaseSessionWithCustomToken(tokens?.firebaseCustomToken ?? null, { forceReauth: true });
   }, []);
 
-  const handleForcedSessionLogout = useCallback(async () => {
-    lastDeviceSessionPayloadFingerprintRef.current = null;
-    await clearAllStoredTokens();
-    setPhoneToken(null);
-    setOnboardingPrefill(null);
-    setMe(null);
-    setUser(null);
-    setPhone('');
-    setStatus(AuthStatus.LOGGED_OUT);
-    showError(forcedSessionLogoutMessage);
-  }, []);
-
-  const promptNotificationPermissionForDeviceSession = useCallback(async () => {
-    const currentStatus = await getNotificationPermissionStatusFromDevice();
-
-    if (currentStatus === 'granted') {
-      return currentStatus;
-    }
-
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.log('[worker-auth] device-session-notification-permission-request-start', {
-        currentStatus,
-      });
-    }
-
-    const nextStatus = await requestNotificationPermissionFromDevice();
-
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.log('[worker-auth] device-session-notification-permission-request-complete', {
-        nextStatus,
-      });
-    }
-
-    return nextStatus;
-  }, []);
-
-  const buildProfileDeviceInfoBestEffort = useCallback(async () => {
-    try {
-      await syncPendingPushTokenFromDevice();
-    } catch (error) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] profile-device-info-push-token-fetch-failed', error);
-      }
-    }
-
-    try {
-      const payload = await buildDeviceSessionPayload('WORKER');
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] profile-device-info-ready', {
-          role: payload.role,
-          platform: payload.platform,
-          hasDeviceId: Boolean(payload.deviceId),
-          hasPushToken: Boolean(payload.fcmToken),
-        });
-      }
-      return payload;
-    } catch (error) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] profile-device-info-build-failed', error);
-      }
-      return undefined;
-    }
-  }, []);
-
   const syncDeviceSessionBestEffort = useCallback(async () => {
-    if (inFlightDeviceSessionSyncRef.current) {
-      await inFlightDeviceSessionSyncRef.current;
-      return;
-    }
-
-    const syncTask = (async () => {
-      try {
+    try {
+      const payload = await buildDeviceSessionPayload('WORKER');
+      await upsertDeviceSession(payload);
+    } catch (error) {
       if (__DEV__) {
         // eslint-disable-next-line no-console
-        console.log('[worker-auth] device-session-sync-start', { mode: 'update' });
+        console.log('[worker-auth] device-session-upsert-failed', error);
       }
+    }
+  }, []);
 
-      const tokens = await getAuthTokens();
-      if (!tokens?.accessToken) {
+  useEffect(() => {
+    let mounted = true;
+
+    void syncPendingFcmTokenFromDevice()
+      .then((token) => {
+        if (!mounted || !token || status !== AuthStatus.AUTHENTICATED) {
+          return;
+        }
+        void syncDeviceSessionBestEffort();
+      })
+      .catch((error) => {
         if (__DEV__) {
           // eslint-disable-next-line no-console
-          console.log('[worker-auth] device-session-skipped-no-access-token', { mode: 'update' });
+          console.log('[worker-auth] initial-push-token-sync-failed', error);
         }
-        return;
-      }
-
-      try {
-        await syncPendingPushTokenFromDevice();
-      } catch (error) {
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[worker-auth] device-session-push-token-fetch-failed', error);
-        }
-      }
-
-      const payload = await buildDeviceSessionPayload('WORKER');
-      const payloadFingerprint = JSON.stringify({
-        role: payload.role,
-        platform: payload.platform,
-        deviceId: payload.deviceId,
-        deviceName: payload.deviceName,
-        fcmToken: payload.fcmToken,
       });
 
-      if (lastDeviceSessionPayloadFingerprintRef.current === payloadFingerprint) {
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[worker-auth] device-session-skipped-duplicate-payload', {
-            mode: 'update',
-            hasPushToken: Boolean(payload.fcmToken),
-          });
-        }
+    const unsubscribe = registerFcmTokenRefreshListener(() => {
+      if (status !== AuthStatus.AUTHENTICATED) {
         return;
       }
-
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] device-session-upsert-send', {
-          mode: 'update',
-          role: payload.role,
-          platform: payload.platform,
-          hasDeviceId: Boolean(payload.deviceId),
-          deviceIdLength: payload.deviceId.length,
-          deviceName: payload.deviceName,
-          hasPushToken: Boolean(payload.fcmToken),
-          pushTokenLength: payload.fcmToken?.length ?? 0,
-        });
-      }
-
-      await updateDeviceSession(payload);
-      lastDeviceSessionPayloadFingerprintRef.current = payloadFingerprint;
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] device-session-upsert-success', { mode: 'update' });
-      }
-    } catch (error) {
-      if (isForcedSessionLogoutError(error)) {
-        await handleForcedSessionLogout();
-        return;
-      }
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] device-session-upsert-failed', {
-          mode: 'update',
-          error,
-        });
-      }
-    }
-    })().finally(() => {
-      inFlightDeviceSessionSyncRef.current = null;
+      void syncDeviceSessionBestEffort();
     });
 
-    inFlightDeviceSessionSyncRef.current = syncTask;
-    await syncTask;
-  }, [handleForcedSessionLogout]);
-
-  const syncDeviceSessionRegistration = useCallback(async () => {
-    await syncDeviceSessionBestEffort();
-  }, [syncDeviceSessionBestEffort]);
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [status, syncDeviceSessionBestEffort]);
 
   const resetLocalSession = useCallback((nextStatus: AuthStatus) => {
     setPhoneToken(null);
@@ -351,7 +221,6 @@ export function useAuthController(): AuthContextType {
         }
       }
     } finally {
-      lastDeviceSessionPayloadFingerprintRef.current = null;
       await clearAllStoredTokens();
       resetLocalSession(AuthStatus.LOGGED_OUT);
       setPhone('');
@@ -403,6 +272,7 @@ export function useAuthController(): AuthContextType {
             return;
           }
           await clearOnboardingPhoneToken();
+          void syncDeviceSessionBestEffort();
           setStatus(AuthStatus.AUTHENTICATED);
         } catch {
           await logout();
@@ -420,13 +290,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [
-    ensureFirebaseSession,
-    fetchOnboardingPrefill,
-    logout,
-    refreshMe,
-    resetLocalSession,
-  ]);
+  }, [ensureFirebaseSession, fetchOnboardingPrefill, logout, refreshMe, resetLocalSession, syncDeviceSessionBestEffort]);
 
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
     console.log('[Auth Flow] Sending OTP to phone:', phoneNumber);
@@ -498,16 +362,10 @@ export function useAuthController(): AuthContextType {
       setPhoneToken(null);
       setOnboardingPrefill(null);
       setStatus(AuthStatus.AUTHENTICATED);
-      await promptNotificationPermissionForDeviceSession();
-      void syncDeviceSessionRegistration();
+      void syncDeviceSessionBestEffort();
       await refreshMe();
     },
-    [
-      ensureFirebaseSession,
-      promptNotificationPermissionForDeviceSession,
-      refreshMe,
-      syncDeviceSessionRegistration,
-    ],
+    [ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
   );
 
   const handleResendOtpCode = useCallback(async (phoneNumber: string) => {
@@ -536,12 +394,7 @@ export function useAuthController(): AuthContextType {
 
       let profile: Awaited<ReturnType<typeof createProfileWithPhoneToken>>;
       try {
-        await promptNotificationPermissionForDeviceSession();
-        const deviceInfo = await buildProfileDeviceInfoBestEffort();
-        profile = await createProfileWithPhoneToken({
-          ...payload,
-          deviceInfo,
-        });
+        profile = await createProfileWithPhoneToken(payload);
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
           await clearOnboardingPhoneToken();
@@ -570,6 +423,7 @@ export function useAuthController(): AuthContextType {
       setPhoneToken(null);
       setOnboardingPrefill(null);
       setStatus(AuthStatus.AUTHENTICATED);
+      void syncDeviceSessionBestEffort();
 
       try {
         await refreshMe();
@@ -577,14 +431,7 @@ export function useAuthController(): AuthContextType {
         // Keep the newly authenticated state; a later refresh can reconcile the user snapshot.
       }
     },
-    [
-      buildProfileDeviceInfoBestEffort,
-      ensureFirebaseSession,
-      phoneToken,
-      promptNotificationPermissionForDeviceSession,
-      refreshMe,
-      resetLocalSession,
-    ],
+    [ensureFirebaseSession, phoneToken, refreshMe, resetLocalSession, syncDeviceSessionBestEffort],
   );
 
   const sendOtpCode = useCallback(
@@ -631,7 +478,6 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    syncDeviceSessionRegistration,
     logout: logoutWithState,
     refreshMe: refreshMeWithState,
     fetchOnboardingPrefill,
@@ -648,7 +494,6 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    syncDeviceSessionRegistration,
     logoutWithState,
     refreshMeWithState,
     fetchOnboardingPrefill,

@@ -17,12 +17,6 @@ import {
 } from '@/utils/firebase-session';
 import { parseApiError, sanitizeApiMessage } from '@/utils/api-error';
 import { getStableDeviceId } from '@/utils/device-session';
-import {
-  extractApiErrorCode,
-  forcedSessionLogoutMessage,
-  isForcedSessionLogoutCode,
-} from '@/utils/session-errors';
-import { emitAuthTokenRefreshed } from '@/utils/session-events';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 import { ENV } from '@/utils/env';
@@ -39,6 +33,7 @@ const client = axios.create({
 
 const PROFILE_CREATE_PATHS = new Set(['/worker/profile', '/customer/profile']);
 const PHONE_TOKEN_EXPIRED_MESSAGE = 'Session expired. Please verify OTP again to continue onboarding.';
+const FORCED_LOGOUT_CODES = new Set(['SESSION_REVOKED', 'DEVICE_MISMATCH', 'ROLE_SESSION_REPLACED']);
 
 function normalizePath(path: string) {
   return path.split('?')[0].trim().toLowerCase();
@@ -65,6 +60,17 @@ function normalizeBearerToken(token: string | null | undefined) {
     return null;
   }
   return stripBearerPrefix(token);
+}
+
+function extractErrorCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const root = payload as { code?: unknown; data?: unknown };
+  if (typeof root.code === 'string' && root.code.trim()) return root.code.trim();
+  if (root.data && typeof root.data === 'object') {
+    const nestedCode = (root.data as { code?: unknown }).code;
+    if (typeof nestedCode === 'string' && nestedCode.trim()) return nestedCode.trim();
+  }
+  return null;
 }
 
 function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenType) {
@@ -114,7 +120,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
   const nextAccessToken = normalizeBearerToken(refreshed.accessToken);
   await applyFirebaseCustomToken(refreshed.firebaseCustomToken ?? null);
-  emitAuthTokenRefreshed();
 
   return nextAccessToken;
 }
@@ -224,15 +229,6 @@ async function request<TResponse, TBody = unknown>(
       const parsedPayload = await parseFetchPayload(multipartResponse);
       const payload = parsedPayload.payload;
       if (!multipartResponse.ok) {
-        const sessionErrorCode = extractApiErrorCode(payload);
-        if ((multipartResponse.status === 401 || multipartResponse.status === 403) && isForcedSessionLogoutCode(sessionErrorCode)) {
-          await clearAuthSessionTokens();
-          const forcedMessage = extractApiMessage(payload, forcedSessionLogoutMessage);
-          if (method !== 'GET' && options.toast?.showError !== false) {
-            showApiErrorToast(forcedMessage);
-          }
-          throw new ApiError(forcedMessage, multipartResponse.status, payload);
-        }
         if (tokenType === 'phone' && (multipartResponse.status === 401 || multipartResponse.status === 403)) {
           await clearPhoneTokenOnly();
           if (method !== 'GET' && options.toast?.showError !== false) {
@@ -292,12 +288,12 @@ async function request<TResponse, TBody = unknown>(
       throw new ApiError(parsedError.friendlyMessage, parsedError.statusCode ?? 500, error);
     }
 
-    const sessionErrorCode = extractApiErrorCode(error.response?.data);
-    if ((error.response?.status === 401 || error.response?.status === 403) && isForcedSessionLogoutCode(sessionErrorCode)) {
+    const sessionErrorCode = extractErrorCode(error.response?.data);
+    if ((error.response?.status === 401 || error.response?.status === 403) && sessionErrorCode && FORCED_LOGOUT_CODES.has(sessionErrorCode)) {
       await clearAuthSessionTokens();
       const forcedMessage = extractApiMessage(
         error.response?.data,
-        forcedSessionLogoutMessage,
+        'You were logged out because this app was signed in on another device.',
       );
       if (method !== 'GET' && options.toast?.showError !== false) {
         showApiErrorToast(forcedMessage);
@@ -325,20 +321,8 @@ async function request<TResponse, TBody = unknown>(
           showApiSuccessToast(extractApiMessage(retryResponse.data, 'Completed successfully'));
         }
         return retryResponse.data;
-      } catch (refreshOrRetryError: unknown) {
+      } catch {
         await clearAuthSessionTokens();
-        if (axios.isAxiosError(refreshOrRetryError)) {
-          const retryPayload = refreshOrRetryError.response?.data ?? error.response?.data;
-          const retryStatus = refreshOrRetryError.response?.status ?? 401;
-          const retrySessionErrorCode = extractApiErrorCode(retryPayload);
-          if ((retryStatus === 401 || retryStatus === 403) && isForcedSessionLogoutCode(retrySessionErrorCode)) {
-            const forcedMessage = extractApiMessage(retryPayload, forcedSessionLogoutMessage);
-            if (method !== 'GET' && options.toast?.showError !== false) {
-              showApiErrorToast(forcedMessage);
-            }
-            throw new ApiError(forcedMessage, retryStatus, retryPayload);
-          }
-        }
         throw new ApiError('Session expired. Please login again.', 401, error.response?.data);
       }
     }

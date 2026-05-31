@@ -1,19 +1,16 @@
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { DeviceSessionRole, DeviceSessionUpsertPayload } from '@/types/auth';
-import { getPendingPushToken } from '@/lib/permission';
 
 function resolvePlatform(): DeviceSessionUpsertPayload['platform'] {
   return Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 }
 
-function logDeviceSession(step: string, payload?: Record<string, unknown>) {
-  if (!__DEV__) return;
-  // Push token values stay private; logs only expose presence and length.
-  // eslint-disable-next-line no-console
-  console.log(`[customer-device-session] ${step}`, payload ?? {});
-}
+const pendingFcmMemoryRef = {
+  value: null as string | null,
+};
 
 function normalizeToken(value: string | null | undefined) {
   if (typeof value !== 'string') return null;
@@ -52,31 +49,52 @@ export async function getStableDeviceId() {
   throw new Error(`Unsupported platform "${Platform.OS}" for device session registration.`);
 }
 
-export async function buildDeviceSessionPayload(role: DeviceSessionRole): Promise<DeviceSessionUpsertPayload> {
-  logDeviceSession('build-payload-start', { role });
+export async function setPendingFcmToken(token: string | null | undefined) {
+  pendingFcmMemoryRef.value = normalizeToken(token);
+}
 
-  const [deviceId, pushToken] = await Promise.all([
-    getStableDeviceId(),
-    getPendingPushToken(),
-  ]);
+export async function getPendingFcmToken() {
+  return pendingFcmMemoryRef.value;
+}
 
-  const platform = resolvePlatform();
-  const deviceName = resolveDeviceName();
-  logDeviceSession('build-payload-complete', {
-    role,
-    platform,
-    hasDeviceId: Boolean(deviceId),
-    deviceIdLength: deviceId.length,
-    deviceName,
-    hasPushToken: Boolean(pushToken),
-    pushTokenLength: pushToken?.length ?? 0,
+export async function syncPendingFcmTokenFromDevice() {
+  const permissions = await Notifications.getPermissionsAsync();
+  const isGranted = Boolean((permissions as { granted?: boolean }).granted);
+  if (!isGranted) {
+    return null;
+  }
+
+  const pushToken = await Notifications.getDevicePushTokenAsync();
+  const token = normalizeToken(pushToken.data);
+  await setPendingFcmToken(token);
+  return token;
+}
+
+export function registerFcmTokenRefreshListener(onToken: (token: string) => void) {
+  const subscription = Notifications.addPushTokenListener(async (updatedToken) => {
+    const token = normalizeToken(updatedToken.data);
+    await setPendingFcmToken(token);
+    if (token) {
+      onToken(token);
+    }
   });
+
+  return () => {
+    subscription.remove();
+  };
+}
+
+export async function buildDeviceSessionPayload(role: DeviceSessionRole): Promise<DeviceSessionUpsertPayload> {
+  const [deviceId, fcmToken] = await Promise.all([
+    getStableDeviceId(),
+    getPendingFcmToken(),
+  ]);
 
   return {
     role,
-    platform,
+    platform: resolvePlatform(),
     deviceId,
-    deviceName,
-    fcmToken: pushToken,
+    deviceName: resolveDeviceName(),
+    ...(fcmToken ? { fcmToken } : {}),
   };
 }

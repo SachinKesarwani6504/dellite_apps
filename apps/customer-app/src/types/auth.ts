@@ -185,7 +185,7 @@ export type DeviceSessionUpsertPayload = {
   platform: DevicePlatform;
   deviceId: string;
   deviceName: string;
-  fcmToken: string | null;
+  fcmToken?: string;
 };
 
 export type AuthMeResponse = {

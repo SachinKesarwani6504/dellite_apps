@@ -219,7 +219,7 @@ export interface DeviceSessionUpsertPayload {
   platform: DevicePlatform;
   deviceId: string;
   deviceName: string;
-  fcmToken: string | null;
+  fcmToken?: string;
 }
 
 export interface VerifyOtpResult {
@@ -285,7 +285,6 @@ export interface WorkerProfilePayload {
   hasSeenSkillSetup?: boolean;
   hasSeenCertificateSetup?: boolean;
   hasSeenOnboardingWelcomeScreen?: boolean;
-  deviceInfo?: DeviceSessionUpsertPayload;
 }
 
 export interface ServiceLaunchedCity {
