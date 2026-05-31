@@ -2,6 +2,7 @@ import { apiGet, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
 import type {
   AuthMeResponse,
+  DeviceSessionUpsertPayload,
   LogoutPayload,
   LogoutResponse,
   RefreshTokensPayload,
@@ -12,6 +13,7 @@ import type {
   VerifyOtpPayload,
   VerifyOtpResponse,
 } from '@/types/auth';
+import { getStableDeviceId } from '@/utils/device-session';
 import { stripBearerPrefix } from '@/utils/token';
 
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
@@ -66,10 +68,11 @@ export async function resendOtp(phone: string): Promise<ResendOtpResponse> {
 }
 
 export async function refreshAuth(refreshToken: string): Promise<RefreshTokensResponse> {
+  const deviceId = await getStableDeviceId();
   const response = await apiPost<
     ApiEnvelope<RefreshTokensResponse> | RefreshTokensResponse,
-    { refreshToken: string }
-  >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken) }, { toast: { showSuccess: false }, retryOnAuthFailure: false });
+    { refreshToken: string; deviceId: string }
+  >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken), deviceId }, { toast: { showSuccess: false }, retryOnAuthFailure: false });
   return unwrapData(response);
 }
 
@@ -105,4 +108,15 @@ export async function getMe(role: 'CUSTOMER' | 'WORKER' | 'ADMIN' = 'CUSTOMER') 
   });
 
   return unwrapData(response);
+}
+
+export async function upsertDeviceSession(payload: DeviceSessionUpsertPayload) {
+  await apiPost<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
+    '/auth/device/upsert',
+    payload,
+    {
+      auth: true,
+      toast: { showError: false, showSuccess: false },
+    },
+  );
 }

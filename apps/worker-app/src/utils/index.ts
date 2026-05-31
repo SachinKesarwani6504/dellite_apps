@@ -109,6 +109,7 @@ export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
 export * from '@/utils/worker-jobs';
 export * from '@/utils/api-error';
+export * from '@/utils/device-session';
 export * from '@/utils/banner-navigation';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';
