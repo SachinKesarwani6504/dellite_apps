@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { customerActions } from '@/actions';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
 import { BookingDetailsLiveLocationTab } from '@/components/booking-details/BookingDetailsLiveLocationTab';
 import { BookingDetailsPaymentTab } from '@/components/booking-details/BookingDetailsPaymentTab';
@@ -32,7 +31,6 @@ import {
 import { extractImageUrl } from '@/utils';
 import { showToast } from '@/utils/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
-import type { BookingStartOtp } from '@/types/booking-details';
 
 function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, 'navigation'>) {
   const isDark = useColorScheme() === 'dark';
@@ -40,6 +38,8 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
   const [activeTab, setActiveTab] = useState<BookingDetailsTabValue>('BILL');
   const {
     details,
+    startOtp,
+    shouldShowOtpBlock,
     isInitialLoading,
     error,
     refresh,
@@ -68,31 +68,6 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
   };
   const mutedTextColor = isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight;
   const headerBookingStatus = details?.booking.bookingStatus ?? BOOKING_STATUS.SEARCHING;
-  const [startOtp, setStartOtp] = useState<BookingStartOtp | null>(null);
-
-  const bookingStatus = details?.booking.bookingStatus ?? null;
-  const shouldShowOtpBlock = bookingStatus === BOOKING_STATUS.CONFIRMED;
-  const detailsOtp = details?.startOtp?.otp?.trim() ? details.startOtp : null;
-  const visibleOtp = detailsOtp ?? startOtp;
-
-  const fetchStartOtp = useCallback(async () => {
-    if (!details?.booking.id) return;
-    try {
-      const otpData = await customerActions.getCustomerBookingStartOtp(details.booking.id);
-      setStartOtp(otpData);
-    } catch {
-      // Toast handled at API layer.
-    }
-  }, [details?.booking.id]);
-
-  useEffect(() => {
-    if (!shouldShowOtpBlock) {
-      setStartOtp(null);
-      return;
-    }
-    if (detailsOtp?.otp?.trim()) return;
-    void fetchStartOtp();
-  }, [detailsOtp?.otp, fetchStartOtp, shouldShowOtpBlock]);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -376,7 +351,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
             );
           })()}
 
-          {shouldShowOtpBlock && visibleOtp?.otp ? (
+          {shouldShowOtpBlock && startOtp?.otp ? (
             <View className="mt-3 rounded-2xl border px-4 py-3" style={cardStyle}>
               <Text
                 className="text-center text-sm font-bold leading-5 text-baseDark dark:text-white"
@@ -384,7 +359,7 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                 {APP_TEXT.main.bookings.startOtpTitle}
               </Text>
               <View className="mt-3 flex-row items-center justify-center">
-                {(visibleOtp.otp.trim().slice(0, 4).split('')).map((digit, index) => (
+                {(startOtp.otp.trim().slice(0, 4).split('')).map((digit, index) => (
                   <View
                     key={`otp-${index}`}
                     className="mx-1 h-11 w-11 items-center justify-center rounded-xl border"

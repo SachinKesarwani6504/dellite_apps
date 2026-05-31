@@ -30,6 +30,7 @@ import {
 } from '@/types/auth';
 import type { BookingDetailsResponse } from '@/types/booking-details';
 import type { WorkerJobsSummary } from '@/types/jobs';
+import type { WorkerStartBookingWithOtpResponse } from '@/types/worker-booking';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 import { toFormData } from '@/utils/form-data';
 import type { MultipartFile } from '@/types/http';
@@ -163,15 +164,6 @@ type RawServiceCategory = Omit<ServiceCategory, 'subcategories'> & {
 
 type WorkerStatusEnvelopeOrData = WorkerStatusResponse | WorkerStatusData;
 export type BookingInviteUpdateType = 'ACCEPTED' | 'REJECTED';
-type WorkerStartBookingWithOtpResponse = {
-  success?: boolean;
-  message?: string;
-  booking?: {
-    id?: string;
-    status?: string;
-    startedAt?: string;
-  } | null;
-};
 type WorkerStatusSortDirection = 'asc' | 'desc';
 type WorkerStatusQuery = {
   sortBy?: 'status';

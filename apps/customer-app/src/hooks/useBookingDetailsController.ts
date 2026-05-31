@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { customerActions } from '@/actions';
 import { apiGet } from '@/actions/http/httpClient';
 import type { ApiEnvelope } from '@/types/api';
+import { BOOKING_STATUS } from '@/types/booking';
 import type {
+  BookingStartOtp,
   BookingDetailsContextValue,
   BookingDetailsControllerArgs,
   BookingDetailsHistoryItem,
@@ -57,6 +60,11 @@ export function useBookingDetailsController({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startOtp, setStartOtp] = useState<BookingStartOtp | null>(null);
+
+  const bookingStatus = details?.booking.bookingStatus ?? null;
+  const shouldShowOtpBlock = bookingStatus === BOOKING_STATUS.CONFIRMED;
+  const detailsOtp = details?.startOtp?.otp?.trim() ? details.startOtp : null;
 
   const fetchDetails = useCallback(async (mode: 'initial' | 'refresh') => {
     if (mode === 'initial') {
@@ -88,8 +96,33 @@ export function useBookingDetailsController({
     void fetchDetails('initial');
   }, [fetchDetails]);
 
+  useEffect(() => {
+    if (!shouldShowOtpBlock) {
+      setStartOtp(null);
+      return;
+    }
+    if (detailsOtp?.otp?.trim() || !details?.booking.id) return;
+
+    let isActive = true;
+    const fetchStartOtp = async () => {
+      try {
+        const otpData = await customerActions.getCustomerBookingStartOtp(details.booking.id);
+        if (isActive) setStartOtp(otpData);
+      } catch {
+        // Toast handled at API layer.
+      }
+    };
+    void fetchStartOtp();
+
+    return () => {
+      isActive = false;
+    };
+  }, [details?.booking.id, detailsOtp?.otp, shouldShowOtpBlock]);
+
   return {
     details,
+    startOtp: detailsOtp ?? startOtp,
+    shouldShowOtpBlock,
     isInitialLoading,
     isRefreshing,
     error,

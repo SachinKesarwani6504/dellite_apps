@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
+import { startWorkerBookingWithOtp, updateBookingInvite } from '@/actions/workerActions';
 import { apiPatch } from '@/actions/http/httpClient';
 import { useApiGet } from '@/hooks/useApiGet';
 import type { ApiEnvelope } from '@/types/api';
+import { WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type {
   BookingDetailsResponse,
   BookingDetailsHistoryItem,
@@ -18,9 +20,19 @@ import {
   getBookingLineKey,
   getBookingLineQuantity,
 } from '@/utils/booking-details';
+import { APP_TEXT } from '@/utils/appText';
 import { getErrorMessage } from '@/utils';
+import { showToast } from '@/utils/toast';
 
-export function useBookingDetailsController(bookingId: string, role: BookingDetailsRole) {
+type InviteActionLoading = null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED;
+
+export function useBookingDetailsController(
+  bookingId: string,
+  role: BookingDetailsRole,
+  options?: {
+    onInviteAccepted?: () => Promise<void> | void;
+  },
+) {
   const detailsPath = useMemo(() => getBookingDetailsPath(bookingId, role), [bookingId, role]);
   const {
     data,
@@ -30,6 +42,10 @@ export function useBookingDetailsController(bookingId: string, role: BookingDeta
   } = useApiGet<BookingDetailsResponse>(detailsPath);
   const [updatingLineKey, setUpdatingLineKey] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [startOtp, setStartOtpState] = useState('');
+  const [startOtpError, setStartOtpError] = useState<string | null>(null);
+  const [startingJob, setStartingJob] = useState(false);
+  const [inviteActionLoading, setInviteActionLoading] = useState<InviteActionLoading>(null);
 
   const normalizedDetails = useMemo(() => {
     if (!data) return null;
@@ -79,6 +95,79 @@ export function useBookingDetailsController(bookingId: string, role: BookingDeta
     }
   }, [bookingId, refetch]);
 
+  const inviteId = useMemo(() => {
+    const id = normalizedDetails?.invite?.id;
+    return typeof id === 'string' && id.trim().length > 0 ? id.trim() : null;
+  }, [normalizedDetails?.invite?.id]);
+
+  const setStartOtp = useCallback((value: string) => {
+    setStartOtpState(value);
+    if (startOtpError) setStartOtpError(null);
+  }, [startOtpError]);
+
+  const acceptInvite = useCallback(async () => {
+    if (!inviteId) {
+      showToast('error', 'Invite id not found for this job.');
+      return;
+    }
+    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.ACCEPTED);
+    try {
+      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.ACCEPTED);
+      if (options?.onInviteAccepted) {
+        await options.onInviteAccepted();
+      }
+      await refetch();
+    } finally {
+      setInviteActionLoading(null);
+    }
+  }, [inviteId, options, refetch]);
+
+  const rejectInvite = useCallback(async () => {
+    if (!inviteId) {
+      showToast('error', 'Invite id not found for this job.');
+      return;
+    }
+    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.REJECTED);
+    try {
+      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.REJECTED);
+      await refetch();
+    } finally {
+      setInviteActionLoading(null);
+    }
+  }, [inviteId, refetch]);
+
+  const startBookingWithOtp = useCallback(async () => {
+    const normalizedOtp = startOtp.trim();
+    const normalizedBookingId = normalizedDetails?.booking.id ?? null;
+    if (!normalizedBookingId) return;
+    if (!/^\d{4}$/.test(normalizedOtp)) {
+      setStartOtpError(APP_TEXT.jobs.startOtpInvalidLength);
+      return;
+    }
+
+    setStartingJob(true);
+    setStartOtpError(null);
+    try {
+      const response = await startWorkerBookingWithOtp(normalizedBookingId, normalizedOtp);
+      setStartOtpState('');
+      await refetch();
+      if (typeof response.message === 'string' && response.message.trim().length > 0) {
+        showToast('success', response.message);
+      }
+    } catch (startError) {
+      const message = getErrorMessage(startError, APP_TEXT.auth.errors.tryAgain);
+      if (message.toLowerCase().includes('already been started')) {
+        setStartOtpState('');
+        await refetch();
+        showToast('success', message);
+        return;
+      }
+      setStartOtpError(message);
+    } finally {
+      setStartingJob(false);
+    }
+  }, [normalizedDetails?.booking.id, refetch, startOtp]);
+
   const updateQuantity = useCallback(async (line: BookingDetailsServiceLine, nextQuantity: number) => {
     const quantity = Math.max(1, nextQuantity);
     await patchBooking(line, buildBookingQuantityPatch(line, quantity));
@@ -112,7 +201,16 @@ export function useBookingDetailsController(bookingId: string, role: BookingDeta
     loading,
     error: error ?? updateError,
     updatingLineKey,
+    inviteId,
+    startOtp,
+    startOtpError,
+    startingJob,
+    inviteActionLoading,
     refetch,
+    setStartOtp,
+    acceptInvite,
+    rejectInvite,
+    startBookingWithOtp,
     increaseQuantity,
     decreaseQuantity,
     increaseDuration,

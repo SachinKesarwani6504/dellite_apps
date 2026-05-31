@@ -236,6 +236,8 @@ export type BookingDetailsControllerArgs = {
 
 export type BookingDetailsContextValue = {
   details: BookingDetailsResponse | null;
+  startOtp: BookingStartOtp | null;
+  shouldShowOtpBlock: boolean;
   isInitialLoading: boolean;
   isRefreshing: boolean;
   error: string | null;

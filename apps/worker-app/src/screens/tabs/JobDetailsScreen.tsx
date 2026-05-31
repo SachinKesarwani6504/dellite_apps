@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View, useColorScheme, RefreshControl } from 'react-native';
-import { startWorkerBookingWithOtp, updateBookingInvite } from '@/actions/workerActions';
 import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
@@ -42,9 +41,7 @@ import {
   titleCaseBookingValue,
 } from '@/utils/booking-details';
 import { resolveWorkerIdFromAuthUser } from '@/utils';
-import { showToast } from '@/utils/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
-import { getErrorMessage } from '@/utils';
 
 const JOB_DETAILS_TABS = [
   { label: 'Bill', value: 'BILL', iconName: 'receipt-outline' as const },
@@ -82,10 +79,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
-  const [inviteActionLoading, setInviteActionLoading] = useState<null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED>(null);
-  const [startOtp, setStartOtp] = useState('');
-  const [startOtpError, setStartOtpError] = useState<string | null>(null);
-  const [startingJob, setStartingJob] = useState(false);
   const { user, me } = useAuthContext();
   const workerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
@@ -104,8 +97,20 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     details,
     loading,
     error,
+    startOtp,
+    startOtpError,
+    startingJob,
+    inviteActionLoading,
+    setStartOtp,
+    acceptInvite,
+    rejectInvite,
+    startBookingWithOtp,
     refetch,
-  } = useBookingDetailsController(route.params.jobId, 'WORKER');
+  } = useBookingDetailsController(route.params.jobId, 'WORKER', {
+    onInviteAccepted: async () => {
+      await updateAvailability(false);
+    },
+  });
   const showLiveLocation = useMemo(() => {
     if (!details) return false;
     const status = details.booking.bookingStatus;
@@ -148,11 +153,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   const canAcceptReject = inviteStatus === WORKER_JOB_INVITE_STATUS.VIEWED || inviteStatus === WORKER_JOB_INVITE_STATUS.NEW_JOB_REQUEST;
   const canStartWithOtp = inviteStatus === WORKER_JOB_INVITE_STATUS.ACCEPTED
     && details?.booking.bookingStatus === BOOKING_STATUS.CONFIRMED;
-  const inviteId = useMemo(() => {
-    const id = details?.invite?.id;
-    return typeof id === 'string' && id.trim().length > 0 ? id.trim() : null;
-  }, [details?.invite?.id]);
-
   const availableTabs = useMemo(() => {
     return JOB_DETAILS_TABS.filter((tab) => tab.value !== 'LIVE_LOCATION' || showLiveLocation);
   }, [showLiveLocation]);
@@ -168,67 +168,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     await refetch();
   }, [refetch]);
   const { refreshing, onRefresh } = usePullToRefresh(refreshDetails);
-
-  const onAccept = useCallback(async () => {
-    if (!inviteId) {
-      showToast('error', 'Invite id not found for this job.');
-      return;
-    }
-    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.ACCEPTED);
-    try {
-      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.ACCEPTED);
-      await updateAvailability(false);
-      await refetch();
-    } finally {
-      setInviteActionLoading(null);
-    }
-  }, [inviteId, refetch]);
-
-  const onReject = useCallback(async () => {
-    if (!inviteId) {
-      showToast('error', 'Invite id not found for this job.');
-      return;
-    }
-    setInviteActionLoading(WORKER_JOB_INVITE_STATUS.REJECTED);
-    try {
-      await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.REJECTED);
-      await refetch();
-    } finally {
-      setInviteActionLoading(null);
-    }
-  }, [inviteId, refetch]);
-
-  const onStartJobWithOtp = useCallback(async () => {
-    const normalizedOtp = startOtp.trim();
-    if (!details?.booking.id) return;
-    if (!/^\d{4}$/.test(normalizedOtp)) {
-      setStartOtpError(APP_TEXT.jobs.startOtpInvalidLength);
-      return;
-    }
-
-    setStartingJob(true);
-    setStartOtpError(null);
-    try {
-      const response = await startWorkerBookingWithOtp(details.booking.id, normalizedOtp);
-      setStartOtp('');
-      await refetch();
-      if (typeof response.message === 'string' && response.message.trim().length > 0) {
-        showToast('success', response.message);
-      }
-    } catch (error) {
-      const message = getErrorMessage(error, APP_TEXT.auth.errors.tryAgain);
-      if (message.toLowerCase().includes('already been started')) {
-        setStartOtp('');
-        await refetch();
-        showToast('success', message);
-        return;
-      }
-      setStartOtpError(message);
-    } finally {
-      setStartingJob(false);
-    }
-  }, [details?.booking.id, refetch, startOtp]);
-
   const renderTabContent = () => {
     if (!details) return null;
 
@@ -580,13 +519,13 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
             <View className="mt-3 rounded-2xl border p-4" style={cardStyle}>
               <Text className="text-sm font-bold text-baseDark dark:text-white">
                 {APP_TEXT.jobs.startOtpTitle}
+                <Text style={{ color: theme.colors.negative }}> *</Text>
               </Text>
               <View className="mt-3">
                 <OtpCodeInput
                   value={startOtp}
                   onChange={(value) => {
                     setStartOtp(value);
-                    if (startOtpError) setStartOtpError(null);
                   }}
                   length={4}
                   disabled={startingJob}
@@ -601,7 +540,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                 <Button
                   label={APP_TEXT.jobs.startOtpButton}
                   onPress={() => {
-                    void onStartJobWithOtp();
+                    void startBookingWithOtp();
                   }}
                   loading={startingJob}
                   disabled={startOtp.trim().length !== 4 || startingJob}
@@ -622,16 +561,16 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
             <View className="mt-4 flex-row items-center" style={{ gap: 10 }}>
               <View className="flex-1">
                 <Button
-              label={inviteActionLoading === WORKER_JOB_INVITE_STATUS.REJECTED ? 'Rejecting...' : 'Reject'}
+                  label={inviteActionLoading === WORKER_JOB_INVITE_STATUS.REJECTED ? 'Rejecting...' : 'Reject'}
                   variant="secondary"
-                  onPress={() => void onReject()}
+                  onPress={() => void rejectInvite()}
                   disabled={Boolean(inviteActionLoading)}
                 />
               </View>
               <View className="flex-1">
                 <Button
               label={inviteActionLoading === WORKER_JOB_INVITE_STATUS.ACCEPTED ? 'Accepting...' : 'Accept'}
-                  onPress={() => void onAccept()}
+                  onPress={() => void acceptInvite()}
                   disabled={Boolean(inviteActionLoading)}
                 />
               </View>
