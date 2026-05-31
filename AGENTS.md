@@ -196,3 +196,170 @@ Before finishing:
   - Move state/effects/API orchestration into dedicated hook controllers in `src/hooks/*`.
   - Move reusable calculations/mappers/formatters into `src/utils/*`.
 - Apply the same strict type placement and screen-logic separation in both apps.
+
+## 17) Codex PR Review Guide
+
+### Review scope
+
+When reviewing a pull request, review only the changed files and changed lines in the PR diff.
+
+Do not review the whole repository unless explicitly asked.
+
+Use unchanged files only for understanding context.
+
+Do not suggest large refactors outside the PR scope.
+
+Do not comment on old existing issues unless the PR makes them worse.
+
+Focus only on:
+- bugs introduced by this PR
+- security issues introduced by this PR
+- broken API contracts introduced by this PR
+- missing validation introduced by this PR
+- app crashes introduced by this PR
+- bad customer/worker UX introduced by this PR
+
+Avoid:
+- style-only comments
+- formatting comments
+- unrelated architecture suggestions
+- asking to rewrite working existing code
+
+### Project context
+
+You are reviewing the Dellite mobile apps.
+
+This repo contains:
+- customer app
+- worker app
+- OTP login
+- booking creation
+- booking status UI
+- worker live tracking
+- Google Maps route display
+- Firebase RTDB worker location
+- Firebase Auth / custom token login
+- FCM notifications
+- profile, account, and payout screens
+
+Dellite is a hyperlocal services app launching first in Prayagraj.
+
+### Review priorities
+
+#### P0 - Must block merge
+
+Flag as P0 only if this PR introduces:
+- Customer access to another user's personal data, booking, address, phone, or live location
+- Worker access to another worker's payout, profile, or booking data
+- Account or payout details screen losing biometric/device-lock protection
+- OTP/auth flow logging user into wrong role
+- Secrets or private service credentials in app code
+- Payment, payout, or booking confirmation UI showing false success
+- Booking progress starting without required backend confirmation
+- Worker location exposed unexpectedly
+
+#### P1 - Serious issue
+
+Flag as P1 only if this PR introduces:
+- Backend API contract break
+- Wrong booking status UI
+- Customer live tracking card showing "Live" incorrectly
+- Misleading route, polyline, ETA, or location marker
+- Crash from missing/null backend data
+- Firebase RTDB listener not cleaned up
+- Location watcher not stopped when tracking should end
+- Android/iOS permission issue
+- Broken notification deep link or booking state refresh
+- Missing loading/error/empty state in core flow
+- Accessibility or touch target issue affecting core user actions
+
+#### P2 - Useful improvement
+
+Mention P2 only if directly related to changed code:
+- confusing UI text
+- repeated component logic
+- small-screen layout issue
+- missing useful test
+- unclear state naming
+
+### Customer live tracking UI rule
+
+Show "Live" pill ONLY when:
+
+isOnline === true && movementStatus === "MOVING"
+
+Do not show "Live" for:
+- STATIONARY
+- GPS_WEAK
+- UNKNOWN
+- offline
+
+Do not show raw enum values to customers.
+
+Expected customer card states:
+
+1. Online + MOVING
+Title: "On the way"
+Subtitle:
+- If arrivalMinutes and distanceKm exist:
+  "Arrives in 12 min • 2.1 km away"
+- If only arrivalMinutes exists:
+  "Arrives in 12 min"
+- If ETA is missing:
+  "Arriving soon"
+Live pill: yes
+
+2. Online + STATIONARY
+Title: "Worker is nearby"
+Subtitle: "Location is updating"
+Live pill: no
+
+3. GPS_WEAK
+Title: "Location signal is weak"
+Subtitle: "We'll update the route when signal improves"
+Live pill: no
+
+4. Offline
+Title: "Location not live"
+Subtitle: "Worker location will update when they are online"
+Live pill: no
+
+5. UNKNOWN
+Title: "Updating location"
+Subtitle: "Please check again shortly"
+Live pill: no
+
+### Worker app rules
+
+For worker app changes, verify:
+- going online is explicit.
+- going offline stops unnecessary location tracking.
+- booking accept/start/complete actions are confirmed by backend.
+- worker cannot change booking status out of order.
+- payout/account info screens keep device lock protection where required.
+- location permission denial has helpful UI.
+- worker location is not shared outside valid booking/tracking state.
+
+### Maps and route rules
+
+For route/location changes, verify:
+- worker marker and booking marker are clearly different.
+- polyline uses actual route when available.
+- fallback route does not mislead customer.
+- route line is visible on Android and iOS.
+- location writes/listeners are not excessive.
+- booking location off-road/opposite-road cases do not create misleading UI.
+
+### API contract rules
+
+For app API changes, verify:
+- customer app and worker app match backend response shape.
+- optional/null fields are handled safely.
+- loading, empty, and error states are handled.
+- no screen assumes booking, worker, address, ETA, route, or profile data always exists.
+
+### Style
+
+Be practical.
+Avoid unnecessary redesign comments.
+Focus on bugs, security, bad UX, crashes, and backend contract issues.
