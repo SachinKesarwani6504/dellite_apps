@@ -35,3 +35,9 @@
 ## Notes for reviewer
 
 Mention what Codex should focus on.
+
+## Codex review comment
+
+Paste this as a PR comment:
+
+`@codex review`
