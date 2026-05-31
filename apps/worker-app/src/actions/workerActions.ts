@@ -30,6 +30,7 @@ import {
 } from '@/types/auth';
 import type { BookingDetailsResponse } from '@/types/booking-details';
 import type { WorkerJobsSummary } from '@/types/jobs';
+import type { WorkerStartBookingWithOtpResponse } from '@/types/worker-booking';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
 import { toFormData } from '@/utils/form-data';
 import type { MultipartFile } from '@/types/http';
@@ -40,6 +41,12 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
     return (envelope.data ?? ({} as T)) as T;
   }
   return payload as T;
+}
+
+function extractEnvelopeMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || !('message' in payload)) return undefined;
+  const rawMessage = (payload as { message?: unknown }).message;
+  return typeof rawMessage === 'string' && rawMessage.trim().length > 0 ? rawMessage.trim() : undefined;
 }
 
 const workerHomeCacheByCity = new Map<string, WorkerHomeData>();
@@ -920,4 +927,30 @@ export async function updateBookingInvite(inviteId: string, inviteType: BookingI
   );
 
   return unwrapData(response);
+}
+
+export async function startWorkerBookingWithOtp(bookingId: string, otp: string): Promise<WorkerStartBookingWithOtpResponse> {
+  const normalizedBookingId = bookingId.trim();
+  const normalizedOtp = otp.trim();
+  if (!normalizedBookingId || !normalizedOtp) {
+    throw new Error('Booking id and OTP are required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<WorkerStartBookingWithOtpResponse>, { otp: string }>(
+    `/worker/bookings/${encodeURIComponent(normalizedBookingId)}/start-with-otp`,
+    { otp: normalizedOtp },
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: false,
+      },
+    },
+  );
+  const data = unwrapData(response) as WorkerStartBookingWithOtpResponse;
+  const message = extractEnvelopeMessage(response) ?? data.message;
+  return {
+    ...data,
+    message,
+  };
 }

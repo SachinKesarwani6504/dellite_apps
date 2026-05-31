@@ -213,6 +213,7 @@ export interface VerifyOtpPayload {
 }
 
 export interface VerifyOtpResult {
+  message?: string;
   status?: string;
   accessToken?: string;
   refreshToken?: string;

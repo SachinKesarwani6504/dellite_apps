@@ -40,6 +40,7 @@ import type {
   UpdateCustomerIdentityPayload,
   UpdateCustomerProfilePayload,
 } from '@/types/customer';
+import type { BookingStartOtp } from '@/types/booking-details';
 import {
   PRICE_COMPUTATION_MODE,
   PRICE_TYPE,
@@ -959,4 +960,24 @@ export async function getCustomerBookingQuote(payload: { bookingDraft: BookingFl
   );
 
   return unwrapData(response);
+}
+
+export async function getCustomerBookingStartOtp(bookingId: string): Promise<BookingStartOtp | null> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) return null;
+
+  const response = await apiGet<ApiEnvelope<{ bookingId?: string; otp?: string }>>(
+    `/customer/bookings/${encodeURIComponent(normalizedBookingId)}/start-otp`,
+    {
+      auth: true,
+      cache: 'no-store',
+    },
+  );
+  const data = unwrapData(response);
+  if (!data || typeof data !== 'object') return null;
+
+  return {
+    bookingId: typeof data.bookingId === 'string' ? data.bookingId : null,
+    otp: typeof data.otp === 'string' ? data.otp : null,
+  };
 }

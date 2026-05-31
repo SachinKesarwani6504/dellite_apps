@@ -22,7 +22,7 @@ export function getBookingDetailsPath(bookingId: string, role: BookingDetailsRol
   if (role === 'WORKER') {
     return `/job/${normalizedBookingId}`;
   }
-  return `/booking/${normalizedBookingId}`;
+  return `/booking/${normalizedBookingId}?role=${role}`;
 }
 
 function toNumber(value: string | number | null | undefined) {

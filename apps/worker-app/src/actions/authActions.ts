@@ -42,6 +42,12 @@ function unwrapDataDeep(payload: unknown): Record<string, unknown> {
   return (typeof current === 'object' && current !== null ? current : {}) as Record<string, unknown>;
 }
 
+function extractEnvelopeMessage(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const message = (payload as { message?: unknown }).message;
+  return typeof message === 'string' && message.trim().length > 0 ? message.trim() : undefined;
+}
+
 function findPhoneTokenCandidate(root: unknown): string | undefined {
   const queue: Array<{ value: unknown; keyPath: string[] }> = [{ value: root, keyPath: [] }];
   let hops = 0;
@@ -285,11 +291,7 @@ export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpRes
     '/auth/verify-otp',
     payload,
     {
-      toast: {
-        successTitle: 'OTP Verified',
-        successMessage: 'Your phone has been verified.',
-        errorTitle: 'Verification Failed',
-      },
+      toast: { showSuccess: false },
     },
   );
   const data = unwrapDataDeep(response) as VerifyResponseData;
@@ -299,7 +301,9 @@ export async function verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpRes
     ?? (typeof responseRecord.status === 'string' ? responseRecord.status : undefined);
   const nestedTokens = (data.tokens ?? {}) as NonNullable<VerifyResponseData['tokens']>;
   const discoveredPhoneToken = findPhoneTokenCandidate(data);
+  const message = extractEnvelopeMessage(response);
   return {
+    message,
     status: responseStatus,
     accessToken: data.accessToken ?? data.access_token ?? nestedTokens.accessToken ?? nestedTokens.access_token,
     refreshToken: data.refreshToken ?? data.refresh_token ?? nestedTokens.refreshToken ?? nestedTokens.refresh_token,
