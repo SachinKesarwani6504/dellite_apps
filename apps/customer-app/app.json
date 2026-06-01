@@ -22,11 +22,9 @@
     },
     "android": {
       "package": "com.dellite.customer",
-      "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/icon.png",
@@ -38,16 +36,6 @@
         "projectId": "585e8776-84bb-4e4d-a41f-dc974035861e"
       }
     },
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "sounds": [
-            "./src/assets/sounds/notifictaion.mp3"
-          ]
-        }
-      ]
-    ],
     "web": {
       "bundler": "metro"
     }
