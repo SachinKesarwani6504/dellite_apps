@@ -11,6 +11,9 @@ dist/
 android/
 ios/
 
+# Firebase app config
+google-services.json
+
 # local env files
 .env
 .env.local
