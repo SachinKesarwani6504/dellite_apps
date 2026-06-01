@@ -44,3 +44,7 @@ apps/customer-app/.env
 /android
 apps/*/ios
 apps/*/android
+
+# firebase app config files
+apps/customer-app/google-services.json
+apps/worker-app/google-services.json

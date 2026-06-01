@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Dellite Partner",
-    "slug": "dellite_worker_app",
+    "slug": "dellite-partner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
@@ -20,6 +20,7 @@
       }
     },
     "android": {
+      "package": "com.dellite.partner",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
@@ -33,6 +34,11 @@
     },
     "web": {
       "favicon": "./src/assets/icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "065cbb17-5fe4-418c-bd9f-1a4a2a13ae30"
+      }
     },
     "plugins": [
       "expo-font",
