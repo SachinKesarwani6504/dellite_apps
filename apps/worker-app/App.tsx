@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
+import { setupNotificationChannels } from '@/utils';
 import { toastConfig } from '@/utils/toast';
 
 export default function App() {
@@ -20,6 +21,15 @@ export default function App() {
       applyGlobalAppFont();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    void setupNotificationChannels().catch((error) => {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[worker-notifications] channel-setup-failed', error);
+      }
+    });
+  }, []);
 
   if (!fontsLoaded) {
     return null;

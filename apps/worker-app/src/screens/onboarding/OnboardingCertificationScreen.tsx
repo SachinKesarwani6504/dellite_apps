@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { AppSpinner } from '@/components/common/AppSpinner';
@@ -66,9 +65,14 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
         const next: Record<string, string> = {};
         certificates.forEach((card: WorkerCertificateCard) => {
           const cardId = getCertificateCardId(card);
+          const allowedTypes = card.allowedCertificateTypes ?? [];
           const existing = prev[cardId];
-          if (existing && (card.allowedCertificateTypes ?? []).includes(existing)) {
+          if (existing && allowedTypes.includes(existing)) {
             next[cardId] = existing;
+            return;
+          }
+          if (!existing && allowedTypes.length === 1) {
+            next[cardId] = allowedTypes[0];
           }
         });
         return next;
@@ -318,13 +322,15 @@ export function OnboardingCertificationScreen({ navigation }: OnboardingCertific
                   const selectedFile = selectedFileByCard[cardId];
 
                   return (
-                  <View key={cardId} className="overflow-hidden rounded-2xl border border-accent/40 bg-white dark:border-white/10" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card }}>
-                    <LinearGradient
-                      colors={theme.gradients.cta}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={{ height: 7 }}
-                    />
+                  <View
+                    key={cardId}
+                    className="overflow-hidden rounded-2xl border border-accent/40 bg-white dark:border-white/10"
+                    style={{
+                      backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+                      borderTopWidth: 4,
+                      borderTopColor: theme.colors.primary,
+                    }}
+                  >
                     <View className="p-4">
                     <View className="flex-row items-start justify-between">
                       <View className="flex-1 flex-row">

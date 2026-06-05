@@ -326,7 +326,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
         />
       )}
     >
-      <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <SplitGradientTitle
           eyebrow={APP_TEXT.onboarding.identity.step}
           prefix={APP_TEXT.onboarding.identity.titlePrefix}
@@ -524,7 +523,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
             })}
           </View>
         </View>
-      </View>
 
       <View className="mt-5">
         <Button label={APP_TEXT.onboarding.identity.nextButton} onPress={onContinue} loading={isSubmitting} disabled={formDisabled} />

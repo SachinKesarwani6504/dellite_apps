@@ -62,9 +62,14 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
         const next: Record<string, string> = {};
         certificates.forEach(card => {
           const cardId = getCertificateCardId(card);
+          const allowedTypes = card.allowedCertificateTypes ?? [];
           const existing = prev[cardId];
-          if (existing && (card.allowedCertificateTypes ?? []).includes(existing)) {
+          if (existing && allowedTypes.includes(existing)) {
             next[cardId] = existing;
+            return;
+          }
+          if (!existing && allowedTypes.length === 1) {
+            next[cardId] = allowedTypes[0];
           }
         });
         return next;

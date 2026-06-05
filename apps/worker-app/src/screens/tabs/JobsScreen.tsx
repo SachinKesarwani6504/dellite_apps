@@ -10,6 +10,8 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
+import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { WorkerJobCard } from '@/components/common/WorkerJobCard';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { JOB_STACK_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
@@ -31,6 +33,8 @@ export function JobsScreen() {
   const isDark = useColorScheme() === 'dark';
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { locationState } = useAuthContext();
+  const { permissionStatus, initializeLocation, requestLocationPermission } = locationState;
   const requestedInitialTab = route?.params?.initialTab as WorkerJobListTab | undefined;
   const requestedInitialTabKey = route?.params?.initialTabRequestKey as number | undefined;
   const [activeTab, setActiveTab] = useState<WorkerJobListTab>('ALL');
@@ -119,6 +123,15 @@ export function JobsScreen() {
     void refreshSummary();
   }, [refreshSummary]));
 
+  const handleLocationPermissionAction = useCallback(async () => {
+    const status = await requestLocationPermission();
+    if (status === 'granted') {
+      await initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, requestLocationPermission]);
+
+  const shouldShowLocationPrompt = permissionStatus !== 'granted';
+
   const listEmpty = !loading && !error && items.length === 0;
   const showInitialLoader = loading && !loadingMore && !refreshing;
   const listContent = showInitialLoader ? (
@@ -183,6 +196,21 @@ export function JobsScreen() {
       <Text className="mt-1 text-sm" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
         {APP_TEXT.jobs.subtitle}
       </Text>
+
+      {shouldShowLocationPrompt ? (
+        <View className="mt-4">
+          <PermissionPromptCard
+            tone="location"
+            title={APP_TEXT.home.locationAccess.title}
+            subtitle={APP_TEXT.home.locationAccess.subtitle}
+            actionLabel={APP_TEXT.home.locationAccess.actionLabel}
+            onAction={() => {
+              void handleLocationPermissionAction();
+            }}
+            helperText={APP_TEXT.home.locationAccess.helpText}
+          />
+        </View>
+      ) : null}
 
       <AnimatedSegmentTabs
         value={activeTab}

@@ -109,6 +109,7 @@ export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
 export * from '@/utils/worker-jobs';
 export * from '@/utils/api-error';
+export * from '@/utils/notification-channel';
 export * from '@/utils/device-session';
 export * from '@/utils/session-events';
 export * from '@/utils/session-errors';

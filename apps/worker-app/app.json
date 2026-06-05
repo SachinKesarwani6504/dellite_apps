@@ -50,6 +50,14 @@
       "expo-font",
       "expo-secure-store",
       [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./src/assets/sounds/notifictaion.mp3"
+          ]
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow Dellite Partner to use your camera for Aadhaar QR verification."

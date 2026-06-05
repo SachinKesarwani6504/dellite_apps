@@ -38,6 +38,16 @@
         "projectId": "585e8776-84bb-4e4d-a41f-dc974035861e"
       }
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./src/assets/sounds/notifictaion.mp3"
+          ]
+        }
+      ]
+    ],
     "web": {
       "bundler": "metro"
     }

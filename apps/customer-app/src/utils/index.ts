@@ -31,6 +31,7 @@ export * from '@/utils/validation';
 export * from '@/utils/firebase-session';
 export * from '@/utils/error-message';
 export * from '@/utils/api-error';
+export * from '@/utils/notification-channel';
 export * from '@/utils/device-session';
 export * from '@/utils/session-events';
 export * from '@/utils/session-errors';

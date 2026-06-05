@@ -2,6 +2,7 @@ import * as ExpoLocation from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { LocationPermissionStatus } from '@/modules/location/types/location.types';
+import { setupNotificationChannels } from '@/utils/notification-channel';
 
 const pendingPushTokenMemoryRef = {
   value: null as string | null,
@@ -44,18 +45,6 @@ function resolveNotificationPermissionStatus(permission: Awaited<ReturnType<type
   return 'undetermined' as const;
 }
 
-async function prepareNotificationRuntime() {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-
-  await Notifications.setNotificationChannelAsync('default', {
-    name: 'Default',
-    importance: Notifications.AndroidImportance.MAX,
-  });
-  logPermission('notification-runtime-ready', { configuredAndroidChannel: true });
-}
-
 export async function getLocationPermissionStatusFromDevice(): Promise<LocationPermissionStatus> {
   const permission = await ExpoLocation.getForegroundPermissionsAsync();
   const status = toLocationPermissionStatus(permission.status);
@@ -82,7 +71,7 @@ export async function getNotificationPermissionStatusFromDevice() {
 
 export async function requestNotificationPermissionFromDevice() {
   logPermission('notification-permission-request-start', { platform: Platform.OS });
-  await prepareNotificationRuntime();
+  await setupNotificationChannels();
 
   const requestedPermissions = await Notifications.requestPermissionsAsync();
   const status = resolveNotificationPermissionStatus(requestedPermissions);
@@ -114,8 +103,6 @@ export async function getPendingPushToken() {
 
 export async function syncPendingPushTokenFromDevice() {
   logPermission('push-token-sync-start', { platform: Platform.OS });
-
-  await prepareNotificationRuntime();
 
   const permissionStatus = resolveNotificationPermissionStatus(await Notifications.getPermissionsAsync());
   logPermission('notification-permission-current', {

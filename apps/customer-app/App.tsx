@@ -10,6 +10,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
+import { setupNotificationChannels } from '@/utils';
 import { toastConfig } from '@/utils/toast';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
@@ -28,6 +29,15 @@ export default function App() {
       // Ignore if splash is already hidden or unavailable.
     });
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    void setupNotificationChannels().catch((error) => {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-notifications] channel-setup-failed', error);
+      }
+    });
+  }, []);
 
   if (!fontsLoaded) {
     return null;
