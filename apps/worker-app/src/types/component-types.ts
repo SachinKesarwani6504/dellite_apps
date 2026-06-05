@@ -94,6 +94,19 @@ export type LiveTrackingStatusCardProps = {
   error?: string | null;
 };
 
+export type PermissionPromptTone = 'location' | 'notification';
+
+export type PermissionPromptCardProps = {
+  tone: PermissionPromptTone;
+  title: string;
+  subtitle: string;
+  actionLabel: string;
+  onAction: () => void | Promise<void>;
+  loading?: boolean;
+  helperText?: string | null;
+  containerClassName?: string;
+};
+
 export type ScrollablePillTabItem<T extends string> = {
   label: string;
   value: T;

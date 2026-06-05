@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, TextInput, View, useColorScheme } from 'react-native';
 
@@ -26,13 +26,22 @@ type Props = {
 };
 
 export function PhoneLoginScreen({ navigation }: Props) {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const { authState, sendOtpCode, loading } = useAuthContext();
+  const [phoneNumber, setPhoneNumber] = useState(() => authState.phone.replace(/\D/g, ''));
+  const syncedAuthPhoneRef = useRef(authState.phone.replace(/\D/g, ''));
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [activePillId, setActivePillId] = useState(TRUST_PILLS[0].id);
-  const { sendOtpCode, loading } = useAuthContext();
   const isDark = useColorScheme() === 'dark';
   const normalizedPhone = phoneNumber.replace(/\D/g, '');
   const isPhoneComplete = normalizedPhone.length === 10;
+
+  useEffect(() => {
+    const nextPhone = authState.phone.replace(/\D/g, '');
+    if (nextPhone !== syncedAuthPhoneRef.current) {
+      syncedAuthPhoneRef.current = nextPhone;
+      setPhoneNumber(nextPhone);
+    }
+  }, [authState.phone]);
 
   const onContinue = useCallback(async () => {
     if (!isPhoneComplete) {

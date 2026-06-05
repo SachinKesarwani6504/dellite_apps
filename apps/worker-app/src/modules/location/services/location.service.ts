@@ -8,7 +8,6 @@ import {
 import { mapGoogleGeocodeToNormalizedLocation } from '@/modules/location/utils/location.mapper';
 import type {
   LocationCoordinates,
-  LocationPermissionStatus,
   NormalizedLocation,
 } from '@/modules/location/types/location.types';
 import { ENV } from '@/utils/env';
@@ -23,18 +22,6 @@ function normalizeNullableText(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
-function toPermissionStatus(status: ExpoLocation.PermissionStatus): LocationPermissionStatus {
-  if (status === ExpoLocation.PermissionStatus.GRANTED) {
-    return 'granted';
-  }
-
-  if (status === ExpoLocation.PermissionStatus.DENIED) {
-    return 'denied';
-  }
-
-  return 'undetermined';
-}
-
 function ensureCoordinates(latitude?: number, longitude?: number): LocationCoordinates {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new Error(LOCATION_ERRORS.fetchFailed);
@@ -44,17 +31,6 @@ function ensureCoordinates(latitude?: number, longitude?: number): LocationCoord
     latitude: latitude as number,
     longitude: longitude as number,
   };
-}
-
-export async function hasLocationPermission() {
-  const permission = await ExpoLocation.getForegroundPermissionsAsync();
-  return permission.granted;
-}
-
-export async function requestLocationPermission(): Promise<LocationPermissionStatus> {
-  const permission = await ExpoLocation.requestForegroundPermissionsAsync();
-  logLocationDebug('requestLocationPermission', { status: permission.status, granted: permission.granted });
-  return toPermissionStatus(permission.status);
 }
 
 export async function getCurrentCoordinates(): Promise<LocationCoordinates> {
@@ -119,7 +95,3 @@ export async function getCurrentLocationDetails(
   }
 }
 
-export async function getForegroundPermissionStatus(): Promise<LocationPermissionStatus> {
-  const permission = await ExpoLocation.getForegroundPermissionsAsync();
-  return toPermissionStatus(permission.status);
-}

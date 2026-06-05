@@ -32,6 +32,8 @@ export * from '@/utils/firebase-session';
 export * from '@/utils/error-message';
 export * from '@/utils/api-error';
 export * from '@/utils/device-session';
+export * from '@/utils/session-events';
+export * from '@/utils/session-errors';
 export * from '@/utils/banner-navigation';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';

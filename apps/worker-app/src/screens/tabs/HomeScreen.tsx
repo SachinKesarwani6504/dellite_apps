@@ -10,6 +10,7 @@ import { GradientScreen } from '@/components/common/GradientScreen';
 import { GradientWord } from '@/components/common/GradientWord';
 import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBannerCarousel';
 import { ListErrorState } from '@/components/common/ListErrorState';
+import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { WorkerNearbyGoldenJobCard } from '@/components/common/WorkerNearbyGoldenJobCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { LoadingState } from '@/components/common/LoadingState';
@@ -67,10 +68,14 @@ export function HomeScreen() {
     formattedAddress,
     latitude,
     longitude,
+    permissionStatus,
     initialized,
     loading: locationLoading,
     refreshing: locationRefreshing,
+    requestLocationPermission,
+    initializeLocation,
   } = locationState;
+  const isLocationGranted = permissionStatus === 'granted';
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
     locality,
@@ -80,14 +85,26 @@ export function HomeScreen() {
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
   const selectedCity = resolvedLocation.serviceableCity ?? '';
-  const cityLabel = resolvedLocation.displayCity || 'Locating...';
-  const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
+  const cityLabel = isLocationGranted
+    ? resolvedLocation.displayCity || 'Locating...'
+    : APP_TEXT.home.locationAccess.noLocationLabel;
+  const displayCityLabel = cityLabel === 'Locating...'
+    || cityLabel === APP_TEXT.home.locationAccess.noLocationLabel
+    ? cityLabel
+    : titleCase(cityLabel);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
-  const isLocationPending = (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
+  const isLocationPending = isLocationGranted && (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
+
+  const handleLocationPermissionAction = useCallback(async () => {
+    const status = await requestLocationPermission();
+    if (status === 'granted') {
+      await initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, requestLocationPermission]);
 
   const loadHomeData = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
     const showFullScreenLoader = options?.showFullScreenLoader ?? true;
@@ -124,6 +141,7 @@ export function HomeScreen() {
   }, [selectedCity]);
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
+    if (!isLocationGranted) return;
     await loadHomeData({ showFullScreenLoader: false });
   });
 
@@ -133,7 +151,7 @@ export function HomeScreen() {
         setLoading(isLocationPending);
         setHomeData(null);
         setError(null);
-        setCityUnavailable(!isLocationPending);
+        setCityUnavailable(isLocationGranted && !isLocationPending);
         return;
       }
       const cached = getCachedWorkerHome(selectedCity);
@@ -144,7 +162,7 @@ export function HomeScreen() {
         return;
       }
       void loadHomeData({ showFullScreenLoader: true });
-    }, [isLocationPending, loadHomeData, selectedCity]),
+    }, [isLocationGranted, isLocationPending, loadHomeData, selectedCity]),
   );
 
   const nearbyJobs = useMemo(
@@ -159,7 +177,7 @@ export function HomeScreen() {
       return;
     }
 
-    if (!workerId || isWorkerLiveOnline) {
+    if (!workerId || isWorkerLiveOnline || !isLocationGranted) {
       return;
     }
 
@@ -173,7 +191,7 @@ export function HomeScreen() {
       console.log('[worker-live-location][home] auto-go-online-attempt', { workerId });
     }
     void goWorkerLiveOnline();
-  }, [goWorkerLiveOnline, isAuthenticated, isWorkerLiveOnline, workerId]);
+  }, [goWorkerLiveOnline, isAuthenticated, isLocationGranted, isWorkerLiveOnline, workerId]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -207,7 +225,7 @@ export function HomeScreen() {
     workerId,
   ]);
 
-  if ((loading || isLocationPending) && !homeData) {
+  if (isLocationGranted && (loading || isLocationPending) && !homeData) {
     const loadingMessage = isLocationPending ? APP_TEXT.home.loadingLocation : APP_TEXT.home.nearbyJobsLoading;
     return (
       <GradientScreen>
@@ -271,139 +289,156 @@ export function HomeScreen() {
         </View>
       </View>
 
-      {homeFallbackContent}
-
-      {error && homeData ? (
-        <View
-          className="mb-3 rounded-xl border px-3 py-2"
-          style={{
-            borderColor: theme.colors.caution,
-            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+      {!isLocationGranted ? (
+        <PermissionPromptCard
+          tone="location"
+          title={APP_TEXT.home.locationAccess.title}
+          subtitle={APP_TEXT.home.locationAccess.subtitle}
+          actionLabel={APP_TEXT.home.locationAccess.actionLabel}
+          onAction={() => {
+            void handleLocationPermissionAction();
           }}
-        >
-          <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-            Showing cached data. Pull to refresh.
-          </Text>
-        </View>
+          helperText={APP_TEXT.home.locationAccess.helpText}
+        />
       ) : null}
 
-      {homeData ? (
+      {isLocationGranted ? (
         <>
-          {shouldShowCurrentStatusBanner ? (
-            <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
+          {homeFallbackContent}
+
+          {error && homeData ? (
+            <View
+              className="mb-3 rounded-xl border px-3 py-2"
+              style={{
+                borderColor: theme.colors.caution,
+                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+              }}
+            >
+              <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+                Showing cached data. Pull to refresh.
+              </Text>
+            </View>
           ) : null}
 
-          {homeBanners.length > 0 ? (
-            <ImageOverlayBannerCarousel
-              containerClassName={HOME_SCREEN_SPACING.bannerTopClassName}
-              banners={homeBanners}
-              onPressBanner={(banner) => {
-                void handleBannerAction({
-                  action: banner.action,
-                  navigation: { navigate: navigation.navigate },
-                  city: selectedCity,
-                });
-              }}
-            />
-          ) : null}
+          {homeData ? (
+            <>
+              {shouldShowCurrentStatusBanner ? (
+                <WorkerCurrentStatusBanner currentStatus={homeData.currentStatus} />
+              ) : null}
 
-          <View className="mt-3 flex-row gap-2">
-            <View
-              className="flex-1 items-center rounded-ui-md border px-3 py-3"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-              }}
-            >
-              <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
-              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{homeData.todayStats?.totalJobs ?? 0}</Text>
-              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.todayJobsLabel}</Text>
-            </View>
-            <View
-              className="flex-1 items-center rounded-ui-md border px-3 py-3"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-              }}
-            >
-              <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
-              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatInrCurrency(homeData.todayStats?.totalEarning)}</Text>
-              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
-            </View>
-            <View
-              className="flex-1 items-center rounded-ui-md border px-3 py-3"
-              style={{
-                borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
-                backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
-              }}
-            >
-              <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
-              <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatSignedPercent(homeData.todayStats?.growth)}</Text>
-              <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
-            </View>
-          </View>
+              {homeBanners.length > 0 ? (
+                <ImageOverlayBannerCarousel
+                  containerClassName={HOME_SCREEN_SPACING.bannerTopClassName}
+                  banners={homeBanners}
+                  onPressBanner={(banner) => {
+                    void handleBannerAction({
+                      action: banner.action,
+                      navigation: { navigate: navigation.navigate },
+                      city: selectedCity,
+                    });
+                  }}
+                />
+              ) : null}
 
-          {nearbyJobs.length > 0 ? (
-            <View className="mt-4">
-              <SectionHeaderRow
-                title={APP_TEXT.home.nearbyJobsTitle}
-                onPressAction={homeData.isMoreThanThreeAvailableJobs ? () => {
-                  navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
-                    screen: MAIN_TAB_SCREENS.jobs,
-                    params: {
-                      screen: JOB_STACK_SCREENS.home,
-                      params: {
-                        initialTab: 'NEW_JOBS',
-                        initialTabRequestKey: Date.now(),
-                      },
-                    },
-                  });
-                } : undefined}
-              />
-              <View className="mt-2 gap-3">
-                {nearbyJobs.map((job, index) => {
-                  const id = job.id ?? `${job.title ?? APP_TEXT.home.jobFallback}-${index}`;
-                  const jobId = job.booking?.id ?? job.id;
-                  return (
-                    <WorkerNearbyGoldenJobCard
-                      key={id}
-                      item={job}
-                      isDark={isDark}
-                      onPress={jobId ? () => {
-                        navigation.navigate(ROOT_SCREENS.jobDetailsNavigator, {
-                          screen: JOB_STACK_SCREENS.details,
-                          params: { jobId, inviteStatus: job.invite?.inviteStatus ?? null },
-                        });
-                      } : undefined}
-                    />
-                  );
-                })}
+              <View className="mt-3 flex-row gap-2">
+                <View
+                  className="flex-1 items-center rounded-ui-md border px-3 py-3"
+                  style={{
+                    borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
+                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{homeData.todayStats?.totalJobs ?? 0}</Text>
+                  <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.todayJobsLabel}</Text>
+                </View>
+                <View
+                  className="flex-1 items-center rounded-ui-md border px-3 py-3"
+                  style={{
+                    borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+                  }}
+                >
+                  <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
+                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatInrCurrency(homeData.todayStats?.totalEarning)}</Text>
+                  <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
+                </View>
+                <View
+                  className="flex-1 items-center rounded-ui-md border px-3 py-3"
+                  style={{
+                    borderColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+                  }}
+                >
+                  <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
+                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatSignedPercent(homeData.todayStats?.growth)}</Text>
+                  <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
+                </View>
               </View>
-            </View>
-          ) : null}
 
-          {homeData.footer ? (
-            <View className="mt-6">
-              {(homeData.footer.madeWith || homeData.footer.from) ? (
-                <View className="flex-row items-center">
-                  {homeData.footer.madeWith ? (
-                    <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.madeWith}</Text>
+              {nearbyJobs.length > 0 ? (
+                <View className="mt-4">
+                  <SectionHeaderRow
+                    title={APP_TEXT.home.nearbyJobsTitle}
+                    onPressAction={homeData.isMoreThanThreeAvailableJobs ? () => {
+                      navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
+                        screen: MAIN_TAB_SCREENS.jobs,
+                        params: {
+                          screen: JOB_STACK_SCREENS.home,
+                          params: {
+                            initialTab: 'NEW_JOBS',
+                            initialTabRequestKey: Date.now(),
+                          },
+                        },
+                      });
+                    } : undefined}
+                  />
+                  <View className="mt-2 gap-3">
+                    {nearbyJobs.map((job, index) => {
+                      const id = job.id ?? `${job.title ?? APP_TEXT.home.jobFallback}-${index}`;
+                      const jobId = job.booking?.id ?? job.id;
+                      return (
+                        <WorkerNearbyGoldenJobCard
+                          key={id}
+                          item={job}
+                          isDark={isDark}
+                          onPress={jobId ? () => {
+                            navigation.navigate(ROOT_SCREENS.jobDetailsNavigator, {
+                              screen: JOB_STACK_SCREENS.details,
+                              params: { jobId, inviteStatus: job.invite?.inviteStatus ?? null },
+                            });
+                          } : undefined}
+                        />
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
+              {homeData.footer ? (
+                <View className="mt-6">
+                  {(homeData.footer.madeWith || homeData.footer.from) ? (
+                    <View className="flex-row items-center">
+                      {homeData.footer.madeWith ? (
+                        <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.madeWith}</Text>
+                      ) : null}
+                      <Ionicons name="heart" size={18} color={theme.colors.negative} style={{ marginHorizontal: 6, marginTop: 2 }} />
+                      {homeData.footer.from ? (
+                        <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.from}</Text>
+                      ) : null}
+                    </View>
                   ) : null}
-                  <Ionicons name="heart" size={18} color={theme.colors.negative} style={{ marginHorizontal: 6, marginTop: 2 }} />
-                  {homeData.footer.from ? (
-                    <Text className="text-[26px] font-extrabold text-baseDark dark:text-white">{homeData.footer.from}</Text>
+                  {homeData.footer.region ? (
+                    <GradientWord word={homeData.footer.region} className="mt-1 text-[36px] font-extrabold" />
+                  ) : null}
+                  {homeData.footer.copyright ? (
+                    <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
+                      {homeData.footer.copyright}
+                    </Text>
                   ) : null}
                 </View>
               ) : null}
-              {homeData.footer.region ? (
-                <GradientWord word={homeData.footer.region} className="mt-1 text-[36px] font-extrabold" />
-              ) : null}
-              {homeData.footer.copyright ? (
-                <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                  {homeData.footer.copyright}
-                </Text>
-              ) : null}
-            </View>
+            </>
           ) : null}
         </>
       ) : null}

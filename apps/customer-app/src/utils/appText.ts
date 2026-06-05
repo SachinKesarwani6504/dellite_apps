@@ -60,6 +60,14 @@ export const APP_TEXT = {
       titleGradientWord: 'Aboard!',
       subtitle: 'Your account is ready. Book services instantly!',
       cta: 'Explore Services',
+      notifications: {
+        titlePrefix: 'Turn on',
+        titleGradientWord: 'notifications',
+        subtitle: 'Get booking updates, reminders, and live status changes.',
+        actionLabel: 'Enable notifications',
+        deniedActionLabel: 'Open settings',
+        helpText: 'You can turn this on later from app settings.',
+      },
       benefits: {
         trustedProfessionals: 'Book trusted professionals',
         verifiedWorkers: 'Verified & rated workers',
@@ -71,6 +79,13 @@ export const APP_TEXT = {
     homeTitle: 'Home',
     allServicesTitle: 'All Services',
     bookingsTitle: 'Bookings',
+    locationAccess: {
+      title: 'Allow location access',
+      subtitle: 'We use your location to show nearby services and city availability.',
+      actionLabel: 'Allow location',
+      helpText: 'You can turn this off later in device settings.',
+      noLocationLabel: 'No Location',
+    },
     bookings: {
       titlePrefix: 'My',
       titleHighlight: 'Bookings',

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "468288126941",
+    "firebase_url": "https://dellite-web-dev-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "dellite-web-dev",
+    "storage_bucket": "dellite-web-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468288126941:android:89cca273e5407e9733c034",
+        "android_client_info": {
+          "package_name": "com.dellite.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkq9iYc9ub1YhCyn1hyKGr4RkLFDY1WvA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -72,6 +72,11 @@ export function useOnboardingController(): OnboardingContextType {
     setLoading(true);
     try {
       const status = await refreshMe();
+      if (status === AUTH_STATUS.LOGGED_OUT || status === AUTH_STATUS.OTP_SENT) {
+        setOnboardingRoute(ONBOARDING_SCREEN.CUSTOMER_IDENTITY);
+        setIsOnboardingActive(false);
+        return ONBOARDING_SCREEN.CUSTOMER_IDENTITY;
+      }
       if (status === AUTH_STATUS.AUTHENTICATED) {
         setOnboardingRoute(ONBOARDING_SCREEN.CUSTOMER_WELCOME);
         setIsOnboardingActive(false);

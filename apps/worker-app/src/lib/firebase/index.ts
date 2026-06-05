@@ -1,40 +1,139 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import { Auth, Persistence, getAuth, initializeAuth } from 'firebase/auth';
+import {
+  DataSnapshot,
+  Database,
+  OnDisconnect,
+  getDatabase,
+  onDisconnect,
+  onValue,
+  ref,
+  remove,
+  serverTimestamp,
+  set,
+  update,
+} from 'firebase/database';
 import { Firestore, getFirestore } from 'firebase/firestore';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
-import {
-  ENABLE_BACKGROUND_LOCATION_TRACKING,
-  REMOVE_WORKER_LIVE_NODE_ON_OFFLINE,
-  WORKER_BACKGROUND_LOCATION_TASK_NAME,
-} from '@/lib/firebase/constants';
-import { getFirebaseApp } from '@/lib/firebase/firebaseApp';
-import {
-  LIVE_LOCATION_NAMESPACE,
-  LiveLocationNamespace,
-  WorkerLiveAppState,
-  WorkerLiveLocationRecord,
-  WorkerLiveUpdatePayload,
-  WorkerMovementStatus,
-  WorkerVehicleMode,
-  getCustomerLivePath,
-  getCustomerLiveRef,
-  getFirebaseDatabase,
-  getLiveLocationPath,
-  getRealtimeServerTimestamp,
-  getWorkerLivePath,
-  getWorkerLiveRef,
-  registerWorkerLiveOnDisconnect,
-  removeWorkerLive,
-  setWorkerLive,
-  subscribeWorkerLiveLocation,
-  updateWorkerLive,
-} from '@/lib/firebase/firebaseDatabase';
-import { assertFirebaseConfig, firebaseConfig, isFirebaseConfigured, missingFirebaseConfigKeys } from '@/lib/firebase/firebaseConfig';
 
+export type FirebaseRuntimeConfig = {
+  apiKey: string;
+  authDomain: string;
+  databaseURL: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId?: string;
+};
+
+export const ENABLE_BACKGROUND_LOCATION_TRACKING = false;
+export const REMOVE_WORKER_LIVE_NODE_ON_OFFLINE = false;
+export const WORKER_BACKGROUND_LOCATION_TASK_NAME = 'WORKER_LIVE_LOCATION_TASK';
+
+export const LIVE_LOCATION_NAMESPACE = {
+  WORKER: 'workerLive',
+  CUSTOMER: 'customerLive',
+} as const;
+
+export type LiveLocationNamespace = (typeof LIVE_LOCATION_NAMESPACE)[keyof typeof LIVE_LOCATION_NAMESPACE];
+
+export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
+export type WorkerVehicleMode =
+  | 'WALK'
+  | 'TWO_WHEELER'
+  | 'CAR'
+  | 'UNKNOWN';
+export type WorkerMovementStatus =
+  | 'STATIONARY'
+  | 'MOVING'
+  | 'GPS_WEAK'
+  | 'UNKNOWN';
+
+export type WorkerLiveLocationRecord = {
+  workerId: string;
+  lat: number;
+  lng: number;
+  accuracy: number | null;
+  heading: number | null;
+  speed: number | null;
+  lastLocationAt: number;
+  heartbeatAt: number;
+  isOnline: boolean;
+  isAvailable: boolean;
+  vehicleMode: WorkerVehicleMode;
+  movementStatus: WorkerMovementStatus;
+  appState: WorkerLiveAppState;
+  updatedAt?: number;
+};
+
+export type WorkerLiveUpdatePayload = Partial<WorkerLiveLocationRecord> & Record<string, unknown>;
+
+let firebaseAppInstance: FirebaseApp | null = null;
 let firebaseAuthInstance: Auth | null = null;
+let firebaseDatabaseInstance: Database | null = null;
 let firebaseStorageInstance: FirebaseStorage | null = null;
 let firebaseFirestoreInstance: Firestore | null = null;
+
+function readEnvValue(...keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function normalizeDatabaseUrl(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+export const firebaseConfig: FirebaseRuntimeConfig = {
+  apiKey: readEnvValue('EXPO_PUBLIC_FIREBASE_API_KEY', 'FIREBASE_API_KEY'),
+  authDomain: readEnvValue('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 'FIREBASE_AUTH_DOMAIN'),
+  databaseURL: normalizeDatabaseUrl(readEnvValue('EXPO_PUBLIC_FIREBASE_DATABASE_URL', 'FIREBASE_DATABASE_URL')),
+  projectId: readEnvValue('EXPO_PUBLIC_FIREBASE_PROJECT_ID', 'FIREBASE_PROJECT_ID'),
+  storageBucket: readEnvValue('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET', 'FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: readEnvValue('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', 'FIREBASE_MESSAGING_SENDER_ID'),
+  appId: readEnvValue('EXPO_PUBLIC_FIREBASE_APP_ID', 'FIREBASE_APP_ID'),
+  measurementId: readEnvValue('EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID', 'FIREBASE_MEASUREMENT_ID') || undefined,
+};
+
+const REQUIRED_FIREBASE_CONFIG_KEYS: ReadonlyArray<keyof FirebaseRuntimeConfig> = [
+  'apiKey',
+  'authDomain',
+  'databaseURL',
+  'projectId',
+  'storageBucket',
+  'messagingSenderId',
+  'appId',
+];
+
+export const missingFirebaseConfigKeys = REQUIRED_FIREBASE_CONFIG_KEYS.filter(
+  key => !firebaseConfig[key],
+);
+
+export const isFirebaseConfigured = missingFirebaseConfigKeys.length === 0;
+
+export function assertFirebaseConfig() {
+  if (isFirebaseConfigured) return;
+  throw new Error(
+    `[firebase-config] Missing firebase env keys: ${missingFirebaseConfigKeys.join(', ')}. Provide EXPO_PUBLIC_FIREBASE_* (preferred) or FIREBASE_* values.`,
+  );
+}
+
+export function getFirebaseApp(): FirebaseApp {
+  if (firebaseAppInstance) {
+    return firebaseAppInstance;
+  }
+
+  assertFirebaseConfig();
+  firebaseAppInstance = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  return firebaseAppInstance;
+}
 
 export function getFirebaseAuth(): Auth {
   if (firebaseAuthInstance) {
@@ -62,6 +161,15 @@ export function getFirebaseAuth(): Auth {
   return firebaseAuthInstance;
 }
 
+export function getFirebaseDatabase(): Database {
+  if (firebaseDatabaseInstance) {
+    return firebaseDatabaseInstance;
+  }
+
+  firebaseDatabaseInstance = getDatabase(getFirebaseApp());
+  return firebaseDatabaseInstance;
+}
+
 export function getFirebaseStorage(): FirebaseStorage {
   if (firebaseStorageInstance) {
     return firebaseStorageInstance;
@@ -85,35 +193,56 @@ export function getFirebaseAnalyticsIfSupported() {
   return null;
 }
 
-export {
-  ENABLE_BACKGROUND_LOCATION_TRACKING,
-  REMOVE_WORKER_LIVE_NODE_ON_OFFLINE,
-  WORKER_BACKGROUND_LOCATION_TASK_NAME,
-  assertFirebaseConfig,
-  firebaseConfig,
-  getFirebaseApp,
-  getCustomerLivePath,
-  getCustomerLiveRef,
-  getFirebaseDatabase,
-  getLiveLocationPath,
-  getRealtimeServerTimestamp,
-  getWorkerLivePath,
-  getWorkerLiveRef,
-  isFirebaseConfigured,
-  LIVE_LOCATION_NAMESPACE,
-  missingFirebaseConfigKeys,
-  registerWorkerLiveOnDisconnect,
-  removeWorkerLive,
-  setWorkerLive,
-  subscribeWorkerLiveLocation,
-  updateWorkerLive,
-};
+export function getLiveLocationPath(namespace: LiveLocationNamespace, userId: string) {
+  return `${namespace}/${userId}`;
+}
 
-export type {
-  LiveLocationNamespace,
-  WorkerLiveAppState,
-  WorkerLiveLocationRecord,
-  WorkerLiveUpdatePayload,
-  WorkerMovementStatus,
-  WorkerVehicleMode,
-};
+export function getWorkerLivePath(userId: string) {
+  return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.WORKER, userId);
+}
+
+export function getCustomerLivePath(userId: string) {
+  return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.CUSTOMER, userId);
+}
+
+export function getWorkerLiveRef(userId: string) {
+  return ref(getFirebaseDatabase(), getWorkerLivePath(userId));
+}
+
+export function getCustomerLiveRef(userId: string) {
+  return ref(getFirebaseDatabase(), getCustomerLivePath(userId));
+}
+
+export async function setWorkerLive(workerId: string, payload: WorkerLiveLocationRecord) {
+  await set(getWorkerLiveRef(workerId), payload);
+}
+
+export async function updateWorkerLive(workerId: string, payload: WorkerLiveUpdatePayload) {
+  await update(getWorkerLiveRef(workerId), payload);
+}
+
+export function registerWorkerLiveOnDisconnect(workerId: string): OnDisconnect {
+  return onDisconnect(getWorkerLiveRef(workerId));
+}
+
+export async function removeWorkerLive(workerId: string) {
+  await remove(getWorkerLiveRef(workerId));
+}
+
+export function getRealtimeServerTimestamp() {
+  return serverTimestamp();
+}
+
+export function subscribeWorkerLiveLocation(
+  workerId: string,
+  onLocation: (location: WorkerLiveLocationRecord | null) => void,
+  onError: (error: Error) => void,
+) {
+  return onValue(
+    getWorkerLiveRef(workerId),
+    (snapshot: DataSnapshot) => {
+      onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
+    },
+    onError,
+  );
+}

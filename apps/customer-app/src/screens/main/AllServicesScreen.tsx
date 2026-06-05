@@ -17,6 +17,7 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { LoadingState } from '@/components/common/LoadingState';
+import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -43,6 +44,12 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
+  const {
+    permissionStatus,
+    requestLocationPermission,
+    initializeLocation,
+  } = locationState;
+  const isLocationGranted = permissionStatus === 'granted';
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city: locationState.city,
     locality: locationState.locality,
@@ -70,6 +77,13 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
+
+  const handleLocationPermissionAction = useCallback(async () => {
+    const status = await requestLocationPermission();
+    if (status === 'granted') {
+      await initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, requestLocationPermission]);
 
   const runFetch = useCallback(async (options: { nextPage: number; append: boolean }) => {
     if (!selectedCity) return;
@@ -130,10 +144,19 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   }, [searchText]);
 
   useEffect(() => {
+    if (!isLocationGranted) {
+      setItems([]);
+      setLoading(false);
+      setLoadingMore(false);
+      setError(null);
+      setHasMore(false);
+      return;
+    }
+
     if (!selectedCity) return;
     setHasMore(true);
     void runFetch({ nextPage: 1, append: false });
-  }, [debouncedSearch, runFetch, selectedCity]);
+  }, [debouncedSearch, isLocationGranted, runFetch, selectedCity]);
 
   const listEmpty = !loading && !error && items.length === 0;
   const normalizedSearchText = searchText.trim();
@@ -149,7 +172,18 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
   const cardGap = 12;
   const horizontalPadding = 16;
   const serviceCardWidth = Math.max(140, Math.floor((screenWidth - (horizontalPadding * 2) - cardGap) / 2));
-  const listContent = !selectedCity ? (
+  const listContent = !isLocationGranted ? (
+    <PermissionPromptCard
+      tone="location"
+      title={APP_TEXT.main.locationAccess.title}
+      subtitle={APP_TEXT.main.locationAccess.subtitle}
+      actionLabel={APP_TEXT.main.locationAccess.actionLabel}
+      onAction={() => {
+        void handleLocationPermissionAction();
+      }}
+      helperText={APP_TEXT.main.locationAccess.helpText}
+    />
+  ) : !selectedCity ? (
     <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
   ) : loading && items.length === 0 ? (
     <LoadingState minHeight={520} message={APP_TEXT.main.allServices.loadingServices} />
@@ -242,47 +276,51 @@ export function AllServicesScreen({ navigation }: AllServicesScreenProps) {
           >
             <Ionicons name="location-outline" size={13} color={theme.colors.primary} />
             <Text className="ml-1 text-xs font-semibold text-primary">
-              {resolvedLocation.displayCity ? titleCase(resolvedLocation.displayCity) : 'Locating...'}
+              {isLocationGranted
+                ? resolvedLocation.displayCity ? titleCase(resolvedLocation.displayCity) : 'Locating...'
+                : APP_TEXT.main.locationAccess.noLocationLabel}
             </Text>
           </View>
         </View>
 
-        <View className="mt-3">
-          <View>
-            <AppInput
-              value={searchText}
-              onChangeText={setSearchText}
-              placeholder={APP_TEXT.main.allServices.searchPlaceholder}
-              autoCorrect={false}
-              autoCapitalize="none"
-              returnKeyType="search"
-              style={{ paddingRight: 42 }}
-            />
-            {normalizedSearchText.length > 0 ? (
-              <View className="absolute inset-y-0 right-3 items-center justify-center">
-                {isSearchFetchLoading ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                ) : (
-                  <Pressable
-                    onPress={() => {
-                      setSearchText('');
-                      setDebouncedSearch('');
-                    }}
-                    className="h-7 w-7 items-center justify-center rounded-full"
-                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95 }}
-                    hitSlop={8}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={16}
-                      color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
-                    />
-                  </Pressable>
-                )}
-              </View>
-            ) : null}
+        {isLocationGranted ? (
+          <View className="mt-3">
+            <View>
+              <AppInput
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder={APP_TEXT.main.allServices.searchPlaceholder}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+                style={{ paddingRight: 42 }}
+              />
+              {normalizedSearchText.length > 0 ? (
+                <View className="absolute inset-y-0 right-3 items-center justify-center">
+                  {isSearchFetchLoading ? (
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                  ) : (
+                    <Pressable
+                      onPress={() => {
+                        setSearchText('');
+                        setDebouncedSearch('');
+                      }}
+                      className="h-7 w-7 items-center justify-center rounded-full"
+                      style={{ backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95 }}
+                      hitSlop={8}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={16}
+                        color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight}
+                      />
+                    </Pressable>
+                  )}
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        ) : null}
       </View>
 
       {listContent}

@@ -16,14 +16,20 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow Dellite Partner to use your location for service and job updates.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Dellite Partner to access your location in the background during active jobs.",
         "NSFaceIDUsageDescription": "Dellite uses Face ID to protect your payout information."
       }
     },
     "android": {
       "package": "com.dellite.partner",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "POST_NOTIFICATIONS",
+        "CAMERA",
+        "USE_BIOMETRIC"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/icon.png",

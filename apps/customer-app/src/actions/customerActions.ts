@@ -866,6 +866,7 @@ export async function createCustomerProfile(
       email: payload.email,
       gender: payload.gender,
       referralCode: payload.referralCode,
+      deviceInfo: payload.deviceInfo ? JSON.stringify(payload.deviceInfo) : undefined,
     },
     payload.file ? { file: payload.file } : undefined,
   );

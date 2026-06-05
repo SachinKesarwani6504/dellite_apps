@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   LOCATION_ERRORS,
   LOCATION_STALE_AFTER_MS,
@@ -7,9 +8,11 @@ import {
 import {
   getCurrentCoordinates as getCurrentCoordinatesFromDevice,
   getCurrentLocationDetails,
-  getForegroundPermissionStatus,
-  requestLocationPermission as requestLocationPermissionFromDevice,
 } from '@/modules/location/services/location.service';
+import {
+  getLocationPermissionStatusFromDevice,
+  requestLocationPermissionFromDevice,
+} from '@/lib/permission';
 import { isMeaningfulLocationChange } from '@/modules/location/utils/distance.util';
 import { shouldRefreshLocation } from '@/modules/location/utils/location.mapper';
 import type {
@@ -60,7 +63,7 @@ export function useLocationController(): LocationContextValue {
       setSnapshot(current => ({
         ...current,
         permissionStatus: status,
-        error: status === 'denied' ? LOCATION_ERRORS.permissionDenied : current.error,
+        error: status === 'denied' ? LOCATION_ERRORS.permissionDenied : null,
       }));
       return status;
     } catch (error) {
@@ -99,21 +102,17 @@ export function useLocationController(): LocationContextValue {
       }));
 
       try {
-        let permissionStatus = await getForegroundPermissionStatus();
+        const permissionStatus = await getLocationPermissionStatusFromDevice();
 
         if (permissionStatus !== 'granted') {
-          permissionStatus = await requestLocationPermissionFromDevice();
-        }
-
-        if (permissionStatus !== 'granted') {
-          logLocationController('initialize:permissionDenied', { permissionStatus });
+          logLocationController('initialize:permissionNotGranted', { permissionStatus });
           setSnapshot(current => ({
             ...current,
             permissionStatus,
             loading: false,
             refreshing: false,
             initialized: true,
-            error: LOCATION_ERRORS.permissionDenied,
+            error: permissionStatus === 'denied' ? LOCATION_ERRORS.permissionDenied : null,
           }));
           return existingLocation;
         }
@@ -184,6 +183,35 @@ export function useLocationController(): LocationContextValue {
 
   useEffect(() => {
     void initializeLocation();
+  }, [initializeLocation]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      if (snapshotRef.current.permissionStatus === 'granted') return;
+
+      void (async () => {
+        try {
+          const permissionStatus = await getLocationPermissionStatusFromDevice();
+          if (permissionStatus === 'granted') {
+            await initializeLocation({ forceRefresh: true });
+            return;
+          }
+
+          setSnapshot(current => ({
+            ...current,
+            permissionStatus,
+            error: permissionStatus === 'denied' ? LOCATION_ERRORS.permissionDenied : current.error,
+          }));
+        } catch (error) {
+          logLocationController('appState:permissionRefreshError', error);
+        }
+      })();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [initializeLocation]);
 
   const location = snapshot.location;

@@ -8,8 +8,15 @@ import type { UpdateCustomerIdentityPayload } from '@/types/customer';
 import { useLocationController } from '@/hooks/useLocationController';
 import {
   applyFirebaseCustomToken,
+  clearFirebaseAuthSession,
 } from '@/utils/firebase-session';
+import { buildDeviceSessionPayload } from '@/utils/device-session';
 import { resolveCustomerBookingCountsFromMeResponse } from '@/utils/customer-booking-counts';
+import {
+  forcedSessionLogoutMessage,
+  isForcedSessionLogoutError,
+} from '@/utils/session-errors';
+import { showError } from '@/utils/toast';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -19,10 +26,10 @@ import {
   saveOnboardingPhoneToken,
 } from '@/utils/key-chain-storage';
 import {
-  buildDeviceSessionPayload,
-  registerFcmTokenRefreshListener,
-  syncPendingFcmTokenFromDevice,
-} from '@/utils/device-session';
+  getNotificationPermissionStatusFromDevice,
+  requestNotificationPermissionFromDevice,
+  syncPendingPushTokenFromDevice,
+} from '@/lib/permission';
 
 const defaultState: AuthState = {
   status: AUTH_STATUS.BOOTSTRAPPING,
@@ -222,6 +229,8 @@ export function useAuthController(): AuthContextType {
   const [authState, setAuthState] = useState<AuthState>(defaultState);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthStatus> | null>(null);
+  const inFlightDeviceSessionSyncRef = useRef<Promise<void> | null>(null);
+  const lastDeviceSessionPayloadFingerprintRef = useRef<string | null>(null);
   const loading = pendingActionCount > 0;
   const bootstrappingLoading = authState.status === AUTH_STATUS.BOOTSTRAPPING;
 
@@ -234,25 +243,50 @@ export function useAuthController(): AuthContextType {
     }
   }, []);
 
+  const resetInvalidAuthMeSession = useCallback(async () => {
+    await clearAuthTokens();
+    await clearOnboardingPhoneToken();
+    await clearFirebaseAuthSession();
+    setAuthState({
+      status: AUTH_STATUS.LOGGED_OUT,
+      tokens: null,
+      phoneToken: null,
+      phone: '',
+      user: null,
+    });
+  }, []);
+
+  const shouldResetAfterAuthMeError = useCallback((error: unknown) => {
+    return error instanceof ApiError && error.statusCode === 400;
+  }, []);
+
   const refreshMe = useCallback(async (): Promise<AuthStatus> => {
     if (!inFlightRefreshMeRef.current) {
       inFlightRefreshMeRef.current = (async () => {
-        const me = await authActions.getMe();
-        const nextUser = normalizeUserFromMeResponse(me);
-        const status = resolveAuthStatus(nextUser);
-        setAuthState((prev) => ({
-          ...prev,
-          user: nextUser,
-          status,
-        }));
-        return status;
+        try {
+          const me = await authActions.getMe();
+          const nextUser = normalizeUserFromMeResponse(me);
+          const status = resolveAuthStatus(nextUser);
+          setAuthState((prev) => ({
+            ...prev,
+            user: nextUser,
+            status,
+          }));
+          return status;
+        } catch (error) {
+          if (shouldResetAfterAuthMeError(error)) {
+            await resetInvalidAuthMeSession();
+            return AUTH_STATUS.LOGGED_OUT;
+          }
+          throw error;
+        }
       })().finally(() => {
         inFlightRefreshMeRef.current = null;
       }) as Promise<AuthStatus>;
     }
 
     return inFlightRefreshMeRef.current;
-  }, []);
+  }, [resetInvalidAuthMeSession, shouldResetAfterAuthMeError]);
 
   const ensureFirebaseSession = useCallback(async (
     _accessToken: string | null,
@@ -261,47 +295,173 @@ export function useAuthController(): AuthContextType {
     await applyFirebaseCustomToken(firebaseCustomToken ?? null);
   }, []);
 
-  const syncDeviceSessionBestEffort = useCallback(async () => {
+  const handleForcedSessionLogout = useCallback(async () => {
+    lastDeviceSessionPayloadFingerprintRef.current = null;
+    await clearAuthTokens();
+    await clearOnboardingPhoneToken();
+    await clearFirebaseAuthSession();
+    setAuthState({
+      status: AUTH_STATUS.LOGGED_OUT,
+      tokens: null,
+      phoneToken: null,
+      phone: '',
+      user: null,
+    });
+    showError(forcedSessionLogoutMessage);
+  }, []);
+
+  const promptNotificationPermissionForDeviceSession = useCallback(async () => {
+    const currentStatus = await getNotificationPermissionStatusFromDevice();
+
+    if (currentStatus === 'granted') {
+      return currentStatus;
+    }
+
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[customer-auth] device-session-notification-permission-request-start', {
+        currentStatus,
+      });
+    }
+
+    const nextStatus = await requestNotificationPermissionFromDevice();
+
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[customer-auth] device-session-notification-permission-request-complete', {
+        nextStatus,
+      });
+    }
+
+    return nextStatus;
+  }, []);
+
+  const buildProfileDeviceInfoBestEffort = useCallback(async () => {
     try {
-      const payload = await buildDeviceSessionPayload('CUSTOMER');
-      await authActions.upsertDeviceSession(payload);
+      await syncPendingPushTokenFromDevice();
     } catch (error) {
       if (__DEV__) {
         // eslint-disable-next-line no-console
-        console.log('[customer-auth] device-session-upsert-failed', error);
+        console.log('[customer-auth] profile-device-info-push-token-fetch-failed', error);
       }
+    }
+
+    try {
+      const payload = await buildDeviceSessionPayload('CUSTOMER');
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] profile-device-info-ready', {
+          role: payload.role,
+          platform: payload.platform,
+          hasDeviceId: Boolean(payload.deviceId),
+          hasPushToken: Boolean(payload.fcmToken),
+        });
+      }
+      return payload;
+    } catch (error) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] profile-device-info-build-failed', error);
+      }
+      return undefined;
     }
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  const syncDeviceSessionBestEffort = useCallback(async () => {
+    if (inFlightDeviceSessionSyncRef.current) {
+      await inFlightDeviceSessionSyncRef.current;
+      return;
+    }
 
-    void syncPendingFcmTokenFromDevice()
-      .then((token) => {
-        if (!mounted || !token || !authState.tokens?.accessToken) {
-          return;
-        }
-        void syncDeviceSessionBestEffort();
-      })
-      .catch((error) => {
+    const syncTask = (async () => {
+      try {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] device-session-sync-start', { mode: 'update' });
+      }
+
+      const tokens = await getAuthTokens();
+      if (!tokens?.accessToken) {
         if (__DEV__) {
           // eslint-disable-next-line no-console
-          console.log('[customer-auth] initial-push-token-sync-failed', error);
+          console.log('[customer-auth] device-session-skipped-no-access-token', { mode: 'update' });
         }
-      });
-
-    const unsubscribe = registerFcmTokenRefreshListener(() => {
-      if (!authState.tokens?.accessToken) {
         return;
       }
-      void syncDeviceSessionBestEffort();
+
+      try {
+        await syncPendingPushTokenFromDevice();
+      } catch (error) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[customer-auth] device-session-push-token-fetch-failed', error);
+        }
+      }
+
+      const payload = await buildDeviceSessionPayload('CUSTOMER');
+      const payloadFingerprint = JSON.stringify({
+        role: payload.role,
+        platform: payload.platform,
+        deviceId: payload.deviceId,
+        deviceName: payload.deviceName,
+        fcmToken: payload.fcmToken,
+      });
+
+      if (lastDeviceSessionPayloadFingerprintRef.current === payloadFingerprint) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[customer-auth] device-session-skipped-duplicate-payload', {
+            mode: 'update',
+            hasPushToken: Boolean(payload.fcmToken),
+          });
+        }
+        return;
+      }
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] device-session-upsert-send', {
+          mode: 'update',
+          role: payload.role,
+          platform: payload.platform,
+          hasDeviceId: Boolean(payload.deviceId),
+          deviceIdLength: payload.deviceId.length,
+          deviceName: payload.deviceName,
+          hasPushToken: Boolean(payload.fcmToken),
+          pushTokenLength: payload.fcmToken?.length ?? 0,
+        });
+      }
+
+      await authActions.updateDeviceSession(payload);
+      lastDeviceSessionPayloadFingerprintRef.current = payloadFingerprint;
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] device-session-upsert-success', { mode: 'update' });
+      }
+    } catch (error) {
+      if (isForcedSessionLogoutError(error)) {
+        await handleForcedSessionLogout();
+        return;
+      }
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] device-session-upsert-failed', {
+          mode: 'update',
+          error,
+        });
+      }
+    }
+    })().finally(() => {
+      inFlightDeviceSessionSyncRef.current = null;
     });
 
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, [authState.tokens?.accessToken, syncDeviceSessionBestEffort]);
+    inFlightDeviceSessionSyncRef.current = syncTask;
+    await syncTask;
+  }, [handleForcedSessionLogout]);
+
+  const syncDeviceSessionRegistration = useCallback(async () => {
+    await syncDeviceSessionBestEffort();
+  }, [syncDeviceSessionBestEffort]);
 
   const logout = useCallback(async () => {
     try {
@@ -314,6 +474,7 @@ export function useAuthController(): AuthContextType {
         }
       }
     } finally {
+      lastDeviceSessionPayloadFingerprintRef.current = null;
       await clearAuthTokens();
       await clearOnboardingPhoneToken();
       setAuthState({
@@ -350,7 +511,8 @@ export function useAuthController(): AuthContextType {
         await saveAuthTokens(tokens);
         await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
         await clearOnboardingPhoneToken();
-        void syncDeviceSessionBestEffort();
+        await promptNotificationPermissionForDeviceSession();
+        void syncDeviceSessionRegistration();
 
         setAuthState((prev) => ({
           ...prev,
@@ -378,7 +540,12 @@ export function useAuthController(): AuthContextType {
         user: null,
       }));
     },
-    [ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
+    [
+      ensureFirebaseSession,
+      promptNotificationPermissionForDeviceSession,
+      refreshMe,
+      syncDeviceSessionRegistration,
+    ],
   );
 
   const completeOnboarding = useCallback(
@@ -391,7 +558,12 @@ export function useAuthController(): AuthContextType {
 
       let profile: Awaited<ReturnType<typeof customerActions.createCustomerProfile>>;
       try {
-        profile = await customerActions.createCustomerProfile(payload);
+        await promptNotificationPermissionForDeviceSession();
+        const deviceInfo = await buildProfileDeviceInfoBestEffort();
+        profile = await customerActions.createCustomerProfile({
+          ...payload,
+          deviceInfo,
+        });
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
           await clearOnboardingPhoneToken();
@@ -411,7 +583,6 @@ export function useAuthController(): AuthContextType {
       await saveAuthTokens(tokens);
       await ensureFirebaseSession(tokens.accessToken, profile.firebaseCustomToken);
       await clearOnboardingPhoneToken();
-      void syncDeviceSessionBestEffort();
       setAuthState((prev) => ({
         ...prev,
         tokens,
@@ -428,7 +599,13 @@ export function useAuthController(): AuthContextType {
         // Keep optimistic onboarding-forward state. A later refresh can reconcile.
       }
     },
-    [authState.phoneToken, ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
+    [
+      authState.phoneToken,
+      buildProfileDeviceInfoBestEffort,
+      ensureFirebaseSession,
+      promptNotificationPermissionForDeviceSession,
+      refreshMe,
+    ],
   );
 
   const enterMainTabs = useCallback(async () => {
@@ -544,7 +721,6 @@ export function useAuthController(): AuthContextType {
         }));
 
         await ensureFirebaseSession(tokens.accessToken);
-        void syncDeviceSessionBestEffort();
 
         try {
           const me = await authActions.getMe();
@@ -562,6 +738,10 @@ export function useAuthController(): AuthContextType {
           });
           await clearOnboardingPhoneToken();
         } catch (error) {
+          if (shouldResetAfterAuthMeError(error)) {
+            await resetInvalidAuthMeSession();
+            return;
+          }
           if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
             await logout();
           } else if (mounted) {
@@ -590,7 +770,12 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [ensureFirebaseSession, logout, syncDeviceSessionBestEffort]);
+  }, [
+    ensureFirebaseSession,
+    logout,
+    resetInvalidAuthMeSession,
+    shouldResetAfterAuthMeError,
+  ]);
 
   return useMemo<AuthContextType>(
     () => ({
@@ -605,6 +790,7 @@ export function useAuthController(): AuthContextType {
       completeOnboarding: completeOnboardingWithState,
       enterMainTabs: enterMainTabsWithState,
       completeWelcomeAndEnterMainTabs: completeWelcomeAndEnterMainTabsWithState,
+      syncDeviceSessionRegistration,
       logout: logoutWithState,
     }),
     [
@@ -619,6 +805,7 @@ export function useAuthController(): AuthContextType {
       completeOnboardingWithState,
       enterMainTabsWithState,
       completeWelcomeAndEnterMainTabsWithState,
+      syncDeviceSessionRegistration,
       logoutWithState,
     ],
   );

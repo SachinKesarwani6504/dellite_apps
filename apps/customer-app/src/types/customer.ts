@@ -1,5 +1,5 @@
 import type { MultipartFile } from '@/types/http';
-import type { Gender, OnboardingFlags } from '@/types/auth';
+import type { DeviceSessionUpsertPayload, Gender, OnboardingFlags } from '@/types/auth';
 
 export type CustomerProfile = {
   id: string;
@@ -18,6 +18,7 @@ export type UpdateCustomerIdentityPayload = {
   gender?: Gender;
   referralCode?: string;
   file?: MultipartFile;
+  deviceInfo?: DeviceSessionUpsertPayload;
 };
 
 export type UpdateCustomerProfilePayload = {
