@@ -116,6 +116,13 @@ export const APP_TEXT = {
     jobFallback: 'Job',
     loadError: 'Unable to load home data right now.',
     loadingLocation: 'Fetching location...',
+    locationAccess: {
+      title: 'Allow location access',
+      subtitle: 'We use your location to show nearby jobs and city availability.',
+      actionLabel: 'Allow location',
+      helpText: 'You can turn this off later in device settings.',
+      noLocationLabel: 'No Location',
+    },
     todayJobsLabel: "Today's Jobs",
     earningsLabel: 'Earnings',
     growthLabel: 'Growth',

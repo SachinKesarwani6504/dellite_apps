@@ -12,6 +12,8 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { LoadMoreButton } from '@/components/common/LoadMoreButton';
+import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { Booking } from '@/types/api';
 import type { CustomerBookingsSummary } from '@/types/api';
@@ -30,6 +32,13 @@ const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
 export function BookingsScreen() {
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const navigation = useNavigation() as any;
+  const { locationState } = useAuthContext();
+  const {
+    permissionStatus,
+    requestLocationPermission,
+    initializeLocation,
+  } = locationState;
+  const isLocationGranted = permissionStatus === 'granted';
 
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
   const [items, setItems] = useState<Booking[]>([]);
@@ -41,6 +50,13 @@ export function BookingsScreen() {
   const [hasMore, setHasMore] = useState(true);
   const initialLoadIdRef = useRef(0);
   const loadMoreIdRef = useRef(0);
+
+  const handleLocationPermissionAction = useCallback(async () => {
+    const status = await requestLocationPermission();
+    if (status === 'granted') {
+      await initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, requestLocationPermission]);
 
   const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType }) => {
     const { nextPage, append, tab } = options;
@@ -88,26 +104,41 @@ export function BookingsScreen() {
   }, []);
 
   const onRefreshData = useCallback(async () => {
+    if (!isLocationGranted) return;
     setHasMore(true);
     await Promise.all([
       refreshSummary(),
       runFetch({ nextPage: 1, append: false, tab: activeTab }),
     ]);
-  }, [activeTab, refreshSummary, runFetch]);
+  }, [activeTab, isLocationGranted, refreshSummary, runFetch]);
 
   const { refreshing, onRefresh } = usePullToRefresh(onRefreshData);
 
   useEffect(() => {
+    if (!isLocationGranted) {
+      setHasMore(false);
+      setItems([]);
+      setPage(1);
+      setError(null);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
     setHasMore(true);
     setItems([]);
     setPage(1);
     setError(null);
     void runFetch({ nextPage: 1, append: false, tab: activeTab });
-  }, [activeTab, runFetch]);
+  }, [activeTab, isLocationGranted, runFetch]);
 
   useFocusEffect(useCallback(() => {
+    if (!isLocationGranted) {
+      setSummary(DEFAULT_BOOKINGS_SUMMARY);
+      return;
+    }
     void refreshSummary();
-  }, [refreshSummary]));
+  }, [isLocationGranted, refreshSummary]));
 
   const listEmpty = !loading && !error && items.length === 0;
   const showInitialLoader = loading && !loadingMore && !refreshing;
@@ -171,19 +202,38 @@ export function BookingsScreen() {
         {APP_TEXT.main.bookingsTitle}
       </Text>
 
-      <AnimatedSegmentTabs
-        value={activeTab}
-        onChange={setActiveTab}
-        items={[
-          { label: APP_TEXT.main.bookings.tabs.all || 'All', count: summary.allBookings, value: 'ALL' },
-          { label: APP_TEXT.main.bookings.tabs.ongoing || 'Ongoing', count: summary.ongoingBookings, value: 'ONGOING' },
-          { label: APP_TEXT.main.bookings.tabs.completed || 'Completed', count: summary.completedBookings, value: 'COMPLETED' },
-        ]}
-      />
+      {!isLocationGranted ? (
+        <View className="mt-3">
+          <PermissionPromptCard
+            tone="location"
+            title={APP_TEXT.main.locationAccess.title}
+            subtitle={APP_TEXT.main.locationAccess.subtitle}
+            actionLabel={APP_TEXT.main.locationAccess.actionLabel}
+            onAction={() => {
+              void handleLocationPermissionAction();
+            }}
+            helperText={APP_TEXT.main.locationAccess.helpText}
+          />
+        </View>
+      ) : null}
 
-      <View className="mt-4">
-        {listContent}
-      </View>
+      {isLocationGranted ? (
+        <>
+          <AnimatedSegmentTabs
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { label: APP_TEXT.main.bookings.tabs.all || 'All', count: summary.allBookings, value: 'ALL' },
+              { label: APP_TEXT.main.bookings.tabs.ongoing || 'Ongoing', count: summary.ongoingBookings, value: 'ONGOING' },
+              { label: APP_TEXT.main.bookings.tabs.completed || 'Completed', count: summary.completedBookings, value: 'COMPLETED' },
+            ]}
+          />
+
+          <View className="mt-4">
+            {listContent}
+          </View>
+        </>
+      ) : null}
     </GradientScreen>
   );
 }

@@ -5,7 +5,7 @@ import type { ToastPayload, ToastVariant } from '@/types/toast';
 import { AppImage } from '@/components/common/AppImage';
 import { palette, theme, uiColors } from '@/utils/theme';
 
-const appIcon = require('../assets/icon.png');
+const appIcon = require('../assets/images/webp/icon-large-size.webp');
 
 function getVariantTone(variant: ToastVariant) {
   if (variant === 'success') return theme.colors.positive;

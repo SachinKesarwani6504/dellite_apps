@@ -1,6 +1,8 @@
 import type { MultipartFile } from '@/types/http';
 
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
+export type DeviceSessionRole = Extract<UserRole, 'CUSTOMER' | 'WORKER'>;
+export type DevicePlatform = 'ANDROID' | 'IOS';
 export const APP_AUTH_ROLE: UserRole = 'WORKER';
 export const REFERRAL_ROLES = {
   CUSTOMER: 'CUSTOMER',
@@ -210,6 +212,14 @@ export interface VerifyOtpPayload {
   phone: string;
   otp: string;
   role: UserRole;
+}
+
+export interface DeviceSessionUpsertPayload {
+  role: DeviceSessionRole;
+  platform: DevicePlatform;
+  deviceId: string;
+  deviceName: string;
+  fcmToken?: string;
 }
 
 export interface VerifyOtpResult {

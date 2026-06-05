@@ -17,6 +17,7 @@ import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBann
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
+import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { SectionHeaderRow } from '@/components/common/SectionHeaderRow';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
 import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillCategoryGrid';
@@ -62,6 +63,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const { locationState } = useAuthContext();
   const { beginFlow } = useBookingFlowContext();
   const {
+    permissionStatus,
     city,
     locality,
     state,
@@ -71,9 +73,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     initialized,
     loading: locationLoading,
     refreshing: locationRefreshing,
+    requestLocationPermission,
+    initializeLocation,
   } = locationState;
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const isLocationGranted = permissionStatus === 'granted';
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
     locality,
@@ -83,7 +88,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
   const selectedCity = resolvedLocation.serviceableCity ?? '';
-  const isLocationReadyForHome = initialized && !locationLoading && !locationRefreshing && Boolean(selectedCity);
+  const isLocationReadyForHome = isLocationGranted && initialized && !locationLoading && !locationRefreshing && Boolean(selectedCity);
   const homeQueryCity = useMemo(() => {
     return normalizeHomeQueryCity(
       resolvedLocation.resolvedCity
@@ -98,7 +103,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
-  const isLocationPending = !isLocationReadyForHome;
+  const isLocationPending = isLocationGranted && !isLocationReadyForHome;
 
   const contentSections = useMemo(
     () => (Array.isArray(homeData?.content) ? homeData.content : []),
@@ -150,7 +155,22 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [homeQueryCity]);
 
+  const handleLocationPermissionAction = useCallback(async () => {
+    const status = await requestLocationPermission();
+    if (status === 'granted') {
+      await initializeLocation({ forceRefresh: true });
+    }
+  }, [initializeLocation, requestLocationPermission]);
+
   useEffect(() => {
+    if (!isLocationGranted) {
+      setLoading(false);
+      setHomeData(null);
+      setError(null);
+      setCityUnavailable(false);
+      return;
+    }
+
     if (!isLocationReadyForHome || !homeQueryCity) {
       setLoading(true);
       setHomeData(null);
@@ -167,7 +187,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       return;
     }
     void fetchHome({ showFullScreenLoader: true });
-  }, [fetchHome, homeQueryCity, isLocationPending, isLocationReadyForHome]);
+  }, [fetchHome, homeQueryCity, isLocationGranted, isLocationPending, isLocationReadyForHome]);
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await fetchHome({ showFullScreenLoader: false });
@@ -303,8 +323,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     return null;
   }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
 
-  const cityLabel = selectedCity || 'Locating...';
-  const displayCityLabel = cityLabel === 'Locating...' ? cityLabel : titleCase(cityLabel);
+  const cityLabel = isLocationGranted ? selectedCity || 'Locating...' : APP_TEXT.main.locationAccess.noLocationLabel;
+  const displayCityLabel = cityLabel === 'Locating...'
+    || cityLabel === APP_TEXT.main.locationAccess.noLocationLabel
+    ? cityLabel
+    : titleCase(cityLabel);
   const shouldShowContent = !cityUnavailable && contentSections.length > 0;
 
   useEffect(() => {
@@ -324,7 +347,21 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [city, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
 
   const isHomePayloadEmpty = !homeData || (!shouldShowContent && !homeData.footer);
-  const homeFallbackContent = !homeData && !loading ? (
+  const locationPermissionPrompt = !isLocationGranted ? (
+    <View className="mb-4 mt-4">
+      <PermissionPromptCard
+        tone="location"
+        title={APP_TEXT.main.locationAccess.title}
+        subtitle={APP_TEXT.main.locationAccess.subtitle}
+        actionLabel={APP_TEXT.main.locationAccess.actionLabel}
+        onAction={() => {
+          void handleLocationPermissionAction();
+        }}
+        helperText={APP_TEXT.main.locationAccess.helpText}
+      />
+    </View>
+  ) : null;
+  const homeFallbackContent = !isLocationGranted || homeData || loading ? null : (
     cityUnavailable ? (
       <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />
     ) : error ? (
@@ -347,7 +384,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         icon="home-outline"
       />
     )
-  ) : null;
+  );
 
   if ((loading || isLocationPending) && isHomePayloadEmpty) {
     const loadingMessage = isLocationPending ? APP_TEXT.main.loadingLocation : APP_TEXT.main.loadingHome;
@@ -398,6 +435,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <Text className="ml-1 text-xs font-semibold text-primary">{displayCityLabel}</Text>
           </View>
         </View>
+
+        {locationPermissionPrompt}
 
         {cityUnavailable && homeData ? (
           <CityAvailabilityNotice cityLabel={resolvedLocation.displayCity} />

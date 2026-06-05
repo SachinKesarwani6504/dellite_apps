@@ -85,7 +85,6 @@ export function OnboardingCustomerIdentityScreen() {
       keyboardAware
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 20, paddingHorizontal: APP_LAYOUT.screenHorizontalPadding }}
     >
-      <View className="rounded-3xl pb-6 pt-4" style={{ backgroundColor: isDark ? uiColors.surface.cardElevatedDark : palette.light.card }}>
         <SplitGradientTitle
           prefix={text.titlePrefix}
           highlight={text.gradientWord}
@@ -161,7 +160,6 @@ export function OnboardingCustomerIdentityScreen() {
             );
           })}
         </View>
-      </View>
       <View className="mt-5">
         <Button label={text.nextButton} onPress={onContinue} loading={isSubmitting} disabled={!isValid || formDisabled} />
       </View>

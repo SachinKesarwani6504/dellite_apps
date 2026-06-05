@@ -1,12 +1,14 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { AnimatedLogoSplash } from '@/components/common/AnimatedLogoSplash';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { AppIcon } from '@/icons';
 import { JobsNavigator } from '@/navigation/JobsNavigator';
 import { ProfileNavigator } from '@/navigation/ProfileNavigator';
 import { EarningsScreen } from '@/screens/tabs/EarningsScreen';
 import { HomeScreen } from '@/screens/tabs/HomeScreen';
+import { AuthStatus } from '@/types/auth-status';
 import { MainTabParamList } from '@/types/navigation';
 import { MAIN_TAB_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
@@ -18,6 +20,28 @@ let hasShownMainTabsSplash = false;
 export function MainTabsNavigator() {
   const isDark = useColorScheme() === 'dark';
   const [showSplash, setShowSplash] = useState(() => !hasShownMainTabsSplash);
+  const { status, locationState } = useAuthContext();
+  const { permissionStatus, initializeLocation, requestLocationPermission } = locationState;
+  const hasRequestedLocationPermissionRef = useRef(false);
+
+  useEffect(() => {
+    if (status !== AuthStatus.AUTHENTICATED) {
+      hasRequestedLocationPermissionRef.current = false;
+      return;
+    }
+
+    if (permissionStatus !== 'undetermined' || hasRequestedLocationPermissionRef.current) {
+      return;
+    }
+
+    hasRequestedLocationPermissionRef.current = true;
+    void (async () => {
+      const nextStatus = await requestLocationPermission();
+      if (nextStatus === 'granted') {
+        await initializeLocation({ forceRefresh: true });
+      }
+    })();
+  }, [initializeLocation, permissionStatus, requestLocationPermission, status]);
 
   if (showSplash) {
     return (

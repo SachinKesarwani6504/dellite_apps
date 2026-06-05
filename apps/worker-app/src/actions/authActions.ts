@@ -6,6 +6,7 @@ import {
   AuthTokens,
   AuthUser,
   CreateWorkerProfileResponse,
+  DeviceSessionUpsertPayload,
   SendOtpPayload,
   UserRole,
   VerifyOtpPayload,
@@ -14,7 +15,7 @@ import {
   WorkerProfilePayload,
 } from '@/types/auth';
 import { toFormData } from '@/utils/form-data';
-import { stripBearerPrefix, toBearerToken } from '@/utils';
+import { getStableDeviceId, stripBearerPrefix, toBearerToken } from '@/utils';
 
 function logWorkerAuthAction(step: string, payload?: unknown) {
   if (!__DEV__) return;
@@ -362,10 +363,11 @@ export async function resendOtp(phone: string): Promise<void> {
 }
 
 export async function refreshAuth(refreshToken: string): Promise<AuthTokens> {
+  const deviceId = await getStableDeviceId();
   const response = await apiPost<
     ApiEnvelope<{ accessToken: string; refreshToken: string; firebaseCustomToken?: string }> | { accessToken: string; refreshToken: string; firebaseCustomToken?: string },
-    { refreshToken: string }
-  >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken) }, { toast: { showSuccess: false } });
+    { refreshToken: string; deviceId: string }
+  >('/auth/refresh', { refreshToken: stripBearerPrefix(refreshToken), deviceId }, { toast: { showSuccess: false } });
   return unwrapData(response) as AuthTokens;
 }
 
@@ -444,4 +446,15 @@ console.log("[createProfileWithPhoneToken] FormData entries:" , formData);
     unwrapped,
   });
   return unwrapped;
+}
+
+export async function upsertDeviceSession(payload: DeviceSessionUpsertPayload) {
+  await apiPost<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
+    '/auth/device/upsert',
+    payload,
+    {
+      auth: true,
+      toast: { showError: false, showSuccess: false },
+    },
+  );
 }

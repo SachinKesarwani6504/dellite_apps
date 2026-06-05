@@ -3,11 +3,15 @@ import { AppState, AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { refreshAuth } from '@/actions/authActions';
+import { requestLocationPermissionFromDevice } from '@/lib/permission';
 import {
+  ENABLE_BACKGROUND_LOCATION_TRACKING,
+  REMOVE_WORKER_LIVE_NODE_ON_OFFLINE,
   WorkerLiveAppState,
   WorkerLiveLocationRecord,
   WorkerMovementStatus,
   WorkerVehicleMode,
+  WORKER_BACKGROUND_LOCATION_TASK_NAME,
   getRealtimeServerTimestamp,
   getWorkerLivePath,
   registerWorkerLiveOnDisconnect,
@@ -24,11 +28,6 @@ import {
   shouldUpdateLiveLocation,
 } from '@/lib/location-tracking/locationTrackingConfig';
 import {
-  ENABLE_BACKGROUND_LOCATION_TRACKING,
-  REMOVE_WORKER_LIVE_NODE_ON_OFFLINE,
-  WORKER_BACKGROUND_LOCATION_TASK_NAME,
-} from '@/lib/firebase/constants';
-import {
   ensureFirebaseSessionWithCustomToken,
   getFirebaseLiveLocationUserIdClaim,
   getFirebaseSessionDebugSnapshot,
@@ -38,6 +37,7 @@ import {
   shouldForceFirebaseReauth,
 } from '@/utils/firebase-session';
 import { getAuthTokens, saveAuthTokens } from '@/utils/key-chain-storage';
+import type { LocationPermissionStatus } from '@/modules/location/types/location.types';
 
 type LastSentLocationSnapshot = LocationPoint & {
   sentAt: number;
@@ -73,6 +73,18 @@ type UpdateLocationOptions = {
 
 const FIREBASE_RECOVERY_COOLDOWN_MS = 15000;
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
+
+function toExpoLocationPermissionStatus(status: LocationPermissionStatus) {
+  if (status === 'granted') {
+    return Location.PermissionStatus.GRANTED;
+  }
+
+  if (status === 'denied') {
+    return Location.PermissionStatus.DENIED;
+  }
+
+  return Location.PermissionStatus.UNDETERMINED;
+}
 
 const backgroundRuntimeContext: WorkerLiveRuntimeContext = {
   workerId: null,
@@ -783,17 +795,16 @@ export function useWorkerLiveLocation({
     try {
       trace('WL-02', 'goOnline:request-foreground-permission');
       log('goOnline:request-foreground-permission');
-      const permissionResponse = await Location.requestForegroundPermissionsAsync();
-      setState(current => ({ ...current, permissionStatus: permissionResponse.status }));
+      const permissionStatus = await requestLocationPermissionFromDevice();
+      setState(current => ({ ...current, permissionStatus: toExpoLocationPermissionStatus(permissionStatus) }));
       trace('WL-03', 'goOnline:foreground-permission-result', {
-        status: permissionResponse.status,
+        status: permissionStatus,
       });
       log('goOnline:foreground-permission-result', {
-        status: permissionResponse.status,
-        canAskAgain: permissionResponse.canAskAgain,
+        status: permissionStatus,
       });
 
-      if (permissionResponse.status !== Location.PermissionStatus.GRANTED) {
+      if (permissionStatus !== 'granted') {
         setError('Location permission denied.');
         trace('WL-03E', 'goOnline:permission-denied');
         log('goOnline:blocked-permission-denied');

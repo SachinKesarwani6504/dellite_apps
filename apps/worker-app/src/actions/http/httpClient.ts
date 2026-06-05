@@ -12,11 +12,13 @@ import {
   getOnboardingPhoneToken,
 } from '@/utils/key-chain-storage/onboarding-storage';
 import {
+  clearFirebaseAuthSession,
   ensureFirebaseSessionWithCustomToken,
   hasFirebaseAuthenticatedUser,
   shouldForceFirebaseReauth,
 } from '@/utils/firebase-session';
 import { parseApiError, sanitizeApiMessage } from '@/utils/api-error';
+import { getStableDeviceId } from '@/utils/device-session';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 import { ENV } from '@/utils/env';
@@ -33,6 +35,7 @@ const client = axios.create({
 
 const PROFILE_CREATE_PATHS = new Set(['/worker/profile', '/customer/profile']);
 const PHONE_TOKEN_EXPIRED_MESSAGE = 'Session expired. Please verify OTP again to continue onboarding.';
+const FORCED_LOGOUT_CODES = new Set(['SESSION_REVOKED', 'DEVICE_MISMATCH', 'ROLE_SESSION_REPLACED']);
 
 function normalizePath(path: string) {
   return path.split('?')[0].trim().toLowerCase();
@@ -59,6 +62,17 @@ function normalizeBearerToken(token: string | null | undefined) {
     return null;
   }
   return stripBearerPrefix(token);
+}
+
+function extractErrorCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const root = payload as { code?: unknown; data?: unknown };
+  if (typeof root.code === 'string' && root.code.trim()) return root.code.trim();
+  if (root.data && typeof root.data === 'object') {
+    const nestedCode = (root.data as { code?: unknown }).code;
+    if (typeof nestedCode === 'string' && nestedCode.trim()) return nestedCode.trim();
+  }
+  return null;
 }
 
 function logWorkerHttpAuth(message: string, payload?: Record<string, unknown>) {
@@ -108,8 +122,10 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = normalizeBearerToken(tokens?.refreshToken);
   if (!refreshToken) return null;
 
+  const deviceId = await getStableDeviceId();
   const refreshResponse = await client.post<{ data?: (AuthTokens & { firebaseCustomToken?: string }) } | (AuthTokens & { firebaseCustomToken?: string })>('/auth/refresh', {
     refreshToken,
+    deviceId,
   });
 
   const payload = refreshResponse.data as { data?: (AuthTokens & { firebaseCustomToken?: string }) } | (AuthTokens & { firebaseCustomToken?: string });
@@ -138,6 +154,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
 async function clearAuthSessionTokens() {
   await clearAuthTokens();
+  await clearOnboardingPhoneToken();
+  await clearFirebaseAuthSession();
 }
 
 async function clearPhoneTokenOnly() {
@@ -306,6 +324,19 @@ async function request<TResponse, TBody = unknown>(
         showApiErrorToast(parsedError.friendlyMessage);
       }
       throw new ApiError(parsedError.friendlyMessage, parsedError.statusCode ?? 500, error);
+    }
+
+    const sessionErrorCode = extractErrorCode(error.response?.data);
+    if ((error.response?.status === 401 || error.response?.status === 403) && sessionErrorCode && FORCED_LOGOUT_CODES.has(sessionErrorCode)) {
+      await clearAuthSessionTokens();
+      const forcedMessage = extractApiMessage(
+        error.response?.data,
+        'You were logged out because this app was signed in on another device.',
+      );
+      if (method !== 'GET' && options.toast?.showError !== false) {
+        showApiErrorToast(forcedMessage);
+      }
+      throw new ApiError(forcedMessage, error.response?.status ?? 401, error.response?.data);
     }
 
     if (shouldRefresh(error.response?.status, tokenType, options, hasExplicitAuthorization)) {

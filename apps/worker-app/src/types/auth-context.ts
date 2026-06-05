@@ -19,4 +19,5 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshMe: () => Promise<AuthMeResponse>;
   fetchOnboardingPrefill: (phoneToken: string) => Promise<WorkerOnboardingPrefillData | null>;
+  syncDeviceSessionRegistration: () => Promise<void>;
 };

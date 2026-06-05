@@ -18,6 +18,11 @@ import {
   saveAuthTokens,
   saveOnboardingPhoneToken,
 } from '@/utils/key-chain-storage';
+import {
+  buildDeviceSessionPayload,
+  registerFcmTokenRefreshListener,
+  syncPendingFcmTokenFromDevice,
+} from '@/utils/device-session';
 
 const defaultState: AuthState = {
   status: AUTH_STATUS.BOOTSTRAPPING,
@@ -256,6 +261,48 @@ export function useAuthController(): AuthContextType {
     await applyFirebaseCustomToken(firebaseCustomToken ?? null);
   }, []);
 
+  const syncDeviceSessionBestEffort = useCallback(async () => {
+    try {
+      const payload = await buildDeviceSessionPayload('CUSTOMER');
+      await authActions.upsertDeviceSession(payload);
+    } catch (error) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[customer-auth] device-session-upsert-failed', error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void syncPendingFcmTokenFromDevice()
+      .then((token) => {
+        if (!mounted || !token || !authState.tokens?.accessToken) {
+          return;
+        }
+        void syncDeviceSessionBestEffort();
+      })
+      .catch((error) => {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[customer-auth] initial-push-token-sync-failed', error);
+        }
+      });
+
+    const unsubscribe = registerFcmTokenRefreshListener(() => {
+      if (!authState.tokens?.accessToken) {
+        return;
+      }
+      void syncDeviceSessionBestEffort();
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [authState.tokens?.accessToken, syncDeviceSessionBestEffort]);
+
   const logout = useCallback(async () => {
     try {
       const tokens = await getAuthTokens();
@@ -303,6 +350,7 @@ export function useAuthController(): AuthContextType {
         await saveAuthTokens(tokens);
         await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
         await clearOnboardingPhoneToken();
+        void syncDeviceSessionBestEffort();
 
         setAuthState((prev) => ({
           ...prev,
@@ -330,7 +378,7 @@ export function useAuthController(): AuthContextType {
         user: null,
       }));
     },
-    [ensureFirebaseSession, refreshMe],
+    [ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
   );
 
   const completeOnboarding = useCallback(
@@ -363,6 +411,7 @@ export function useAuthController(): AuthContextType {
       await saveAuthTokens(tokens);
       await ensureFirebaseSession(tokens.accessToken, profile.firebaseCustomToken);
       await clearOnboardingPhoneToken();
+      void syncDeviceSessionBestEffort();
       setAuthState((prev) => ({
         ...prev,
         tokens,
@@ -379,7 +428,7 @@ export function useAuthController(): AuthContextType {
         // Keep optimistic onboarding-forward state. A later refresh can reconcile.
       }
     },
-    [authState.phoneToken, ensureFirebaseSession, refreshMe],
+    [authState.phoneToken, ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
   );
 
   const enterMainTabs = useCallback(async () => {
@@ -495,6 +544,7 @@ export function useAuthController(): AuthContextType {
         }));
 
         await ensureFirebaseSession(tokens.accessToken);
+        void syncDeviceSessionBestEffort();
 
         try {
           const me = await authActions.getMe();
@@ -540,7 +590,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [ensureFirebaseSession, logout]);
+  }, [ensureFirebaseSession, logout, syncDeviceSessionBestEffort]);
 
   return useMemo<AuthContextType>(
     () => ({

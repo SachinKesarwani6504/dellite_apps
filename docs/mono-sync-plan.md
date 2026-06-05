@@ -81,6 +81,13 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 - [x] Customer app: added booking-time locality launch gating via `resolveBookingServiceability` (city may be visible, booking blocked for non-launched localities).
 - [x] Worker + Customer: removed `CITY_MASTER` city validation from location resolution and normalize reverse-geocoded city names through shared `packages/app-core` helper.
 
+## In Progress: Permission Flow Split
+
+- [x] Worker + Customer: centralized permission access through `src/lib/permission.ts` for location and device-session helpers.
+- [x] Customer app: location enable card now appears only on Home, All Services, and Bookings screens.
+- [x] Customer app: onboarding no longer asks for notification permission; notification permission will be handled later on the dedicated notification screen.
+- [x] Worker + Customer: location permission is now requested only when the user reaches a location-dependent surface.
+
 ## In Progress: Worker Live Location (Firebase RTDB)
 
 - [x] Worker app: added scalable Firebase setup under `src/lib/firebase/*` with safe app initialization (`getApps()` guard).

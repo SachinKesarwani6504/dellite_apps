@@ -11,6 +11,8 @@ export type AuthStatus = (typeof AUTH_STATUS)[keyof typeof AUTH_STATUS];
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
+export type DeviceSessionRole = Extract<UserRole, 'CUSTOMER' | 'WORKER'>;
+export type DevicePlatform = 'ANDROID' | 'IOS';
 export const REFERRAL_ROLES = {
   CUSTOMER: 'CUSTOMER',
   WORKER: 'WORKER',
@@ -176,6 +178,14 @@ export type LogoutPayload = {
 
 export type LogoutResponse = {
   loggedOut: boolean;
+};
+
+export type DeviceSessionUpsertPayload = {
+  role: DeviceSessionRole;
+  platform: DevicePlatform;
+  deviceId: string;
+  deviceName: string;
+  fcmToken?: string;
 };
 
 export type AuthMeResponse = {

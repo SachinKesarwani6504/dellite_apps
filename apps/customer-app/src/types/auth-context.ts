@@ -14,5 +14,6 @@ export type AuthContextType = {
   completeOnboarding: (payload: UpdateCustomerIdentityPayload) => Promise<void>;
   enterMainTabs: () => Promise<void>;
   completeWelcomeAndEnterMainTabs: () => Promise<void>;
+  syncDeviceSessionRegistration: () => Promise<void>;
   logout: () => Promise<void>;
 };
