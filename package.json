@@ -6,9 +6,13 @@
   ],
   "scripts": {
     "start:worker": "npm --prefix apps/worker-app run start",
+    "start:customer": "npm --prefix apps/customer-app run start",
     "android:worker": "npm --prefix apps/worker-app run android",
+    "android:customer": "npm --prefix apps/customer-app run android",
     "ios:worker": "npm --prefix apps/worker-app run ios",
     "web:worker": "npm --prefix apps/worker-app run web",
+    "prebuild:customer:android": "npm --prefix apps/customer-app exec -- expo prebuild --platform android",
+    "prebuild:worker:android": "npm --prefix apps/worker-app exec -- expo prebuild --platform android",
     "typecheck:worker": "node ./node_modules/typescript/bin/tsc --project apps/worker-app/tsconfig.json --noEmit",
     "typecheck:customer": "node ./node_modules/typescript/bin/tsc --project apps/customer-app/tsconfig.json --noEmit",
     "lint:worker": "node ./scripts/quality-gate.js --app=worker",
