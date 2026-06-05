@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
     "name": "dellite_customer_app",
     "version": "1.0.0",
     "private": true,
@@ -63,7 +62,6 @@
         "metro-resolver": "^0.82.0",
         "typescript": "~5.9.2"
     }
-=======
   "name": "dellite_customer_app",
   "version": "1.0.0",
   "private": true,
@@ -124,5 +122,4 @@
     "metro-resolver": "^0.82.0",
     "typescript": "~5.9.2"
   }
->>>>>>> 9e57e5c (minor fix)
 }
