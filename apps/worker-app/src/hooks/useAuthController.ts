@@ -90,6 +90,9 @@ export function useAuthController(): AuthContextType {
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthMeResponse> | null>(null);
+  const inFlightDeviceSessionSyncRef = useRef<Promise<void> | null>(null);
+  const lastDeviceSessionSyncRef = useRef<{ key: string; at: number } | null>(null);
+  const skipNextAuthenticatedDeviceSyncRef = useRef(false);
   const statusRef = useRef<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const phoneTokenRef = useRef<string | null>(null);
 
@@ -138,16 +141,43 @@ export function useAuthController(): AuthContextType {
   }, []);
 
   const syncDeviceSessionBestEffort = useCallback(async () => {
-    try {
-      const payload = await buildDeviceSessionPayload('WORKER');
-      await upsertDeviceSession(payload);
-    } catch (error) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[worker-auth] device-session-upsert-failed', error);
-      }
+    if (inFlightDeviceSessionSyncRef.current) {
+      return inFlightDeviceSessionSyncRef.current;
     }
+
+    const syncPromise = (async () => {
+      try {
+        const payload = await buildDeviceSessionPayload('WORKER');
+        const syncKey = JSON.stringify({
+          role: payload.role,
+          platform: payload.platform,
+          deviceId: payload.deviceId,
+          fcmToken: payload.fcmToken ?? null,
+        });
+        const lastSync = lastDeviceSessionSyncRef.current;
+        if (lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
+          return;
+        }
+
+        await upsertDeviceSession(payload);
+        lastDeviceSessionSyncRef.current = { key: syncKey, at: Date.now() };
+      } catch (error) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[worker-auth] device-session-upsert-failed', error);
+        }
+      }
+    })().finally(() => {
+      inFlightDeviceSessionSyncRef.current = null;
+    });
+
+    inFlightDeviceSessionSyncRef.current = syncPromise;
+    return syncPromise;
   }, []);
+
+  const syncDeviceSessionRegistration = useCallback(async () => {
+    await syncDeviceSessionBestEffort();
+  }, [syncDeviceSessionBestEffort]);
 
   useEffect(() => {
     let mounted = true;
@@ -155,6 +185,10 @@ export function useAuthController(): AuthContextType {
     void syncPendingFcmTokenFromDevice()
       .then((token) => {
         if (!mounted || !token || status !== AuthStatus.AUTHENTICATED) {
+          return;
+        }
+        if (skipNextAuthenticatedDeviceSyncRef.current) {
+          skipNextAuthenticatedDeviceSyncRef.current = false;
           return;
         }
         void syncDeviceSessionBestEffort();
@@ -394,7 +428,20 @@ export function useAuthController(): AuthContextType {
 
       let profile: Awaited<ReturnType<typeof createProfileWithPhoneToken>>;
       try {
-        profile = await createProfileWithPhoneToken(payload);
+        let payloadWithDeviceInfo = payload;
+        try {
+          payloadWithDeviceInfo = {
+            ...payload,
+            deviceInfo: await buildDeviceSessionPayload('WORKER'),
+          };
+        } catch (error) {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[worker-auth] profile-device-info-build-failed', error);
+          }
+        }
+
+        profile = await createProfileWithPhoneToken(payloadWithDeviceInfo);
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
           await clearOnboardingPhoneToken();
@@ -422,8 +469,8 @@ export function useAuthController(): AuthContextType {
       await clearOnboardingPhoneToken();
       setPhoneToken(null);
       setOnboardingPrefill(null);
+      skipNextAuthenticatedDeviceSyncRef.current = true;
       setStatus(AuthStatus.AUTHENTICATED);
-      void syncDeviceSessionBestEffort();
 
       try {
         await refreshMe();
@@ -431,7 +478,7 @@ export function useAuthController(): AuthContextType {
         // Keep the newly authenticated state; a later refresh can reconcile the user snapshot.
       }
     },
-    [ensureFirebaseSession, phoneToken, refreshMe, resetLocalSession, syncDeviceSessionBestEffort],
+    [ensureFirebaseSession, phoneToken, refreshMe, resetLocalSession],
   );
 
   const sendOtpCode = useCallback(
@@ -478,6 +525,7 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
+    syncDeviceSessionRegistration,
     logout: logoutWithState,
     refreshMe: refreshMeWithState,
     fetchOnboardingPrefill,
@@ -494,6 +542,7 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
+    syncDeviceSessionRegistration,
     logoutWithState,
     refreshMeWithState,
     fetchOnboardingPrefill,

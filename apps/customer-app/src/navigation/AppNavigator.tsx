@@ -12,11 +12,14 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { BookingDetailsNavigator } from '@/navigation/BookingDetailsNavigator';
 import { BookingFlowNavigator } from '@/navigation/BookingFlowNavigator';
+import { flushPendingNavigation, navigationRef } from '@/navigation/navigationRef';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
 import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AUTH_STATUS } from '@/types/auth';
 import { palette, ROOT_SCREEN, theme, uiColors } from '@/utils';
+import { useLiveNotifications } from '@/hooks/useLiveNotifications';
+import { useUserPresence } from '@/hooks/useUserPresence';
 
 const RootStack = createNativeStackNavigator();
 
@@ -28,10 +31,23 @@ export function AppNavigator() {
   const wasOfflineRef = useRef(false);
   const hasInitializedLocationRef = useRef(false);
   const isDark = useColorScheme() === 'dark';
+  const userId = authState.user?.id ?? null;
+  const hasAccessToken = Boolean(authState.tokens?.accessToken);
+  const shouldTrackUserSession = hasAccessToken && Boolean(userId);
   const needsOnboardingSnapshot =
     (authState.status === AUTH_STATUS.ONBOARDING || authState.status === AUTH_STATUS.POST_ONBOARDING_WELCOME)
     && Boolean(authState.tokens?.accessToken)
     && !authState.user;
+
+  useUserPresence({
+    userId,
+    enabled: shouldTrackUserSession,
+  });
+
+  useLiveNotifications({
+    userId,
+    enabled: shouldTrackUserSession,
+  });
 
   useEffect(() => {
     if (authState.status === AUTH_STATUS.BOOTSTRAPPING || needsOnboardingSnapshot) {
@@ -97,7 +113,7 @@ export function AppNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation} theme={navigationTheme}>
       <BookingFlowProvider>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {authState.status === AUTH_STATUS.LOGGED_OUT || authState.status === AUTH_STATUS.OTP_SENT ? (

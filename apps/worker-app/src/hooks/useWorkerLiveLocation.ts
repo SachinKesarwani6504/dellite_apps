@@ -7,10 +7,6 @@ import { requestLocationPermissionFromDevice } from '@/lib/permission';
 import {
   ENABLE_BACKGROUND_LOCATION_TRACKING,
   REMOVE_WORKER_LIVE_NODE_ON_OFFLINE,
-  WorkerLiveAppState,
-  WorkerLiveLocationRecord,
-  WorkerMovementStatus,
-  WorkerVehicleMode,
   WORKER_BACKGROUND_LOCATION_TASK_NAME,
   getRealtimeServerTimestamp,
   getWorkerLivePath,
@@ -18,6 +14,12 @@ import {
   removeWorkerLive,
   updateWorkerLive,
 } from '@/lib/firebase';
+import type {
+  WorkerLiveAppState,
+  WorkerLiveLocationRecord,
+  WorkerMovementStatus,
+  WorkerVehicleMode,
+} from '@/types/worker-live-location';
 import {
   LIVE_LOCATION_CONFIG,
   type LocationPoint,
@@ -184,7 +186,6 @@ function buildWorkerLivePayload(
   isOnline: boolean,
   isAvailable: boolean,
   vehicleMode: WorkerVehicleMode,
-  appState: WorkerLiveAppState,
 ): WorkerLiveLocationRecord {
   const now = Date.now();
   const accuracy = normalizeOptionalLocationValue(location.coords.accuracy);
@@ -203,7 +204,6 @@ function buildWorkerLivePayload(
     isAvailable,
     vehicleMode,
     movementStatus,
-    appState,
     updatedAt: now,
   };
 }
@@ -264,13 +264,10 @@ async function writeBackgroundLocationUpdate(location: Location.LocationObject, 
     backgroundRuntimeContext.isOnline,
     backgroundRuntimeContext.isAvailable,
     nextVehicleMode,
-    backgroundRuntimeContext.appState,
   );
 
   await updateWorkerLive(workerId, {
     ...payload,
-    routeVehicleMode: null,
-    trackable: null,
   });
   backgroundLastSentByWorker.set(workerId, nextSnapshot);
 }
@@ -496,7 +493,6 @@ export function useWorkerLiveLocation({
         isOnlineRef.current,
         isAvailableRef.current,
         nextVehicleMode,
-        appStateRef.current,
       );
 
       if (!hasFirebaseAuthenticatedUser()) {
@@ -527,15 +523,12 @@ export function useWorkerLiveLocation({
           isAvailable: payload.isAvailable,
           vehicleMode: payload.vehicleMode,
           movementStatus: payload.movementStatus,
-          appState: payload.appState,
           speed: payload.speed,
           accuracy: payload.accuracy,
         });
-        await updateWorkerLive(workerIdValue, {
-          ...payload,
-          routeVehicleMode: null,
-          trackable: null,
-        });
+      await updateWorkerLive(workerIdValue, {
+        ...payload,
+      });
       } catch (error) {
         trace('WL-08E', 'writeLiveLocation:rtdb-set-error', {
           message: error instanceof Error ? error.message : String(error),
@@ -643,7 +636,6 @@ export function useWorkerLiveLocation({
       void updateWorkerLive(workerIdValue, {
         isOnline: true,
         isAvailable: isAvailableRef.current,
-        appState: appStateRef.current,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),
       }).catch(error => {
@@ -847,11 +839,7 @@ export function useWorkerLiveLocation({
         isAvailable: false,
         vehicleMode: 'UNKNOWN',
         movementStatus: 'STATIONARY',
-        appState: 'INACTIVE',
-        routeVehicleMode: null,
-        trackable: null,
         heartbeatAt: getRealtimeServerTimestamp(),
-        disconnectedAt: getRealtimeServerTimestamp(),
         updatedAt: getRealtimeServerTimestamp(),
       });
       trace('WL-05', 'goOnline:onDisconnect-registered', {
@@ -945,9 +933,6 @@ export function useWorkerLiveLocation({
           isAvailable: false,
           vehicleMode: 'UNKNOWN',
           movementStatus: 'STATIONARY',
-          appState: appStateRef.current,
-          routeVehicleMode: null,
-          trackable: null,
           heartbeatAt: Date.now(),
           updatedAt: Date.now(),
         });
@@ -990,8 +975,6 @@ export function useWorkerLiveLocation({
       await updateWorkerLive(workerIdValue, {
         vehicleMode,
         movementStatus: 'UNKNOWN',
-        routeVehicleMode: null,
-        trackable: null,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -1023,9 +1006,6 @@ export function useWorkerLiveLocation({
 
       void updateWorkerLive(workerIdValue, {
         isOnline: true,
-        appState: nextWorkerState,
-        routeVehicleMode: null,
-        trackable: null,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),
       }).catch(error => {
@@ -1072,8 +1052,6 @@ export function useWorkerLiveLocation({
     try {
       await updateWorkerLive(workerIdValue, {
         isAvailable,
-        routeVehicleMode: null,
-        trackable: null,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),
       });

@@ -2,7 +2,9 @@ import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import { Auth, Persistence, getAuth, initializeAuth } from 'firebase/auth';
-import { Database, DataSnapshot, getDatabase, onValue, ref } from 'firebase/database';
+import { Database, DataSnapshot, getDatabase, onDisconnect, onValue, ref, serverTimestamp, update } from 'firebase/database';
+import type { UserLiveEvent } from '@/types/live-notifications';
+import type { UserPresence } from '@/types/rtdb';
 import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
 import { ENV } from '@/utils/env';
 
@@ -123,6 +125,34 @@ export function getCustomerLivePath(userId: string) {
   return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.CUSTOMER, userId);
 }
 
+export function getUserPresencePath(userId: string) {
+  return `userPresence/${userId}`;
+}
+
+export function getUserLiveEventsPath(userId: string) {
+  return `userLiveEvents/${userId}`;
+}
+
+export function getUserPresenceRef(userId: string) {
+  return ref(getFirebaseDatabase(), getUserPresencePath(userId));
+}
+
+export function getUserLiveEventsRef(userId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId));
+}
+
+export async function updateUserPresence(userId: string, payload: UserPresence) {
+  await update(getUserPresenceRef(userId), payload);
+}
+
+export function registerUserPresenceOnDisconnect(userId: string) {
+  return onDisconnect(getUserPresenceRef(userId));
+}
+
+export function getRealtimeServerTimestamp() {
+  return serverTimestamp();
+}
+
 export function subscribeWorkerLiveLocation(
   workerId: string,
   onLocation: (location: WorkerLiveLocationRecord | null) => void,
@@ -133,6 +163,21 @@ export function subscribeWorkerLiveLocation(
     workerLiveRef,
     (snapshot: DataSnapshot) => {
       onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
+    },
+    onError,
+  );
+}
+
+export function subscribeUserLiveEvents(
+  userId: string,
+  onEvent: (event: UserLiveEvent | null) => void,
+  onError: (error: Error) => void,
+) {
+  const eventsRef = getUserLiveEventsRef(userId);
+  return onValue(
+    eventsRef,
+    (snapshot: DataSnapshot) => {
+      onEvent(snapshot.exists() ? (snapshot.val() as UserLiveEvent) : null);
     },
     onError,
   );

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { InAppNotificationProvider } from '@/components/common/InAppNotificationProvider';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
 import { setupNotificationChannels } from '@/utils';
@@ -39,9 +40,11 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <OnboardingProvider>
-          <StatusBar style="light" />
-          <AppNavigator />
-          <Toast config={toastConfig} topOffset={58} />
+          <InAppNotificationProvider>
+            <StatusBar style="light" />
+            <AppNavigator />
+            <Toast config={toastConfig} topOffset={58} />
+          </InAppNotificationProvider>
         </OnboardingProvider>
       </AuthProvider>
     </SafeAreaProvider>

@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { flushPendingNavigation, navigationRef } from '@/navigation/navigationRef';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { JobDetailsNavigator } from '@/navigation/JobDetailsNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
@@ -15,6 +16,8 @@ import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
 import { ROOT_SCREENS } from '@/types/screen-names';
 import { palette, theme } from '@/utils/theme';
+import { useLiveNotifications } from '@/hooks/useLiveNotifications';
+import { useUserPresence } from '@/hooks/useUserPresence';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,7 +27,7 @@ function BootstrapScreenFallback() {
 }
 
 export function AppNavigator() {
-  const { status, locationState } = useAuthContext();
+  const { status, user, locationState } = useAuthContext();
   const { initializeLocation } = locationState;
   const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
   const { isOffline, initialized, refresh } = useNetworkStatus();
@@ -32,6 +35,18 @@ export function AppNavigator() {
   const hasInitializedLocationRef = useRef(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const userId = user?.id ?? null;
+  const shouldTrackUserSession = status === AuthStatus.AUTHENTICATED && Boolean(userId);
+
+  useUserPresence({
+    userId,
+    enabled: shouldTrackUserSession,
+  });
+
+  useLiveNotifications({
+    userId,
+    enabled: shouldTrackUserSession,
+  });
 
   const navTheme = useMemo(
     () => ({
@@ -81,7 +96,7 @@ export function AppNavigator() {
     initialized && isOffline ? (
       <OfflineScreen onRetry={refresh} />
     ) : (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation} theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {status === AuthStatus.BOOTSTRAPPING || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT) ? (
           <RootStack.Screen
