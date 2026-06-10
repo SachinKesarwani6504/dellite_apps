@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { ProfileScreen } from '@/screens/main/ProfileScreen';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
+import { NotificationsScreen } from '@/screens/profile/NotificationsScreen';
 import { ReferralScreen } from '@/screens/profile/ReferralScreen';
 import { PROFILE_SCREEN } from '@/types/screen-names';
 
@@ -13,6 +14,7 @@ export function ProfileNavigator() {
       <Stack.Screen name={PROFILE_SCREEN.PROFILE_HOME} component={ProfileScreen} />
       <Stack.Screen name={PROFILE_SCREEN.EDIT_PROFILE} component={EditProfileScreen} />
       <Stack.Screen name={PROFILE_SCREEN.REFERRAL} component={ReferralScreen} />
+      <Stack.Screen name={PROFILE_SCREEN.NOTIFICATIONS} component={NotificationsScreen} />
     </Stack.Navigator>
   );
 }

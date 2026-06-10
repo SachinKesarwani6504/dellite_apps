@@ -18,6 +18,7 @@ import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
 import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AUTH_STATUS } from '@/types/auth';
 import { palette, ROOT_SCREEN, theme, uiColors } from '@/utils';
+import { useBadgeSync } from '@/hooks/useBadgeSync';
 import { useLiveNotifications } from '@/hooks/useLiveNotifications';
 import { useUserPresence } from '@/hooks/useUserPresence';
 
@@ -48,6 +49,8 @@ export function AppNavigator() {
     userId,
     enabled: shouldTrackUserSession,
   });
+
+  useBadgeSync(shouldTrackUserSession, authState.status === AUTH_STATUS.LOGGED_OUT);
 
   useEffect(() => {
     if (authState.status === AUTH_STATUS.BOOTSTRAPPING || needsOnboardingSnapshot) {

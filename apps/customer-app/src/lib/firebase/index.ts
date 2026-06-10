@@ -2,7 +2,7 @@ import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import { Auth, Persistence, getAuth, initializeAuth } from 'firebase/auth';
-import { Database, DataSnapshot, getDatabase, onDisconnect, onValue, ref, serverTimestamp, update } from 'firebase/database';
+import { Database, DataSnapshot, getDatabase, onDisconnect, onValue, ref, remove, serverTimestamp, update } from 'firebase/database';
 import type { UserLiveEvent } from '@/types/live-notifications';
 import type { UserPresence } from '@/types/rtdb';
 import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
@@ -133,6 +133,10 @@ export function getUserLiveEventsPath(userId: string) {
   return `userLiveEvents/${userId}`;
 }
 
+export function getUserLiveEventPath(userId: string, eventId: string) {
+  return `${getUserLiveEventsPath(userId)}/${eventId}`;
+}
+
 export function getUserPresenceRef(userId: string) {
   return ref(getFirebaseDatabase(), getUserPresencePath(userId));
 }
@@ -141,8 +145,16 @@ export function getUserLiveEventsRef(userId: string) {
   return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId));
 }
 
+export function getUserLiveEventRef(userId: string, eventId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventPath(userId, eventId));
+}
+
 export async function updateUserPresence(userId: string, payload: UserPresence) {
   await update(getUserPresenceRef(userId), payload);
+}
+
+export async function removeUserLiveEvent(userId: string, eventId: string) {
+  await remove(getUserLiveEventRef(userId, eventId));
 }
 
 export function registerUserPresenceOnDisconnect(userId: string) {

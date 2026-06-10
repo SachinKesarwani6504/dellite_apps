@@ -338,6 +338,17 @@ export function ProfileHomeScreen({ navigation }: Props) {
         />
 
         <ProfileActionRow
+          title={APP_TEXT.profile.notificationsTitle}
+          subtitle={APP_TEXT.profile.notificationsSubtitle}
+          icon="notifications-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigation.navigate(PROFILE_SCREENS.notifications)}
+          showDivider
+        />
+
+        <ProfileActionRow
           title={APP_TEXT.profile.identityVerification.menuTitle}
           subtitle={APP_TEXT.profile.identityVerification.menuSubtitle}
           icon="shield-checkmark-outline"

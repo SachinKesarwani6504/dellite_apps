@@ -270,7 +270,7 @@ export function useAuthController(): AuthContextType {
     await applyFirebaseCustomToken(firebaseCustomToken ?? null);
   }, []);
 
-  const syncDeviceSessionBestEffort = useCallback(async () => {
+  const syncDeviceSessionBestEffort = useCallback(async (force = false) => {
     if (inFlightDeviceSessionSyncRef.current) {
       return inFlightDeviceSessionSyncRef.current;
     }
@@ -285,7 +285,7 @@ export function useAuthController(): AuthContextType {
           fcmToken: payload.fcmToken ?? null,
         });
         const lastSync = lastDeviceSessionSyncRef.current;
-        if (lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
+        if (!force && lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
           return;
         }
 
@@ -306,7 +306,7 @@ export function useAuthController(): AuthContextType {
   }, []);
 
   const syncDeviceSessionRegistration = useCallback(async () => {
-    await syncDeviceSessionBestEffort();
+    await syncDeviceSessionBestEffort(true);
   }, [syncDeviceSessionBestEffort]);
 
   useEffect(() => {
@@ -354,6 +354,9 @@ export function useAuthController(): AuthContextType {
         }
       }
     } finally {
+      inFlightDeviceSessionSyncRef.current = null;
+      lastDeviceSessionSyncRef.current = null;
+      skipNextAuthenticatedDeviceSyncRef.current = false;
       await clearAuthTokens();
       await clearOnboardingPhoneToken();
       setAuthState({
@@ -383,25 +386,26 @@ export function useAuthController(): AuthContextType {
 
   const verifyOtpAndSignIn = useCallback(
     async (payload: { phone: string; otp: string }) => {
-      const response = await authActions.verifyOtp(payload);
-      const tokens = extractTokensFromVerifyOtpResponse(response);
+        const response = await authActions.verifyOtp(payload);
+        const tokens = extractTokensFromVerifyOtpResponse(response);
 
-      if (tokens?.accessToken) {
-        await saveAuthTokens(tokens);
-        await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
-        await clearOnboardingPhoneToken();
-        void syncDeviceSessionBestEffort();
+        if (tokens?.accessToken) {
+          await saveAuthTokens(tokens);
+          await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
+          await clearOnboardingPhoneToken();
+          skipNextAuthenticatedDeviceSyncRef.current = true;
+          void syncDeviceSessionBestEffort(true);
 
-        setAuthState((prev) => ({
-          ...prev,
-          tokens,
-          phoneToken: null,
-          phone: payload.phone,
-        }));
+          setAuthState((prev) => ({
+            ...prev,
+            tokens,
+            phoneToken: null,
+            phone: payload.phone,
+          }));
 
-        await refreshMe();
-        return;
-      }
+          await refreshMe();
+          return;
+        }
 
       const phoneToken = extractPhoneTokenFromVerifyOtpResponse(response);
       if (!phoneToken) {
@@ -468,6 +472,7 @@ export function useAuthController(): AuthContextType {
       await ensureFirebaseSession(tokens.accessToken, profile.firebaseCustomToken);
       await clearOnboardingPhoneToken();
       skipNextAuthenticatedDeviceSyncRef.current = true;
+      void syncDeviceSessionBestEffort(true);
       setAuthState((prev) => ({
         ...prev,
         tokens,
@@ -620,8 +625,6 @@ export function useAuthController(): AuthContextType {
         }));
 
         await ensureFirebaseSession(activeTokens.accessToken, activeTokens.firebaseCustomToken ?? null);
-        void syncDeviceSessionBestEffort();
-
         try {
           const me = await authActions.getMe();
           const nextUser = normalizeUserFromMeResponse(me);

@@ -140,7 +140,7 @@ export function useAuthController(): AuthContextType {
     await ensureFirebaseSessionWithCustomToken(tokens?.firebaseCustomToken ?? null, { forceReauth: true });
   }, []);
 
-  const syncDeviceSessionBestEffort = useCallback(async () => {
+  const syncDeviceSessionBestEffort = useCallback(async (force = false) => {
     if (inFlightDeviceSessionSyncRef.current) {
       return inFlightDeviceSessionSyncRef.current;
     }
@@ -155,7 +155,7 @@ export function useAuthController(): AuthContextType {
           fcmToken: payload.fcmToken ?? null,
         });
         const lastSync = lastDeviceSessionSyncRef.current;
-        if (lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
+        if (!force && lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
           return;
         }
 
@@ -176,7 +176,7 @@ export function useAuthController(): AuthContextType {
   }, []);
 
   const syncDeviceSessionRegistration = useCallback(async () => {
-    await syncDeviceSessionBestEffort();
+    await syncDeviceSessionBestEffort(true);
   }, [syncDeviceSessionBestEffort]);
 
   useEffect(() => {
@@ -214,6 +214,9 @@ export function useAuthController(): AuthContextType {
   }, [status, syncDeviceSessionBestEffort]);
 
   const resetLocalSession = useCallback((nextStatus: AuthStatus) => {
+    inFlightDeviceSessionSyncRef.current = null;
+    lastDeviceSessionSyncRef.current = null;
+    skipNextAuthenticatedDeviceSyncRef.current = false;
     setPhoneToken(null);
     setOnboardingPrefill(null);
     setMe(null);
@@ -306,7 +309,6 @@ export function useAuthController(): AuthContextType {
             return;
           }
           await clearOnboardingPhoneToken();
-          void syncDeviceSessionBestEffort();
           setStatus(AuthStatus.AUTHENTICATED);
         } catch {
           await logout();
@@ -389,16 +391,17 @@ export function useAuthController(): AuthContextType {
         throw new Error('OTP verified, but no valid token set was returned.');
       }
 
-      await saveAuthTokens(tokens);
-      console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
-      await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
-      await clearOnboardingPhoneToken();
-      setPhoneToken(null);
-      setOnboardingPrefill(null);
-      setStatus(AuthStatus.AUTHENTICATED);
-      void syncDeviceSessionBestEffort();
-      await refreshMe();
-    },
+        await saveAuthTokens(tokens);
+        console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+        await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
+        await clearOnboardingPhoneToken();
+        setPhoneToken(null);
+        setOnboardingPrefill(null);
+        setStatus(AuthStatus.AUTHENTICATED);
+        skipNextAuthenticatedDeviceSyncRef.current = true;
+        void syncDeviceSessionBestEffort(true);
+        await refreshMe();
+      },
     [ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
   );
 
@@ -463,14 +466,15 @@ export function useAuthController(): AuthContextType {
           : {}),
       };
 
-      await saveAuthTokens(tokens);
-      console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
-      await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
-      await clearOnboardingPhoneToken();
-      setPhoneToken(null);
-      setOnboardingPrefill(null);
-      skipNextAuthenticatedDeviceSyncRef.current = true;
-      setStatus(AuthStatus.AUTHENTICATED);
+        await saveAuthTokens(tokens);
+        console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+        await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
+        await clearOnboardingPhoneToken();
+        setPhoneToken(null);
+        setOnboardingPrefill(null);
+        skipNextAuthenticatedDeviceSyncRef.current = true;
+        void syncDeviceSessionBestEffort(true);
+        setStatus(AuthStatus.AUTHENTICATED);
 
       try {
         await refreshMe();

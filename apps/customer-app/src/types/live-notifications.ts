@@ -25,8 +25,9 @@ export type UserLiveEvent = {
   eventId?: string;
   type: NotificationType;
   event: NotificationEvent;
-  title: string;
-  message: string;
+  title?: string;
+  message?: string;
+  imageUrl?: string;
   data?: Record<string, unknown>;
   createdAt: number;
   expiresAt: number;
@@ -38,8 +39,13 @@ export type InAppNotificationRequest = {
   event: NotificationEvent;
   title: string;
   message: string;
+  imageUrl?: string;
   durationMs?: number;
   actionLabel?: string;
   onPress?: () => void;
   onClose?: () => void;
+};
+
+export type InAppNotificationStackItem = InAppNotificationRequest & {
+  stackId: string;
 };

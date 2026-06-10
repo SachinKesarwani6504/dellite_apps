@@ -189,12 +189,20 @@ export function getUserLiveEventsPath(userId: string) {
   return `userLiveEvents/${userId}`;
 }
 
+export function getUserLiveEventPath(userId: string, eventId: string) {
+  return `${getUserLiveEventsPath(userId)}/${eventId}`;
+}
+
 export function getUserPresenceRef(userId: string) {
   return ref(getFirebaseDatabase(), getUserPresencePath(userId));
 }
 
 export function getUserLiveEventsRef(userId: string) {
   return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId));
+}
+
+export function getUserLiveEventRef(userId: string, eventId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventPath(userId, eventId));
 }
 
 export function getWorkerLiveRef(userId: string) {
@@ -215,6 +223,10 @@ export async function updateWorkerLive(workerId: string, payload: WorkerLiveUpda
 
 export async function updateUserPresence(userId: string, payload: UserPresence) {
   await update(getUserPresenceRef(userId), payload);
+}
+
+export async function removeUserLiveEvent(userId: string, eventId: string) {
+  await remove(getUserLiveEventRef(userId, eventId));
 }
 
 export function registerWorkerLiveOnDisconnect(workerId: string): OnDisconnect {

@@ -16,6 +16,7 @@ import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
 import { ROOT_SCREENS } from '@/types/screen-names';
 import { palette, theme } from '@/utils/theme';
+import { useBadgeSync } from '@/hooks/useBadgeSync';
 import { useLiveNotifications } from '@/hooks/useLiveNotifications';
 import { useUserPresence } from '@/hooks/useUserPresence';
 
@@ -47,6 +48,8 @@ export function AppNavigator() {
     userId,
     enabled: shouldTrackUserSession,
   });
+
+  useBadgeSync(shouldTrackUserSession, status === AuthStatus.LOGGED_OUT);
 
   const navTheme = useMemo(
     () => ({
