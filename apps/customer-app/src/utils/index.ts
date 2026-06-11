@@ -32,7 +32,16 @@ export * from '@/utils/firebase-session';
 export * from '@/utils/error-message';
 export * from '@/utils/api-error';
 export * from '@/utils/device-session';
+export * from '@/utils/notification-channel';
+export * from '@/utils/in-app-notification';
+export * from '@/utils/live-notifications';
+export * from '@/utils/live-event-navigation';
+export * from '@/utils/notifications';
+export * from '@/utils/notification-sound';
+export * from '@/utils/notification-history-events';
 export * from '@/utils/banner-navigation';
+export * from '@/utils/native-map';
+export * from '@/utils/appBadge';
 export * from '@/modules/location/utils/distance.util';
 export * from '@/modules/location/utils/location.mapper';
 

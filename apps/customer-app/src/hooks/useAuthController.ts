@@ -94,6 +94,9 @@ function extractTokensFromVerifyOtpResponse(
     return {
       accessToken: normalizeBearerToken(response.tokens.accessToken),
       refreshToken: normalizeBearerToken(response.tokens.refreshToken ?? null),
+      ...(response.firebaseCustomToken
+        ? { firebaseCustomToken: normalizeBearerToken(response.firebaseCustomToken) }
+        : {}),
     };
   }
 
@@ -101,6 +104,9 @@ function extractTokensFromVerifyOtpResponse(
     return {
       accessToken: normalizeBearerToken(response.accessToken),
       refreshToken: normalizeBearerToken(response.refreshToken ?? null),
+      ...(response.firebaseCustomToken
+        ? { firebaseCustomToken: normalizeBearerToken(response.firebaseCustomToken) }
+        : {}),
     };
   }
 
@@ -222,6 +228,9 @@ export function useAuthController(): AuthContextType {
   const [authState, setAuthState] = useState<AuthState>(defaultState);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthStatus> | null>(null);
+  const inFlightDeviceSessionSyncRef = useRef<Promise<void> | null>(null);
+  const lastDeviceSessionSyncRef = useRef<{ key: string; at: number } | null>(null);
+  const skipNextAuthenticatedDeviceSyncRef = useRef(false);
   const loading = pendingActionCount > 0;
   const bootstrappingLoading = authState.status === AUTH_STATUS.BOOTSTRAPPING;
 
@@ -261,17 +270,44 @@ export function useAuthController(): AuthContextType {
     await applyFirebaseCustomToken(firebaseCustomToken ?? null);
   }, []);
 
-  const syncDeviceSessionBestEffort = useCallback(async () => {
-    try {
-      const payload = await buildDeviceSessionPayload('CUSTOMER');
-      await authActions.upsertDeviceSession(payload);
-    } catch (error) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[customer-auth] device-session-upsert-failed', error);
-      }
+  const syncDeviceSessionBestEffort = useCallback(async (force = false) => {
+    if (inFlightDeviceSessionSyncRef.current) {
+      return inFlightDeviceSessionSyncRef.current;
     }
+
+    const syncPromise = (async () => {
+      try {
+        const payload = await buildDeviceSessionPayload('CUSTOMER');
+        const syncKey = JSON.stringify({
+          role: payload.role,
+          platform: payload.platform,
+          deviceId: payload.deviceId,
+          fcmToken: payload.fcmToken ?? null,
+        });
+        const lastSync = lastDeviceSessionSyncRef.current;
+        if (!force && lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
+          return;
+        }
+
+        await authActions.upsertDeviceSession(payload);
+        lastDeviceSessionSyncRef.current = { key: syncKey, at: Date.now() };
+      } catch (error) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[customer-auth] device-session-upsert-failed', error);
+        }
+      }
+    })().finally(() => {
+      inFlightDeviceSessionSyncRef.current = null;
+    });
+
+    inFlightDeviceSessionSyncRef.current = syncPromise;
+    return syncPromise;
   }, []);
+
+  const syncDeviceSessionRegistration = useCallback(async () => {
+    await syncDeviceSessionBestEffort(true);
+  }, [syncDeviceSessionBestEffort]);
 
   useEffect(() => {
     let mounted = true;
@@ -279,6 +315,10 @@ export function useAuthController(): AuthContextType {
     void syncPendingFcmTokenFromDevice()
       .then((token) => {
         if (!mounted || !token || !authState.tokens?.accessToken) {
+          return;
+        }
+        if (skipNextAuthenticatedDeviceSyncRef.current) {
+          skipNextAuthenticatedDeviceSyncRef.current = false;
           return;
         }
         void syncDeviceSessionBestEffort();
@@ -314,6 +354,9 @@ export function useAuthController(): AuthContextType {
         }
       }
     } finally {
+      inFlightDeviceSessionSyncRef.current = null;
+      lastDeviceSessionSyncRef.current = null;
+      skipNextAuthenticatedDeviceSyncRef.current = false;
       await clearAuthTokens();
       await clearOnboardingPhoneToken();
       setAuthState({
@@ -343,25 +386,26 @@ export function useAuthController(): AuthContextType {
 
   const verifyOtpAndSignIn = useCallback(
     async (payload: { phone: string; otp: string }) => {
-      const response = await authActions.verifyOtp(payload);
-      const tokens = extractTokensFromVerifyOtpResponse(response);
+        const response = await authActions.verifyOtp(payload);
+        const tokens = extractTokensFromVerifyOtpResponse(response);
 
-      if (tokens?.accessToken) {
-        await saveAuthTokens(tokens);
-        await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
-        await clearOnboardingPhoneToken();
-        void syncDeviceSessionBestEffort();
+        if (tokens?.accessToken) {
+          await saveAuthTokens(tokens);
+          await ensureFirebaseSession(tokens.accessToken, response.firebaseCustomToken);
+          await clearOnboardingPhoneToken();
+          skipNextAuthenticatedDeviceSyncRef.current = true;
+          void syncDeviceSessionBestEffort(true);
 
-        setAuthState((prev) => ({
-          ...prev,
-          tokens,
-          phoneToken: null,
-          phone: payload.phone,
-        }));
+          setAuthState((prev) => ({
+            ...prev,
+            tokens,
+            phoneToken: null,
+            phone: payload.phone,
+          }));
 
-        await refreshMe();
-        return;
-      }
+          await refreshMe();
+          return;
+        }
 
       const phoneToken = extractPhoneTokenFromVerifyOtpResponse(response);
       if (!phoneToken) {
@@ -391,7 +435,20 @@ export function useAuthController(): AuthContextType {
 
       let profile: Awaited<ReturnType<typeof customerActions.createCustomerProfile>>;
       try {
-        profile = await customerActions.createCustomerProfile(payload);
+        let payloadWithDeviceInfo = payload;
+        try {
+          payloadWithDeviceInfo = {
+            ...payload,
+            deviceInfo: await buildDeviceSessionPayload('CUSTOMER'),
+          };
+        } catch (error) {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[customer-auth] profile-device-info-build-failed', error);
+          }
+        }
+
+        profile = await customerActions.createCustomerProfile(payloadWithDeviceInfo);
       } catch (error) {
         if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
           await clearOnboardingPhoneToken();
@@ -406,12 +463,16 @@ export function useAuthController(): AuthContextType {
       const tokens = {
         accessToken: normalizeBearerToken(profile.accessToken),
         refreshToken: normalizeBearerToken(profile.refreshToken),
+        ...(profile.firebaseCustomToken
+          ? { firebaseCustomToken: normalizeBearerToken(profile.firebaseCustomToken) }
+          : {}),
       };
 
       await saveAuthTokens(tokens);
       await ensureFirebaseSession(tokens.accessToken, profile.firebaseCustomToken);
       await clearOnboardingPhoneToken();
-      void syncDeviceSessionBestEffort();
+      skipNextAuthenticatedDeviceSyncRef.current = true;
+      void syncDeviceSessionBestEffort(true);
       setAuthState((prev) => ({
         ...prev,
         tokens,
@@ -428,7 +489,7 @@ export function useAuthController(): AuthContextType {
         // Keep optimistic onboarding-forward state. A later refresh can reconcile.
       }
     },
-    [authState.phoneToken, ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
+    [authState.phoneToken, ensureFirebaseSession, refreshMe],
   );
 
   const enterMainTabs = useCallback(async () => {
@@ -536,16 +597,34 @@ export function useAuthController(): AuthContextType {
           return;
         }
 
+        let activeTokens = tokens;
+        if (!activeTokens.firebaseCustomToken && activeTokens.refreshToken) {
+          try {
+            const refreshed = await authActions.refreshAuth(activeTokens.refreshToken);
+            activeTokens = {
+              accessToken: normalizeBearerToken(refreshed.accessToken),
+              refreshToken: normalizeBearerToken(refreshed.refreshToken),
+              ...(refreshed.firebaseCustomToken
+                ? { firebaseCustomToken: normalizeBearerToken(refreshed.firebaseCustomToken) }
+                : {}),
+            };
+            await saveAuthTokens(activeTokens);
+          } catch (error) {
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('[customer-auth] firebase-token-bootstrap-refresh-failed', error);
+            }
+          }
+        }
+
         setAuthState((prev) => ({
           ...prev,
-          tokens,
+          tokens: activeTokens,
           phone: prev.phone,
           status: AUTH_STATUS.BOOTSTRAPPING,
         }));
 
-        await ensureFirebaseSession(tokens.accessToken);
-        void syncDeviceSessionBestEffort();
-
+        await ensureFirebaseSession(activeTokens.accessToken, activeTokens.firebaseCustomToken ?? null);
         try {
           const me = await authActions.getMe();
           const nextUser = normalizeUserFromMeResponse(me);
@@ -555,7 +634,7 @@ export function useAuthController(): AuthContextType {
 
           setAuthState({
             status: resolveAuthStatus(nextUser),
-            tokens,
+            tokens: activeTokens,
             phoneToken: null,
             phone: '',
             user: nextUser,
@@ -568,7 +647,7 @@ export function useAuthController(): AuthContextType {
             setAuthState((prev) => ({
               ...prev,
               status: AUTH_STATUS.AUTHENTICATED,
-              tokens,
+              tokens: activeTokens,
             }));
           }
         }
@@ -605,6 +684,7 @@ export function useAuthController(): AuthContextType {
       completeOnboarding: completeOnboardingWithState,
       enterMainTabs: enterMainTabsWithState,
       completeWelcomeAndEnterMainTabs: completeWelcomeAndEnterMainTabsWithState,
+      syncDeviceSessionRegistration,
       logout: logoutWithState,
     }),
     [
@@ -619,6 +699,7 @@ export function useAuthController(): AuthContextType {
       completeOnboardingWithState,
       enterMainTabsWithState,
       completeWelcomeAndEnterMainTabsWithState,
+      syncDeviceSessionRegistration,
       logoutWithState,
     ],
   );

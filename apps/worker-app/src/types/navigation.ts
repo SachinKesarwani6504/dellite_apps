@@ -29,6 +29,7 @@ export type ProfileStackParamList = {
   [PROFILE_SCREENS.editProfile]: undefined;
   [PROFILE_SCREENS.payoutDetails]: undefined;
   [PROFILE_SCREENS.helpSupport]: undefined;
+  [PROFILE_SCREENS.notifications]: undefined;
   [PROFILE_SCREENS.identityVerification]: undefined;
   [PROFILE_SCREENS.referral]: undefined;
   [PROFILE_SCREENS.allSkills]: undefined;

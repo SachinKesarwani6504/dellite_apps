@@ -1,4 +1,5 @@
-export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
+import type { WorkerLive } from '@/types/rtdb';
+
 export type WorkerVehicleMode =
   | 'WALK'
   | 'TWO_WHEELER'
@@ -10,21 +11,7 @@ export type WorkerMovementStatus =
   | 'GPS_WEAK'
   | 'UNKNOWN';
 
-export type WorkerLiveLocationRecord = {
-  workerId: string;
-  lat: number;
-  lng: number;
-  accuracy: number | null;
-  heading: number | null;
-  speed: number | null;
-  appState: WorkerLiveAppState;
-  lastLocationAt: number;
-  heartbeatAt: number;
-  isOnline: boolean;
-  isAvailable: boolean;
-  vehicleMode: WorkerVehicleMode;
-  movementStatus: WorkerMovementStatus;
-};
+export type WorkerLiveLocationRecord = WorkerLive;
 
 export type WorkerLiveLocationState = {
   location: WorkerLiveLocationRecord | null;

@@ -285,6 +285,7 @@ export interface WorkerProfilePayload {
   hasSeenSkillSetup?: boolean;
   hasSeenCertificateSetup?: boolean;
   hasSeenOnboardingWelcomeScreen?: boolean;
+  deviceInfo?: DeviceSessionUpsertPayload;
 }
 
 export interface ServiceLaunchedCity {

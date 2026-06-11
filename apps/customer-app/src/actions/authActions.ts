@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/actions/http/httpClient';
+import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
 import type {
   AuthMeResponse,
@@ -111,7 +111,7 @@ export async function getMe(role: 'CUSTOMER' | 'WORKER' | 'ADMIN' = 'CUSTOMER') 
 }
 
 export async function upsertDeviceSession(payload: DeviceSessionUpsertPayload) {
-  await apiPost<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
+  await apiPatch<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
     '/auth/device/upsert',
     payload,
     {

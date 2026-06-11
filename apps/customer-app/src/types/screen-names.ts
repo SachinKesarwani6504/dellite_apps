@@ -41,4 +41,5 @@ export const PROFILE_SCREEN = {
   PROFILE_HOME: 'ProfileHome',
   EDIT_PROFILE: 'EditProfile',
   REFERRAL: 'Referral',
+  NOTIFICATIONS: 'Notifications',
 } as const;

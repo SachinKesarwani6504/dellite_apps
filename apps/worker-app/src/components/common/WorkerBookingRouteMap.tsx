@@ -8,6 +8,7 @@ import { ROUTE_VEHICLE_MODE, WORKER_MOVEMENT_STATUS } from '@/types/live-route';
 import { APP_TEXT } from '@/utils/appText';
 import { getWorkerLiveTrackingCard } from '@/utils/live-tracking';
 import { getRouteBearingDegrees } from '@/utils/live-route';
+import { canRenderNativeMap, getNativeMapProvider } from '@/utils/native-map';
 import { theme, uiColors } from '@/utils/theme';
 
 const ROUTE_MAP_DELTA = 0.04;
@@ -106,6 +107,7 @@ export function WorkerBookingRouteMap({
     vehicleMode: liveVehicleMode,
     distanceKm,
   });
+  const canRenderMap = canRenderNativeMap();
   const liveHeading = workerLiveLocation?.heading;
   const workerHeadingDegrees = typeof liveHeading === 'number' && Number.isFinite(liveHeading)
     ? liveHeading
@@ -195,8 +197,10 @@ export function WorkerBookingRouteMap({
           borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
         }}
       >
+        {canRenderMap ? (
         <MapView
           ref={mapRef}
+          provider={getNativeMapProvider()}
           style={{ flex: 1 }}
           initialRegion={{
             ...mapCenter,
@@ -269,8 +273,24 @@ export function WorkerBookingRouteMap({
             <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
           </Marker>
         </MapView>
+        ) : (
+          <View
+            className="flex-1 items-center justify-center px-6"
+            style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.overlayLight95 }}
+          >
+            <View className="h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
+              <Ionicons name="map-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <Text className="mt-3 text-center text-base font-extrabold text-baseDark dark:text-white">
+              {APP_TEXT.jobs.liveLocation.mapUnavailableTitle}
+            </Text>
+            <Text className="mt-1 text-center text-xs leading-5" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+              {APP_TEXT.jobs.liveLocation.mapUnavailableSubtitle}
+            </Text>
+          </View>
+        )}
 
-        {loading ? (
+        {loading && canRenderMap ? (
           <View
             className="absolute right-3 top-3 flex-row items-center rounded-full px-3 py-2"
             style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.overlayLight95 }}

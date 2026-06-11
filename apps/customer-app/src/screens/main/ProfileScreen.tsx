@@ -222,6 +222,17 @@ export function ProfileScreen() {
         />
 
         <ProfileActionRow
+          title={APP_TEXT.profile.notificationsTitle}
+          subtitle={APP_TEXT.profile.notificationsSubtitle}
+          icon="notifications-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigation.navigate(PROFILE_SCREEN.NOTIFICATIONS)}
+          showDivider
+        />
+
+        <ProfileActionRow
           title={APP_TEXT.profile.referral.menuTitle}
           subtitle={APP_TEXT.profile.referral.menuSubtitle}
           icon="gift-outline"

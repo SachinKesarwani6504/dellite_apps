@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { EditProfileScreen } from '@/screens/profile/EditProfileScreen';
 import { HelpSupportScreen } from '@/screens/profile/HelpSupportScreen';
 import { IdentityVerificationScreen } from '@/screens/profile/IdentityVerificationScreen';
+import { NotificationsScreen } from '@/screens/profile/NotificationsScreen';
 import { PayoutDetailsScreen } from '@/screens/profile/PayoutDetailsScreen';
 import { ProfileCertificateAddAndEditScreen } from '@/screens/profile/ProfileCertificateAddAndEditScreen';
 import { ProfileHomeScreen } from '@/screens/profile/ProfileHomeScreen';
@@ -20,6 +21,7 @@ export function ProfileNavigator() {
       <Stack.Screen name={PROFILE_SCREENS.editProfile} component={EditProfileScreen} />
       <Stack.Screen name={PROFILE_SCREENS.payoutDetails} component={PayoutDetailsScreen} />
       <Stack.Screen name={PROFILE_SCREENS.helpSupport} component={HelpSupportScreen} />
+      <Stack.Screen name={PROFILE_SCREENS.notifications} component={NotificationsScreen} />
       <Stack.Screen name={PROFILE_SCREENS.identityVerification} component={IdentityVerificationScreen} />
       <Stack.Screen name={PROFILE_SCREENS.referral} component={ReferralScreen} />
       <Stack.Screen name={PROFILE_SCREENS.allSkills} component={ProfileSkillsScreen} />

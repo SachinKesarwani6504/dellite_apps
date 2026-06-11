@@ -65,6 +65,7 @@ export type ReferralInfo = {
 export type AuthTokens = {
   accessToken: string;
   refreshToken?: string | null;
+  firebaseCustomToken?: string;
 };
 
 export type CustomerBookingCounts = {

@@ -17,6 +17,9 @@ import {
 } from 'firebase/database';
 import { Firestore, getFirestore } from 'firebase/firestore';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
+import type { UserLiveEvent } from '@/types/live-notifications';
+import type { UserPresence } from '@/types/rtdb';
+import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
 
 export type FirebaseRuntimeConfig = {
   apiKey: string;
@@ -39,37 +42,10 @@ export const LIVE_LOCATION_NAMESPACE = {
 } as const;
 
 export type LiveLocationNamespace = (typeof LIVE_LOCATION_NAMESPACE)[keyof typeof LIVE_LOCATION_NAMESPACE];
+export type { WorkerLiveLocationRecord };
+export type { WorkerVehicleMode, WorkerMovementStatus } from '@/types/worker-live-location';
 
-export type WorkerLiveAppState = 'FOREGROUND' | 'BACKGROUND' | 'INACTIVE';
-export type WorkerVehicleMode =
-  | 'WALK'
-  | 'TWO_WHEELER'
-  | 'CAR'
-  | 'UNKNOWN';
-export type WorkerMovementStatus =
-  | 'STATIONARY'
-  | 'MOVING'
-  | 'GPS_WEAK'
-  | 'UNKNOWN';
-
-export type WorkerLiveLocationRecord = {
-  workerId: string;
-  lat: number;
-  lng: number;
-  accuracy: number | null;
-  heading: number | null;
-  speed: number | null;
-  lastLocationAt: number;
-  heartbeatAt: number;
-  isOnline: boolean;
-  isAvailable: boolean;
-  vehicleMode: WorkerVehicleMode;
-  movementStatus: WorkerMovementStatus;
-  appState: WorkerLiveAppState;
-  updatedAt?: number;
-};
-
-export type WorkerLiveUpdatePayload = Partial<WorkerLiveLocationRecord> & Record<string, unknown>;
+export type WorkerLiveUpdatePayload = Partial<WorkerLiveLocationRecord>;
 
 let firebaseAppInstance: FirebaseApp | null = null;
 let firebaseAuthInstance: Auth | null = null;
@@ -205,6 +181,30 @@ export function getCustomerLivePath(userId: string) {
   return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.CUSTOMER, userId);
 }
 
+export function getUserPresencePath(userId: string) {
+  return `userPresence/${userId}`;
+}
+
+export function getUserLiveEventsPath(userId: string) {
+  return `userLiveEvents/${userId}`;
+}
+
+export function getUserLiveEventPath(userId: string, eventId: string) {
+  return `${getUserLiveEventsPath(userId)}/${eventId}`;
+}
+
+export function getUserPresenceRef(userId: string) {
+  return ref(getFirebaseDatabase(), getUserPresencePath(userId));
+}
+
+export function getUserLiveEventsRef(userId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId));
+}
+
+export function getUserLiveEventRef(userId: string, eventId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventPath(userId, eventId));
+}
+
 export function getWorkerLiveRef(userId: string) {
   return ref(getFirebaseDatabase(), getWorkerLivePath(userId));
 }
@@ -221,8 +221,20 @@ export async function updateWorkerLive(workerId: string, payload: WorkerLiveUpda
   await update(getWorkerLiveRef(workerId), payload);
 }
 
+export async function updateUserPresence(userId: string, payload: UserPresence) {
+  await update(getUserPresenceRef(userId), payload);
+}
+
+export async function removeUserLiveEvent(userId: string, eventId: string) {
+  await remove(getUserLiveEventRef(userId, eventId));
+}
+
 export function registerWorkerLiveOnDisconnect(workerId: string): OnDisconnect {
   return onDisconnect(getWorkerLiveRef(workerId));
+}
+
+export function registerUserPresenceOnDisconnect(userId: string): OnDisconnect {
+  return onDisconnect(getUserPresenceRef(userId));
 }
 
 export async function removeWorkerLive(workerId: string) {
@@ -242,6 +254,20 @@ export function subscribeWorkerLiveLocation(
     getWorkerLiveRef(workerId),
     (snapshot: DataSnapshot) => {
       onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
+    },
+    onError,
+  );
+}
+
+export function subscribeUserLiveEvents(
+  userId: string,
+  onEvent: (event: UserLiveEvent | null) => void,
+  onError: (error: Error) => void,
+) {
+  return onValue(
+    getUserLiveEventsRef(userId),
+    (snapshot: DataSnapshot) => {
+      onEvent(snapshot.exists() ? (snapshot.val() as UserLiveEvent) : null);
     },
     onError,
   );

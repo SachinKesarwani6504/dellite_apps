@@ -34,11 +34,12 @@ function toLocationPermissionStatus(status: ExpoLocation.PermissionStatus): Loca
 }
 
 function resolveNotificationPermissionStatus(permission: Awaited<ReturnType<typeof Notifications.getPermissionsAsync>>) {
-  if (permission.granted) {
+  const permissionRecord = permission as unknown as Record<string, unknown>;
+  if (permissionRecord.granted === true) {
     return 'granted' as const;
   }
 
-  if (permission.status === Notifications.PermissionStatus.DENIED) {
+  if (permissionRecord.status === Notifications.PermissionStatus.DENIED || permissionRecord.status === 'denied') {
     return 'denied' as const;
   }
 
@@ -73,7 +74,13 @@ export async function requestNotificationPermissionFromDevice() {
   logPermission('notification-permission-request-start', { platform: Platform.OS });
   await setupNotificationChannels();
 
-  const requestedPermissions = await Notifications.requestPermissionsAsync();
+  const requestedPermissions = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+    },
+  });
   const status = resolveNotificationPermissionStatus(requestedPermissions);
   logPermission('notification-permission-requested', {
     granted: status === 'granted',

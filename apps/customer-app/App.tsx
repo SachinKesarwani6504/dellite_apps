@@ -3,11 +3,13 @@ import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { InAppNotificationProvider } from '@/components/common/InAppNotificationProvider';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
 import { setupNotificationChannels } from '@/utils';
@@ -44,14 +46,18 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <OnboardingProvider>
-          <StatusBar style="light" />
-          <AppNavigator />
-          <Toast config={toastConfig} topOffset={64} />
-        </OnboardingProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <OnboardingProvider>
+            <InAppNotificationProvider>
+              <StatusBar style="light" />
+              <AppNavigator />
+              <Toast config={toastConfig} topOffset={64} />
+            </InAppNotificationProvider>
+          </OnboardingProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -116,6 +116,9 @@ async function refreshAccessToken(): Promise<string | null> {
   await saveAuthTokens({
     accessToken: normalizeBearerToken(refreshed.accessToken) as string,
     refreshToken: normalizeBearerToken(refreshed.refreshToken) as string,
+    ...(refreshed.firebaseCustomToken
+      ? { firebaseCustomToken: normalizeBearerToken(refreshed.firebaseCustomToken) as string }
+      : {}),
   });
 
   const nextAccessToken = normalizeBearerToken(refreshed.accessToken);

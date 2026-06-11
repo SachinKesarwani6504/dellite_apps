@@ -54,6 +54,7 @@ export type ProfileStackParamList = {
   [PROFILE_SCREEN.PROFILE_HOME]: undefined;
   [PROFILE_SCREEN.EDIT_PROFILE]: undefined;
   [PROFILE_SCREEN.REFERRAL]: undefined;
+  [PROFILE_SCREEN.NOTIFICATIONS]: undefined;
 };
 
 export type BookingsStackParamList = {

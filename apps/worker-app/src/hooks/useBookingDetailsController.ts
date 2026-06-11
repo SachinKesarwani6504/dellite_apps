@@ -22,6 +22,7 @@ import {
 } from '@/utils/booking-details';
 import { APP_TEXT } from '@/utils/appText';
 import { getErrorMessage } from '@/utils';
+import { syncAppBadgeCountFromBackend } from '@/utils/appBadge';
 import { showToast } from '@/utils/toast';
 
 type InviteActionLoading = null | typeof WORKER_JOB_INVITE_STATUS.ACCEPTED | typeof WORKER_JOB_INVITE_STATUS.REJECTED;
@@ -116,6 +117,7 @@ export function useBookingDetailsController(
       if (options?.onInviteAccepted) {
         await options.onInviteAccepted();
       }
+      void syncAppBadgeCountFromBackend(true);
       await refetch();
     } finally {
       setInviteActionLoading(null);
@@ -130,6 +132,7 @@ export function useBookingDetailsController(
     setInviteActionLoading(WORKER_JOB_INVITE_STATUS.REJECTED);
     try {
       await updateBookingInvite(inviteId, WORKER_JOB_INVITE_STATUS.REJECTED);
+      void syncAppBadgeCountFromBackend(true);
       await refetch();
     } finally {
       setInviteActionLoading(null);

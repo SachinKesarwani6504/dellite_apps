@@ -53,7 +53,15 @@ export async function getFirebaseSessionDebugSnapshot() {
 
 export async function getFirebaseLiveLocationUserIdClaim(): Promise<string | null> {
   const snapshot = await getFirebaseSessionDebugSnapshot();
-  if (!snapshot.hasCurrentUser || !snapshot.claims || typeof snapshot.claims !== 'object') {
+  if (!snapshot.hasCurrentUser) {
+    return null;
+  }
+
+  if (typeof snapshot.currentUid === 'string' && snapshot.currentUid.trim().length > 0) {
+    return snapshot.currentUid.trim();
+  }
+
+  if (!snapshot.claims || typeof snapshot.claims !== 'object') {
     return null;
   }
 
@@ -62,7 +70,10 @@ export async function getFirebaseLiveLocationUserIdClaim(): Promise<string | nul
     claims.worker_id,
     claims.workerId,
     claims.user_uuid,
+    claims.userId,
     claims.user_id,
+    claims.id,
+    claims.uid,
     claims.sub,
   ];
 

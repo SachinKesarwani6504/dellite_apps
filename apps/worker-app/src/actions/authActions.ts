@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/actions/http/httpClient';
+import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiEnvelope } from '@/types/api';
 import {
   APP_AUTH_ROLE,
@@ -421,6 +421,7 @@ export async function createProfileWithPhoneToken(
       aadhaarBackFilepath: payload.aadhaarBackFilepath ?? payload.aadhaarBackFilePath,
       aadhaarBackFilename: payload.aadhaarBackFilename ?? payload.aadhaarBackFileName,
       workerOperatingCities,
+      deviceInfo: payload.deviceInfo ? JSON.stringify(payload.deviceInfo) : undefined,
     },
     {
       profileImage: payload.profileImage,
@@ -428,10 +429,6 @@ export async function createProfileWithPhoneToken(
       aadhaarBack: payload.aadhaarBack,
     },
   );
-  console.log("**********************************************************")
-console.log("[createProfileWithPhoneToken] FormData entries:" , formData);
-  console.log("**********************************************************")
-
   const workerResponse = await apiPost<ApiEnvelope<CreateWorkerProfileResponse> | CreateWorkerProfileResponse, FormData>(
     '/worker/profile',
     formData,
@@ -449,7 +446,7 @@ console.log("[createProfileWithPhoneToken] FormData entries:" , formData);
 }
 
 export async function upsertDeviceSession(payload: DeviceSessionUpsertPayload) {
-  await apiPost<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
+  await apiPatch<ApiEnvelope<{ success?: boolean }> | { success?: boolean }, DeviceSessionUpsertPayload>(
     '/auth/device/upsert',
     payload,
     {
