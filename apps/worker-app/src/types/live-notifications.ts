@@ -19,18 +19,45 @@ export type NotificationEvent =
   | 'WORKER_REJECTED'
   | 'DOCUMENT_REQUIRED'
   | 'ACCOUNT_BLOCKED'
-  | 'APP_UPDATE_REQUIRED';
+  | 'APP_UPDATE_REQUIRED'
+  | 'GENERAL';
+
+export type NotificationAction =
+  | 'NONE'
+  | 'OPEN_SCREEN'
+  | 'OPEN_LINK';
+
+export type NotificationRole = 'CUSTOMER' | 'WORKER';
+
+export type NotificationData = {
+  screen?: string;
+  targetId?: string;
+  role?: NotificationRole;
+  externalUrl?: string;
+  imageUrl?: string;
+  title?: string;
+  message?: string;
+  bookingId?: string;
+  bookingCode?: string;
+  serviceName?: string;
+  amount?: string;
+};
 
 export type UserLiveEvent = {
   eventId?: string;
   type: NotificationType;
   event: NotificationEvent;
+  action?: NotificationAction;
   title?: string;
   message?: string;
   imageUrl?: string;
-  data?: Record<string, unknown>;
+  data?: NotificationData | Record<string, unknown>;
+  isRead?: boolean;
+  isDelivered?: boolean;
+  deliveredAt?: number | null;
+  readAt?: number | null;
   createdAt: number;
-  expiresAt: number;
+  expiresAt?: number;
 };
 
 export type InAppNotificationRequest = {

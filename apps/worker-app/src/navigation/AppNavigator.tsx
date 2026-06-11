@@ -95,6 +95,10 @@ export function AppNavigator() {
     }
   }, [initializeLocation, initialized, isOffline]);
 
+  useEffect(() => {
+    flushPendingNavigation();
+  }, [isOnboardingActive, onboardingLoading, status]);
+
   return (
     initialized && isOffline ? (
       <OfflineScreen onRetry={refresh} />

@@ -12,8 +12,8 @@ import type {
   NotificationsPagination,
 } from '@/types/notifications';
 import { subscribeNotificationHistoryRefresh } from '@/utils/notification-history-events';
-import { handleLiveEventNavigation } from '@/utils/live-event-navigation';
-import { mergeNotificationsById, toLiveEventFromNotification } from '@/utils/notifications';
+import { handleNotificationNavigation } from '@/utils/notification-navigation';
+import { mergeNotificationsById } from '@/utils/notifications';
 import { APP_TEXT } from '@/utils/appText';
 import { syncAppBadgeCountFromBackend, updateAppBadgeCount } from '@/utils/appBadge';
 
@@ -119,7 +119,7 @@ export function useNotificationsController(): NotificationsController {
       }
     }
 
-    handleLiveEventNavigation(toLiveEventFromNotification(item), item.id);
+    await handleNotificationNavigation(item);
   }, []);
 
   const deleteNotificationById = useCallback(async (item: NotificationListItem) => {

@@ -3,9 +3,9 @@ import * as Notifications from 'expo-notifications';
 import { onChildAdded } from 'firebase/database';
 import { markNotificationDelivered, markNotificationRead } from '@/actions/notificationActions';
 import { getUserLiveEventsRef, removeUserLiveEvent } from '@/lib/firebase';
-import { handleLiveEventNavigation } from '@/utils/live-event-navigation';
 import { showInAppNotification } from '@/utils/in-app-notification';
 import { loadDeliveredLiveNotificationIds, saveDeliveredLiveNotificationIds } from '@/utils/live-notification-delivery';
+import { handleNotificationNavigation } from '@/utils/notification-navigation';
 import { playInAppNotificationSound } from '@/utils/notification-sound';
 import { requestNotificationHistoryRefresh } from '@/utils/notification-history-events';
 import { getBadgeCountFromPayload, syncAppBadgeCountFromBackend, updateAppBadgeCount } from '@/utils/appBadge';
@@ -105,6 +105,10 @@ async function handleIncomingLiveEvent(
     return;
   }
 
+  if (event.isRead === true) {
+    return;
+  }
+
   const deliveredEventIds = deliveredEventIdsRef.current;
   if (deliveredEventIds.has(deliveryKey)) {
     return;
@@ -152,7 +156,7 @@ async function handleIncomingLiveEvent(
     durationMs: resolveLiveEventDurationMs(event),
     onPress: () => {
       void markSqlNotificationRead(event);
-      handleLiveEventNavigation(event, eventId);
+      void handleNotificationNavigation(event);
     },
     onClose: removeLiveEventOnClose && rtdbEventId ? () => {
       void removeDeliveredLiveEvent(userId, rtdbEventId, event);
@@ -258,7 +262,7 @@ export function useLiveNotifications({
         deliveredEventIdsRef.current.add(eventId);
         void saveDeliveredLiveNotificationIds(userIdRef.current, deliveredEventIdsRef.current);
       }
-      handleLiveEventNavigation(liveEvent, eventId);
+      void handleNotificationNavigation(liveEvent);
     });
 
     void Notifications.getLastNotificationResponseAsync().then(response => {
@@ -279,7 +283,7 @@ export function useLiveNotifications({
         deliveredEventIdsRef.current.add(eventId);
         void saveDeliveredLiveNotificationIds(userIdRef.current, deliveredEventIdsRef.current);
       }
-      handleLiveEventNavigation(liveEvent, eventId);
+      void handleNotificationNavigation(liveEvent);
     }).catch(() => {});
 
     return () => {

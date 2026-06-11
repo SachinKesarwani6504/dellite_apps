@@ -1,5 +1,5 @@
 import type { NotificationListItem, NotificationsQuery, NotificationTypeMeta } from '@/types/notifications';
-import type { UserLiveEvent } from '@/types/live-notifications';
+import type { NotificationData, UserLiveEvent } from '@/types/live-notifications';
 import { theme } from '@/utils/theme';
 
 const NOTIFICATION_TYPE_META: Record<NotificationListItem['type'], NotificationTypeMeta> = {
@@ -46,6 +46,7 @@ export function toLiveEventFromNotification(item: NotificationListItem): UserLiv
     eventId: item.id,
     type: item.type,
     event: item.event,
+    action: item.action ?? undefined,
     title: item.title,
     message: item.message,
     data: item.data ?? {},
@@ -54,9 +55,18 @@ export function toLiveEventFromNotification(item: NotificationListItem): UserLiv
   };
 }
 
+export function getNotificationImageUrl(data: NotificationData | null | undefined) {
+  if (!data?.imageUrl || typeof data.imageUrl !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = data.imageUrl.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export function mergeNotificationsById(current: NotificationListItem[], incoming: NotificationListItem[]) {
   const seen = new Set<string>();
-  return [...incoming, ...current].filter(item => {
+  return [...current, ...incoming].filter(item => {
     if (seen.has(item.id)) return false;
     seen.add(item.id);
     return true;

@@ -2,25 +2,45 @@ import { createNavigationContainerRef } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef();
 
-let pendingNavigation: (() => void) | null = null;
+type PendingNavigation = {
+  routeName: string;
+  params?: unknown;
+};
+
+let pendingNavigations: PendingNavigation[] = [];
+
+function canNavigateToRoute(routeName: string) {
+  if (!navigationRef.isReady()) {
+    return false;
+  }
+
+  const state = navigationRef.getRootState();
+  return Array.isArray(state?.routeNames) && state.routeNames.includes(routeName);
+}
 
 export function navigateSafely(routeName: string, params?: unknown) {
-  if (navigationRef.isReady()) {
+  if (canNavigateToRoute(routeName)) {
     (navigationRef as any).navigate(routeName, params);
     return;
   }
 
-  pendingNavigation = () => {
-    (navigationRef as any).navigate(routeName, params);
-  };
+  pendingNavigations.push({ routeName, params });
 }
 
 export function flushPendingNavigation() {
-  if (!navigationRef.isReady() || !pendingNavigation) {
+  if (pendingNavigations.length === 0) {
     return;
   }
 
-  const action = pendingNavigation;
-  pendingNavigation = null;
-  action();
+  const remaining: PendingNavigation[] = [];
+
+  for (const action of pendingNavigations) {
+    if (canNavigateToRoute(action.routeName)) {
+      (navigationRef as any).navigate(action.routeName, action.params);
+    } else {
+      remaining.push(action);
+    }
+  }
+
+  pendingNavigations = remaining;
 }

@@ -1,6 +1,21 @@
 import type { ComponentProps } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
-import type { NotificationEvent, NotificationType } from '@/types/live-notifications';
+import type {
+  NotificationAction,
+  NotificationData,
+  NotificationEvent,
+  NotificationType,
+} from '@/types/live-notifications';
+
+export const WORKER_NOTIFICATION_SCREENS = {
+  JOB_DETAILS: 'JobDetails',
+  EARNINGS: 'Earnings',
+  PROFILE: 'Profile',
+  AADHAAR_SCREEN: 'IdentityVerification',
+  BANK_ACCOUNT_INFO: 'PayoutDetails',
+  CERTIFICATE_ADD_EDIT: 'ProfileCertificateAddAndEdit',
+  ADD_SKILL: 'ProfileSkillAddAndEdit',
+} as const;
 
 export type NotificationListItem = {
   id: string;
@@ -8,9 +23,20 @@ export type NotificationListItem = {
   message: string;
   type: NotificationType;
   event: NotificationEvent;
-  data?: Record<string, unknown> | null;
+  action?: NotificationAction | null;
+  data?: NotificationData | null;
   isRead: boolean;
   createdAt: string;
+};
+
+export type NotificationNavigationPayload = {
+  notificationId?: string;
+  title?: string;
+  message?: string;
+  type?: NotificationType;
+  event?: NotificationEvent;
+  action?: NotificationAction;
+  data?: NotificationData | null;
 };
 
 export type NotificationsPagination = {

@@ -90,6 +90,10 @@ export function AppNavigator() {
     }
   }, [initializeLocation, initialized, isOffline]);
 
+  useEffect(() => {
+    flushPendingNavigation();
+  }, [authState.status, isOnboardingActive, needsOnboardingSnapshot]);
+
   if (
     authState.status === AUTH_STATUS.BOOTSTRAPPING
     || needsOnboardingSnapshot
