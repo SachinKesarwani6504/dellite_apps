@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./src/assets/images/png/dellite_logo.png",
+      "image": "./src/assets/images/png/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
