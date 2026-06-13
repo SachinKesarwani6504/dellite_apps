@@ -1,8 +1,14 @@
-import { createNavigationContainerRef } from '@react-navigation/native';
+import { StackActions, createNavigationContainerRef } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef();
 
 type PendingNavigation = {
+  type?: 'navigate';
+  routeName: string;
+  params?: unknown;
+} | {
+  type: 'protectedRoot';
+  mainRouteName: string;
   routeName: string;
   params?: unknown;
 };
@@ -24,7 +30,32 @@ export function navigateSafely(routeName: string, params?: unknown) {
     return;
   }
 
-  pendingNavigations.push({ routeName, params });
+  pendingNavigations.push({ type: 'navigate', routeName, params });
+}
+
+function canOpenProtectedRootRoute(mainRouteName: string, routeName: string) {
+  if (!navigationRef.isReady()) {
+    return false;
+  }
+
+  const state = navigationRef.getRootState();
+  return Array.isArray(state?.routeNames)
+    && state.routeNames.includes(mainRouteName)
+    && state.routeNames.includes(routeName);
+}
+
+function openProtectedRootRouteNow(routeName: string, params?: unknown) {
+  navigationRef.dispatch(StackActions.push(routeName, params as object | undefined));
+}
+
+export function openProtectedRootRoute(mainRouteName: string, routeName: string, params?: unknown) {
+  if (canOpenProtectedRootRoute(mainRouteName, routeName)) {
+    openProtectedRootRouteNow(routeName, params);
+    return;
+  }
+
+  pendingNavigations = pendingNavigations.filter(action => action.type !== 'protectedRoot');
+  pendingNavigations.push({ type: 'protectedRoot', mainRouteName, routeName, params });
 }
 
 export function flushPendingNavigation() {
@@ -35,6 +66,15 @@ export function flushPendingNavigation() {
   const remaining: PendingNavigation[] = [];
 
   for (const action of pendingNavigations) {
+    if (action.type === 'protectedRoot') {
+      if (canOpenProtectedRootRoute(action.mainRouteName, action.routeName)) {
+        openProtectedRootRouteNow(action.routeName, action.params);
+      } else {
+        remaining.push(action);
+      }
+      continue;
+    }
+
     if (canNavigateToRoute(action.routeName)) {
       (navigationRef as any).navigate(action.routeName, action.params);
     } else {

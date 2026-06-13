@@ -1,16 +1,17 @@
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import {
+  getPendingPushToken,
+  registerPushTokenRefreshListener,
+  setPendingPushToken,
+  syncPendingPushTokenFromDevice,
+} from '@/lib/permission';
 import type { DeviceSessionRole, DeviceSessionUpsertPayload } from '@/types/auth';
 
 function resolvePlatform(): DeviceSessionUpsertPayload['platform'] {
   return Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
 }
-
-const pendingFcmMemoryRef = {
-  value: null as string | null,
-};
 
 function normalizeToken(value: string | null | undefined) {
   if (typeof value !== 'string') return null;
@@ -50,44 +51,34 @@ export async function getStableDeviceId() {
 }
 
 export async function setPendingFcmToken(token: string | null | undefined) {
-  pendingFcmMemoryRef.value = normalizeToken(token);
+  await setPendingPushToken(token);
 }
 
 export async function getPendingFcmToken() {
-  return pendingFcmMemoryRef.value;
+  return getPendingPushToken();
 }
 
 export async function syncPendingFcmTokenFromDevice() {
-  const permissions = await Notifications.getPermissionsAsync();
-  const isGranted = Boolean((permissions as { granted?: boolean }).granted);
-  if (!isGranted) {
-    return null;
-  }
-
-  const pushToken = await Notifications.getDevicePushTokenAsync();
-  const token = normalizeToken(pushToken.data);
-  await setPendingFcmToken(token);
-  return token;
+  return syncPendingPushTokenFromDevice();
 }
 
 export function registerFcmTokenRefreshListener(onToken: (token: string) => void) {
-  const subscription = Notifications.addPushTokenListener(async (updatedToken) => {
-    const token = normalizeToken(updatedToken.data);
-    await setPendingFcmToken(token);
-    if (token) {
-      onToken(token);
-    }
-  });
+  return registerPushTokenRefreshListener(onToken);
+}
 
-  return () => {
-    subscription.remove();
-  };
+async function resolveFcmTokenForDeviceSession() {
+  const cachedToken = normalizeToken(await getPendingPushToken());
+  if (cachedToken) {
+    return cachedToken;
+  }
+
+  return normalizeToken(await syncPendingPushTokenFromDevice());
 }
 
 export async function buildDeviceSessionPayload(role: DeviceSessionRole): Promise<DeviceSessionUpsertPayload> {
   const [deviceId, fcmToken] = await Promise.all([
     getStableDeviceId(),
-    getPendingFcmToken(),
+    resolveFcmTokenForDeviceSession(),
   ]);
 
   return {

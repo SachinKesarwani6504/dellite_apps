@@ -7,6 +7,7 @@ import {
 } from '@/types/app-banner';
 import type { BannerActionHandlerParams } from '@/types/banner-navigation';
 import { HOME_SCREEN, MAIN_TAB_SCREEN, PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { openCustomerProtectedRoot } from '@/utils/protected-navigation';
 
 type BannerRouteResolver = (action: AppBannerAction, params: BannerActionHandlerParams) => Promise<boolean>;
 
@@ -84,15 +85,11 @@ const screenRouteConfig: Record<AppBannerTargetScreen, (params: BannerActionHand
     params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, { screen: MAIN_TAB_SCREEN.PROFILE });
   },
   [APP_BANNER_TARGET_SCREEN.SUPPORT]: (params) => {
-    params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, {
-      screen: MAIN_TAB_SCREEN.PROFILE,
-      params: { screen: PROFILE_SCREEN.PROFILE_HOME },
-    });
+    params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, { screen: MAIN_TAB_SCREEN.PROFILE });
   },
   [APP_BANNER_TARGET_SCREEN.REFERRAL]: (params) => {
-    params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, {
-      screen: MAIN_TAB_SCREEN.PROFILE,
-      params: { screen: PROFILE_SCREEN.REFERRAL },
+    openCustomerProtectedRoot(ROOT_SCREEN.PROFILE_DETAILS_NAVIGATOR, {
+      screen: PROFILE_SCREEN.REFERRAL,
     });
   },
 };

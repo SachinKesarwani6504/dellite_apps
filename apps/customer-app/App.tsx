@@ -10,6 +10,7 @@ import Toast from 'react-native-toast-message';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { InAppNotificationProvider } from '@/components/common/InAppNotificationProvider';
+import { StartupSplashGate } from '@/components/common/StartupSplashGate';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
 import { setupNotificationChannels } from '@/utils';
@@ -54,6 +55,7 @@ export default function App() {
               <StatusBar style="light" />
               <AppNavigator />
               <Toast config={toastConfig} topOffset={64} />
+              <StartupSplashGate />
             </InAppNotificationProvider>
           </OnboardingProvider>
         </AuthProvider>

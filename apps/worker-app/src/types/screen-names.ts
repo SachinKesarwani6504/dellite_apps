@@ -35,6 +35,7 @@ export const ROOT_SCREENS = {
   onboardingNavigator: 'OnboardingNavigator',
   mainTabsNavigator: 'MainTabsNavigator',
   jobDetailsNavigator: 'JobDetailsNavigator',
+  profileDetailsNavigator: 'ProfileDetailsNavigator',
 } as const;
 
 export const JOB_STACK_SCREENS = {

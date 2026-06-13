@@ -15,7 +15,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { WorkerJobsSummary } from '@/types/jobs';
 import { ProfileStackParamList } from '@/types/navigation';
-import { PROFILE_SCREENS } from '@/types/screen-names';
+import { PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, toDisplayGender } from '@/utils';
 import { palette, theme, uiColors } from '@/utils/theme';
@@ -40,6 +40,9 @@ export function ProfileHomeScreen({ navigation }: Props) {
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { user, me, phone, logout, loading, refreshMe } = useAuthContext();
   const [jobsSummary, setJobsSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
+  const navigateToProfileDetails = useCallback((screen: string) => {
+    (navigation as any).navigate(ROOT_SCREENS.profileDetailsNavigator, { screen });
+  }, [navigation]);
 
   const displayFirstName = typeof me?.user?.firstName === 'string' && me.user.firstName.trim().length > 0
     ? me.user.firstName.trim()
@@ -260,7 +263,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           <Text className="mt-2 text-sm text-textPrimary/70 dark:text-white/70">{memberSince}</Text>
 
           <Pressable
-            onPress={() => navigation.navigate(PROFILE_SCREENS.editProfile)}
+            onPress={() => navigateToProfileDetails(PROFILE_SCREENS.editProfile)}
             className="mt-4 rounded-full px-6 py-2.5"
             style={{ backgroundColor: theme.colors.primary }}
           >
@@ -333,7 +336,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.accent}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.helpSupport)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.helpSupport)}
           showDivider
         />
 
@@ -344,7 +347,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.notifications)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.notifications)}
           showDivider
         />
 
@@ -355,7 +358,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.identityVerification)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.identityVerification)}
           showDivider
         />
 
@@ -366,7 +369,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.referral)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.referral)}
           showDivider
         />
 
@@ -377,7 +380,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.payoutDetails)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.payoutDetails)}
           showDivider
         />
 
@@ -388,7 +391,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREENS.allSkills)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.allSkills)}
           showDivider
         />
 

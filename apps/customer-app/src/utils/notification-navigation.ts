@@ -1,5 +1,4 @@
 import { Linking } from 'react-native';
-import { navigateSafely } from '@/navigation/navigationRef';
 import { MAIN_TAB_SCREEN, PROFILE_SCREEN, ROOT_SCREEN, BOOKINGS_SCREEN } from '@/types/screen-names';
 import {
   CUSTOMER_NOTIFICATION_SCREENS,
@@ -7,6 +6,7 @@ import {
   type NotificationNavigationPayload,
 } from '@/types/notifications';
 import type { NotificationAction, NotificationData, UserLiveEvent } from '@/types/live-notifications';
+import { openCustomerMainTabs, openCustomerProtectedRoot } from '@/utils/protected-navigation';
 
 const CUSTOMER_ROLE = 'CUSTOMER';
 const ALLOWED_CUSTOMER_SCREENS = new Set<string>(Object.values(CUSTOMER_NOTIFICATION_SCREENS));
@@ -122,7 +122,7 @@ export function normalizeNotificationPayload(source: NotificationSource): Notifi
 }
 
 function openCustomerBookingsList() {
-  navigateSafely(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, {
+  openCustomerMainTabs({
     screen: MAIN_TAB_SCREEN.BOOKINGS,
     initial: false,
     params: {
@@ -132,7 +132,7 @@ function openCustomerBookingsList() {
 }
 
 function openCustomerProfileHome() {
-  navigateSafely(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, {
+  openCustomerMainTabs({
     screen: MAIN_TAB_SCREEN.PROFILE,
     initial: false,
     params: {
@@ -142,12 +142,12 @@ function openCustomerProfileHome() {
 }
 
 function openCustomerNotifications() {
-  navigateSafely(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, {
-    screen: MAIN_TAB_SCREEN.PROFILE,
-    params: {
-      initial: false,
-      screen: PROFILE_SCREEN.NOTIFICATIONS,
-    },
+  openCustomerProfileDetails(PROFILE_SCREEN.NOTIFICATIONS);
+}
+
+function openCustomerProfileDetails(screen: string) {
+  openCustomerProtectedRoot(ROOT_SCREEN.PROFILE_DETAILS_NAVIGATOR, {
+    screen,
   });
 }
 
@@ -157,8 +157,7 @@ function openCustomerBookingDetails(targetId: string | undefined, notificationId
     return;
   }
 
-  openCustomerBookingsList();
-  navigateSafely(ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR, {
+  openCustomerProtectedRoot(ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR, {
     screen: BOOKINGS_SCREEN.DETAILS,
     params: {
       bookingId: targetId,
@@ -216,6 +215,12 @@ export async function handleNotificationNavigation(source: NotificationSource) {
       return;
     case CUSTOMER_NOTIFICATION_SCREENS.PROFILE:
       openCustomerProfileHome();
+      return;
+    case CUSTOMER_NOTIFICATION_SCREENS.EDIT_PROFILE:
+      openCustomerProfileDetails(PROFILE_SCREEN.EDIT_PROFILE);
+      return;
+    case CUSTOMER_NOTIFICATION_SCREENS.REFERRAL:
+      openCustomerProfileDetails(PROFILE_SCREEN.REFERRAL);
       return;
     case CUSTOMER_NOTIFICATION_SCREENS.NOTIFICATIONS:
     default:

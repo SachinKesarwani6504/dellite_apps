@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef } from 'react';
 import { AppState, View } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useOnboardingContext } from '@/contexts/OnboardingContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -11,6 +12,7 @@ import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { JobDetailsNavigator } from '@/navigation/JobDetailsNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
+import { ProfileDetailsNavigator } from '@/navigation/ProfileDetailsNavigator';
 import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
@@ -22,9 +24,54 @@ import { useUserPresence } from '@/hooks/useUserPresence';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
+const ROOT_NAVIGATOR_BRANCH = {
+  bootstrap: 'bootstrap',
+  offline: 'offline',
+  auth: 'auth',
+  onboarding: 'onboarding',
+  main: 'main',
+} as const;
+
 function BootstrapScreenFallback() {
   const isDark = useColorScheme() === 'dark';
-  return <View style={{ flex: 1, backgroundColor: isDark ? palette.dark.background : palette.light.background }} />;
+  return (
+    <View style={{ flex: 1, backgroundColor: isDark ? palette.dark.background : palette.light.background }}>
+      <LoadingState containerClassName="flex-1 w-full" minHeight={0} />
+    </View>
+  );
+}
+
+function resolveRootNavigatorBranch(
+  status: AuthStatus,
+  onboardingLoading: boolean,
+  isOnboardingActive: boolean,
+  networkInitialized: boolean,
+  isOffline: boolean,
+) {
+  if (networkInitialized && isOffline) {
+    return ROOT_NAVIGATOR_BRANCH.offline;
+  }
+
+  if (
+    status === AuthStatus.BOOTSTRAPPING
+    || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT)
+  ) {
+    return ROOT_NAVIGATOR_BRANCH.bootstrap;
+  }
+
+  if (status === AuthStatus.LOGGED_OUT || status === AuthStatus.OTP_SENT) {
+    return ROOT_NAVIGATOR_BRANCH.auth;
+  }
+
+  if (
+    status === AuthStatus.ONBOARDING
+    || status === AuthStatus.PHONE_VERIFIED
+    || (status === AuthStatus.AUTHENTICATED && isOnboardingActive)
+  ) {
+    return ROOT_NAVIGATOR_BRANCH.onboarding;
+  }
+
+  return ROOT_NAVIGATOR_BRANCH.main;
 }
 
 export function AppNavigator() {
@@ -38,6 +85,13 @@ export function AppNavigator() {
   const isDark = colorScheme === 'dark';
   const userId = user?.id ?? null;
   const shouldTrackUserSession = status === AuthStatus.AUTHENTICATED && Boolean(userId);
+  const rootBranch = resolveRootNavigatorBranch(
+    status,
+    onboardingLoading,
+    isOnboardingActive,
+    initialized,
+    isOffline,
+  );
 
   useUserPresence({
     userId,
@@ -97,31 +151,31 @@ export function AppNavigator() {
 
   useEffect(() => {
     flushPendingNavigation();
-  }, [isOnboardingActive, onboardingLoading, status]);
+  }, [rootBranch]);
+
+  if (rootBranch === ROOT_NAVIGATOR_BRANCH.offline) {
+    return <OfflineScreen onRetry={refresh} />;
+  }
+
+  if (rootBranch === ROOT_NAVIGATOR_BRANCH.bootstrap) {
+    return <BootstrapScreenFallback />;
+  }
 
   return (
-    initialized && isOffline ? (
-      <OfflineScreen onRetry={refresh} />
-    ) : (
     <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation} theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {status === AuthStatus.BOOTSTRAPPING || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT) ? (
-          <RootStack.Screen
-            name={ROOT_SCREENS.mainTabsNavigator}
-            component={BootstrapScreenFallback}
-          />
-        ) : status === AuthStatus.LOGGED_OUT || status === AuthStatus.OTP_SENT ? (
+        {rootBranch === ROOT_NAVIGATOR_BRANCH.auth ? (
           <RootStack.Screen name={ROOT_SCREENS.authNavigator} component={AuthNavigator} />
-        ) : status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED || (status === AuthStatus.AUTHENTICATED && isOnboardingActive) ? (
+        ) : rootBranch === ROOT_NAVIGATOR_BRANCH.onboarding ? (
           <RootStack.Screen name={ROOT_SCREENS.onboardingNavigator} component={OnboardingNavigator} />
         ) : (
           <>
             <RootStack.Screen name={ROOT_SCREENS.mainTabsNavigator} component={MainTabsNavigator} />
             <RootStack.Screen name={ROOT_SCREENS.jobDetailsNavigator} component={JobDetailsNavigator} />
+            <RootStack.Screen name={ROOT_SCREENS.profileDetailsNavigator} component={ProfileDetailsNavigator} />
           </>
         )}
       </RootStack.Navigator>
     </NavigationContainer>
-    )
   );
 }
