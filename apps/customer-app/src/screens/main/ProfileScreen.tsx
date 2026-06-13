@@ -13,6 +13,7 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { CustomerBookingsSummary } from '@/types/api';
 import { PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
@@ -27,6 +28,7 @@ export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { authState, logout, loading, refreshMe } = useAuthContext();
+  const { showConfirmSheet } = useBottomSheetContext();
   const navigation = useNavigation();
   const user = authState.user;
   const [summary, setSummary] = useState<CustomerBookingsSummary>(DEFAULT_BOOKINGS_SUMMARY);
@@ -258,7 +260,19 @@ export function ProfileScreen() {
           disabled={loading}
           showChevron={false}
           onPress={() => {
-            void logout();
+            showConfirmSheet({
+              title: APP_TEXT.profile.logoutConfirmTitle,
+              subtitle: APP_TEXT.profile.logoutConfirmSubtitle,
+              confirmAction: {
+                id: 'customer-confirm-logout',
+                label: APP_TEXT.profile.logoutButton,
+                tone: 'danger',
+                closeOnPress: false,
+                onPress: async () => {
+                  await logout();
+                },
+              },
+            });
           }}
         />
       </View>

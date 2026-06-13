@@ -12,6 +12,7 @@ import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { WorkerJobsSummary } from '@/types/jobs';
 import { ProfileStackParamList } from '@/types/navigation';
@@ -39,6 +40,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { user, me, phone, logout, loading, refreshMe } = useAuthContext();
+  const { showConfirmSheet } = useBottomSheetContext();
   const [jobsSummary, setJobsSummary] = useState<WorkerJobsSummary>(DEFAULT_JOBS_SUMMARY);
   const navigateToProfileDetails = useCallback((screen: string) => {
     (navigation as any).navigate(ROOT_SCREENS.profileDetailsNavigator, { screen });
@@ -406,7 +408,19 @@ export function ProfileHomeScreen({ navigation }: Props) {
           loading={loading}
           disabled={loading}
           onPress={() => {
-            void logout();
+            showConfirmSheet({
+              title: APP_TEXT.profile.logoutConfirmTitle,
+              subtitle: APP_TEXT.profile.logoutConfirmSubtitle,
+              confirmAction: {
+                id: 'worker-confirm-logout',
+                label: APP_TEXT.profile.logoutButton,
+                tone: 'danger',
+                closeOnPress: false,
+                onPress: async () => {
+                  await logout();
+                },
+              },
+            });
           }}
         />
       </View>
