@@ -4,6 +4,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -23,6 +24,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 export default function App() {
+  const isDark = useColorScheme() === 'dark';
   const [fontsLoaded] = useFonts({
     Inter: require('./src/assets/fonts/Inter.ttf'),
   });
@@ -57,7 +59,7 @@ export default function App() {
             <AuthProvider>
               <OnboardingProvider>
                 <InAppNotificationProvider>
-                  <StatusBar style="light" />
+                  <StatusBar style={isDark ? 'light' : 'dark'} />
                   <AppNavigator />
                   <Toast config={toastConfig} topOffset={58} />
                   <StartupSplashGate />

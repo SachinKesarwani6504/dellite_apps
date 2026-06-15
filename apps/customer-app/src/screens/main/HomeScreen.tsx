@@ -78,6 +78,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   } = locationState;
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
+  const isLocationPermissionPending = permissionStatus === 'undetermined';
   const isLocationGranted = permissionStatus === 'granted';
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
@@ -103,7 +104,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
-  const isLocationPending = isLocationGranted && !isLocationReadyForHome;
+  const isLocationPending = isLocationPermissionPending
+    || (
+      isLocationGranted
+      && (
+        !initialized
+        || locationLoading
+        || locationRefreshing
+      )
+    );
 
   const contentSections = useMemo(
     () => (Array.isArray(homeData?.content) ? homeData.content : []),
@@ -163,6 +172,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [initializeLocation, requestLocationPermission]);
 
   useEffect(() => {
+    if (isLocationPermissionPending) {
+      setLoading(true);
+      setHomeData(null);
+      setError(null);
+      setCityUnavailable(false);
+      return;
+    }
+
     if (!isLocationGranted) {
       setLoading(false);
       setHomeData(null);
@@ -171,11 +188,19 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       return;
     }
 
-    if (!isLocationReadyForHome || !homeQueryCity) {
+    if (isLocationPending) {
       setLoading(true);
       setHomeData(null);
       setError(null);
       setCityUnavailable(false);
+      return;
+    }
+
+    if (!isLocationReadyForHome || !homeQueryCity) {
+      setLoading(false);
+      setHomeData(null);
+      setError(null);
+      setCityUnavailable(true);
       return;
     }
 
@@ -187,7 +212,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       return;
     }
     void fetchHome({ showFullScreenLoader: true });
-  }, [fetchHome, homeQueryCity, isLocationGranted, isLocationPending, isLocationReadyForHome]);
+  }, [fetchHome, homeQueryCity, isLocationGranted, isLocationPending, isLocationPermissionPending, isLocationReadyForHome]);
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await fetchHome({ showFullScreenLoader: false });
@@ -323,7 +348,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     return null;
   }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
 
-  const cityLabel = isLocationGranted ? selectedCity || 'Locating...' : APP_TEXT.main.locationAccess.noLocationLabel;
+  const cityLabel = isLocationPermissionPending || isLocationGranted
+    ? selectedCity || 'Locating...'
+    : APP_TEXT.main.locationAccess.noLocationLabel;
   const displayCityLabel = cityLabel === 'Locating...'
     || cityLabel === APP_TEXT.main.locationAccess.noLocationLabel
     ? cityLabel
@@ -347,7 +374,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [city, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
 
   const isHomePayloadEmpty = !homeData || (!shouldShowContent && !homeData.footer);
-  const locationPermissionPrompt = !isLocationGranted ? (
+  const locationPermissionPrompt = !isLocationPermissionPending && !isLocationGranted ? (
     <View className="mb-4 mt-4">
       <PermissionPromptCard
         tone="location"

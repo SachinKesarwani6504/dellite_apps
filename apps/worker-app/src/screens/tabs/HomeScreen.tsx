@@ -100,7 +100,14 @@ export function HomeScreen() {
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const isLocationPending =
     isLocationPermissionPending
-    || (isLocationGranted && (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity);
+    || (
+      isLocationGranted
+      && (
+        !initialized
+        || locationLoading
+        || locationRefreshing
+      )
+    );
 
   const handleLocationPermissionAction = useCallback(async () => {
     const status = await requestLocationPermission();

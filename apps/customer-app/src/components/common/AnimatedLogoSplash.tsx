@@ -1,9 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View, useColorScheme } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 
 import { palette, theme, uiColors } from '@/utils/theme';
+
+type GradientColors = readonly [string, string, string];
 
 type AnimatedLogoSplashProps = {
   logoSource?: ImageSourcePropType;
@@ -11,13 +13,14 @@ type AnimatedLogoSplashProps = {
   onAnimationEnd?: () => void;
 };
 
-const DEFAULT_LOGO = require('@/assets/icon.png');
+const DEFAULT_LOGO = require('@/assets/images/png/dellite_logo.png');
 
 function AnimatedLogoSplashComponent({
   logoSource = DEFAULT_LOGO,
   logoWidth = 140,
   onAnimationEnd,
 }: AnimatedLogoSplashProps) {
+  const isDark = useColorScheme() === 'dark';
   const intro = useRef(new Animated.Value(0)).current;
   const breath = useRef(new Animated.Value(0)).current;
   const ringOne = useRef(new Animated.Value(0)).current;
@@ -138,13 +141,15 @@ function AnimatedLogoSplashComponent({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
+  const gradientColors: GradientColors = isDark
+    ? [palette.dark.background, uiColors.surface.cardElevatedDark, palette.dark.card]
+    : [theme.colors.surfaceSoft, palette.light.background, uiColors.surface.warmSubtleLight];
 
   return (
     <LinearGradient
-      colors={[theme.colors.surfaceSoft, palette.light.background, uiColors.surface.warmSubtleLight]}
+      colors={gradientColors}
       style={styles.container}
     >
-      <View style={styles.glow} />
       <Animated.View
         style={[
           styles.stage,
@@ -226,24 +231,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  glow: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: uiColors.surface.accentSoft40,
-  },
   stage: {
-    width: 220,
-    height: 220,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ring: {
     position: 'absolute',
+    top: '50%',
+    left: '50%',
     width: 170,
     height: 170,
     borderRadius: 85,
+    marginLeft: -85,
+    marginTop: -85,
     borderWidth: 2,
     borderColor: theme.colors.primary,
   },
@@ -253,9 +254,13 @@ const styles = StyleSheet.create({
   },
   orbit: {
     position: 'absolute',
-    width: 190,
-    height: 190,
-    borderRadius: 95,
+    top: '50%',
+    left: '50%',
+    width: 246,
+    height: 246,
+    borderRadius: 123,
+    marginLeft: -123,
+    marginTop: -123,
   },
   orbitDot: {
     position: 'absolute',
@@ -264,35 +269,27 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   orbitDotPrimary: {
-    top: 0,
-    left: 90,
+    top: 10,
+    left: 118,
     backgroundColor: theme.colors.primary,
   },
   orbitDotSecondary: {
-    bottom: 14,
-    right: 28,
+    bottom: 26,
+    right: 44,
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: theme.colors.secondary,
   },
   logoFrame: {
-    width: 154,
+    width: 184,
     height: 154,
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: uiColors.surface.overlayLight90,
-    borderWidth: 1,
-    borderColor: theme.colors.stroke,
-    shadowColor: uiColors.shadow.cta,
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
   },
   logo: {
-    maxWidth: 132,
+    maxWidth: 162,
     maxHeight: 132,
   },
 });

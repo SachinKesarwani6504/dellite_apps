@@ -24,6 +24,10 @@ const REQUIRED_PARITY_PATHS = [
   'src/utils/key-chain-storage/key-chain-values.ts',
 ];
 
+const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const IMPORT_PACKAGE_REGEX =
+  /(?:\bimport\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|require\(\s*['"]([^'"]+)['"]\s*\))/g;
+
 function parseArgs(argv) {
   const args = new Set(argv.slice(2));
   return {
@@ -56,6 +60,91 @@ function ensureFileExists(filePath) {
   return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
 }
 
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function getPackageName(importPath) {
+  if (
+    importPath.startsWith('.') ||
+    importPath.startsWith('/') ||
+    importPath.startsWith('@/') ||
+    importPath.startsWith('node:')
+  ) {
+    return null;
+  }
+
+  if (importPath.startsWith('@')) {
+    const [scope, name] = importPath.split('/');
+    return scope && name ? `${scope}/${name}` : null;
+  }
+
+  return importPath.split('/')[0];
+}
+
+function getPackageSourceFiles(appRoot, srcRoot) {
+  const files = [];
+  const appEntryFiles = ['App.tsx', 'App.ts', 'index.js', 'index.ts'];
+
+  for (const entryFile of appEntryFiles) {
+    const fullPath = path.join(appRoot, entryFile);
+    if (ensureFileExists(fullPath)) {
+      files.push(fullPath);
+    }
+  }
+
+  if (fs.existsSync(srcRoot)) {
+    files.push(...walk(srcRoot).filter((filePath) => SOURCE_EXTENSIONS.has(path.extname(filePath))));
+  }
+
+  return files;
+}
+
+function validateDeclaredImports(appName, appRoot, srcRoot) {
+  const errors = [];
+  const packageJsonPath = path.join(appRoot, 'package.json');
+  if (!ensureFileExists(packageJsonPath)) {
+    errors.push(`[${appName}] Missing package.json`);
+    return errors;
+  }
+
+  const packageJson = readJson(packageJsonPath);
+  const declaredPackages = new Set([
+    ...Object.keys(packageJson.dependencies ?? {}),
+    ...Object.keys(packageJson.devDependencies ?? {}),
+    ...Object.keys(packageJson.peerDependencies ?? {}),
+  ]);
+  const missingPackages = new Map();
+
+  for (const fullPath of getPackageSourceFiles(appRoot, srcRoot)) {
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const relPath = toPosix(path.relative(appRoot, fullPath));
+    IMPORT_PACKAGE_REGEX.lastIndex = 0;
+
+    let match;
+    while ((match = IMPORT_PACKAGE_REGEX.exec(content)) !== null) {
+      const importPath = match[1] ?? match[2] ?? match[3];
+      const packageName = getPackageName(importPath);
+      if (!packageName || declaredPackages.has(packageName)) {
+        continue;
+      }
+
+      if (!missingPackages.has(packageName)) {
+        missingPackages.set(packageName, new Set());
+      }
+      missingPackages.get(packageName).add(relPath);
+    }
+  }
+
+  for (const [packageName, relPaths] of missingPackages.entries()) {
+    errors.push(
+      `[${appName}] Imported package "${packageName}" is missing from package.json. Used in: ${[...relPaths].sort().join(', ')}`,
+    );
+  }
+
+  return errors;
+}
+
 function validateApp(appName, appRoot) {
   const srcRoot = path.join(appRoot, 'src');
   const errors = [];
@@ -66,6 +155,7 @@ function validateApp(appName, appRoot) {
   }
 
   const files = walk(srcRoot);
+  errors.push(...validateDeclaredImports(appName, appRoot, srcRoot));
 
   for (const fullPath of files) {
     const relPath = toPosix(path.relative(srcRoot, fullPath));

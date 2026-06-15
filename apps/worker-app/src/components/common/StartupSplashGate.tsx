@@ -4,8 +4,11 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthStatus } from '@/types/auth-status';
 import { AnimatedLogoSplash } from './AnimatedLogoSplash';
 
+const LOCATION_SPLASH_MAX_WAIT_MS = 2400;
+
 export function StartupSplashGate() {
   const [isInitialStartupComplete, setIsInitialStartupComplete] = useState(false);
+  const [hasLocationSplashTimedOut, setHasLocationSplashTimedOut] = useState(false);
   const hasRequestedInitialLocationRef = useRef(false);
   const { status, locationState } = useAuthContext();
   const {
@@ -35,7 +38,21 @@ export function StartupSplashGate() {
       && (hasLocationInfo || Boolean(error))
       && !isLocationBusy
     );
-  const shouldShowSplash = isAuthBootstrapping || !isLocationSettled;
+  const shouldShowSplash = isAuthBootstrapping || (!isLocationSettled && !hasLocationSplashTimedOut);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLocationSettled || hasLocationSplashTimedOut) {
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      setHasLocationSplashTimedOut(true);
+    }, LOCATION_SPLASH_MAX_WAIT_MS);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [hasLocationSplashTimedOut, isAuthenticated, isLocationSettled]);
 
   useEffect(() => {
     if (isInitialStartupComplete || shouldShowSplash) {
