@@ -11,6 +11,8 @@ export const CUSTOMER_NOTIFICATION_SCREENS = {
   BOOKINGS: 'Bookings',
   BOOKING_DETAILS: 'BookingsDetails',
   PROFILE: 'Profile',
+  EDIT_PROFILE: 'EditProfile',
+  REFERRAL: 'Referral',
   NOTIFICATIONS: 'Notifications',
 } as const;
 

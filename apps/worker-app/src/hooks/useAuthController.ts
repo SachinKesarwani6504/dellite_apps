@@ -24,11 +24,7 @@ import {
 } from '@/types/auth';
 import { useLocationController } from '@/hooks/useLocationController';
 import { clearFirebaseAuthSession, ensureFirebaseSessionWithCustomToken } from '@/utils/firebase-session';
-import {
-  buildDeviceSessionPayload,
-  registerFcmTokenRefreshListener,
-  syncPendingFcmTokenFromDevice,
-} from '@/utils/device-session';
+import { buildDeviceSessionPayload } from '@/utils/device-session';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -74,6 +70,15 @@ function extractPhoneTokenFromVerifyOtpResponse(response: VerifyOtpResult & { st
   return response.phoneToken ? normalizeBearerToken(response.phoneToken) : null;
 }
 
+function getAuthTokenLogMetadata(tokens: AuthTokens | null) {
+  return {
+    hasAccessToken: Boolean(tokens?.accessToken),
+    hasRefreshToken: Boolean(tokens?.refreshToken),
+    hasFirebaseCustomToken: Boolean(tokens?.firebaseCustomToken),
+    service: keyChainValues.authService,
+  };
+}
+
 async function clearAllStoredTokens() {
   await clearAuthTokens();
   await clearOnboardingPhoneToken();
@@ -90,9 +95,6 @@ export function useAuthController(): AuthContextType {
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [pendingActionCount, setPendingActionCount] = useState(0);
   const inFlightRefreshMeRef = useRef<Promise<AuthMeResponse> | null>(null);
-  const inFlightDeviceSessionSyncRef = useRef<Promise<void> | null>(null);
-  const lastDeviceSessionSyncRef = useRef<{ key: string; at: number } | null>(null);
-  const skipNextAuthenticatedDeviceSyncRef = useRef(false);
   const statusRef = useRef<AuthStatus>(AuthStatus.BOOTSTRAPPING);
   const phoneTokenRef = useRef<string | null>(null);
 
@@ -140,83 +142,19 @@ export function useAuthController(): AuthContextType {
     await ensureFirebaseSessionWithCustomToken(tokens?.firebaseCustomToken ?? null, { forceReauth: true });
   }, []);
 
-  const syncDeviceSessionBestEffort = useCallback(async (force = false) => {
-    if (inFlightDeviceSessionSyncRef.current) {
-      return inFlightDeviceSessionSyncRef.current;
-    }
-
-    const syncPromise = (async () => {
-      try {
-        const payload = await buildDeviceSessionPayload('WORKER');
-        const syncKey = JSON.stringify({
-          role: payload.role,
-          platform: payload.platform,
-          deviceId: payload.deviceId,
-          fcmToken: payload.fcmToken ?? null,
-        });
-        const lastSync = lastDeviceSessionSyncRef.current;
-        if (!force && lastSync?.key === syncKey && Date.now() - lastSync.at < 10000) {
-          return;
-        }
-
-        await upsertDeviceSession(payload);
-        lastDeviceSessionSyncRef.current = { key: syncKey, at: Date.now() };
-      } catch (error) {
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[worker-auth] device-session-upsert-failed', error);
-        }
+  const registerDeviceSessionAfterOtpVerification = useCallback(async () => {
+    try {
+      const payload = await buildDeviceSessionPayload('WORKER');
+      await upsertDeviceSession(payload);
+    } catch (error) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[worker-auth] device-session-upsert-after-otp-failed', error);
       }
-    })().finally(() => {
-      inFlightDeviceSessionSyncRef.current = null;
-    });
-
-    inFlightDeviceSessionSyncRef.current = syncPromise;
-    return syncPromise;
+    }
   }, []);
 
-  const syncDeviceSessionRegistration = useCallback(async () => {
-    await syncDeviceSessionBestEffort(true);
-  }, [syncDeviceSessionBestEffort]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    void syncPendingFcmTokenFromDevice()
-      .then((token) => {
-        if (!mounted || !token || status !== AuthStatus.AUTHENTICATED) {
-          return;
-        }
-        if (skipNextAuthenticatedDeviceSyncRef.current) {
-          skipNextAuthenticatedDeviceSyncRef.current = false;
-          return;
-        }
-        void syncDeviceSessionBestEffort();
-      })
-      .catch((error) => {
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[worker-auth] initial-push-token-sync-failed', error);
-        }
-      });
-
-    const unsubscribe = registerFcmTokenRefreshListener(() => {
-      if (status !== AuthStatus.AUTHENTICATED) {
-        return;
-      }
-      void syncDeviceSessionBestEffort();
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, [status, syncDeviceSessionBestEffort]);
-
   const resetLocalSession = useCallback((nextStatus: AuthStatus) => {
-    inFlightDeviceSessionSyncRef.current = null;
-    lastDeviceSessionSyncRef.current = null;
-    skipNextAuthenticatedDeviceSyncRef.current = false;
     setPhoneToken(null);
     setOnboardingPrefill(null);
     setMe(null);
@@ -326,7 +264,7 @@ export function useAuthController(): AuthContextType {
     return () => {
       mounted = false;
     };
-  }, [ensureFirebaseSession, fetchOnboardingPrefill, logout, refreshMe, resetLocalSession, syncDeviceSessionBestEffort]);
+  }, [ensureFirebaseSession, fetchOnboardingPrefill, logout, refreshMe, resetLocalSession]);
 
   const handleSendOtpCode = useCallback(async (phoneNumber: string, role: UserRole = APP_AUTH_ROLE) => {
     console.log('[Auth Flow] Sending OTP to phone:', phoneNumber);
@@ -343,7 +281,7 @@ export function useAuthController(): AuthContextType {
       if (typeof response.message === 'string' && response.message.trim().length > 0) {
         showApiSuccessToast(response.message);
       }
-      console.log('[Auth Flow] OTP Verification Response:', response);
+      console.log('[Auth Flow] OTP Verification Response:', { status: response.status });
       setPhone(phoneNumber);
 
       const statusResult = response.status;
@@ -385,24 +323,23 @@ export function useAuthController(): AuthContextType {
 
       // CASE 2: LOGIN SUCCESS -> Authenticate Session
       const tokens = extractTokensFromVerifyOtpResponse(response);
-      console.log('[Auth Flow] Extracted Session Tokens:', tokens);
+      console.log('[Auth Flow] Extracted Session Tokens:', getAuthTokenLogMetadata(tokens));
       if (!tokens?.accessToken) {
         console.error('[Auth Flow] Invalid token response: No access token found.');
         throw new Error('OTP verified, but no valid token set was returned.');
       }
 
-        await saveAuthTokens(tokens);
-        console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
-        await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
-        await clearOnboardingPhoneToken();
-        setPhoneToken(null);
-        setOnboardingPrefill(null);
-        setStatus(AuthStatus.AUTHENTICATED);
-        skipNextAuthenticatedDeviceSyncRef.current = true;
-        void syncDeviceSessionBestEffort(true);
-        await refreshMe();
+      await saveAuthTokens(tokens);
+      console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, getAuthTokenLogMetadata(tokens));
+      await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
+      await clearOnboardingPhoneToken();
+      setPhoneToken(null);
+      setOnboardingPrefill(null);
+      await refreshMe();
+      setStatus(AuthStatus.AUTHENTICATED);
+      void registerDeviceSessionAfterOtpVerification();
       },
-    [ensureFirebaseSession, refreshMe, syncDeviceSessionBestEffort],
+    [ensureFirebaseSession, refreshMe, registerDeviceSessionAfterOtpVerification],
   );
 
   const handleResendOtpCode = useCallback(async (phoneNumber: string) => {
@@ -466,21 +403,19 @@ export function useAuthController(): AuthContextType {
           : {}),
       };
 
-        await saveAuthTokens(tokens);
-        console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
-        await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
-        await clearOnboardingPhoneToken();
-        setPhoneToken(null);
-        setOnboardingPrefill(null);
-        skipNextAuthenticatedDeviceSyncRef.current = true;
-        void syncDeviceSessionBestEffort(true);
-        setStatus(AuthStatus.AUTHENTICATED);
+      await saveAuthTokens(tokens);
+      console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, getAuthTokenLogMetadata(tokens));
+      await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
+      await clearOnboardingPhoneToken();
+      setPhoneToken(null);
+      setOnboardingPrefill(null);
 
       try {
         await refreshMe();
       } catch {
         // Keep the newly authenticated state; a later refresh can reconcile the user snapshot.
       }
+      setStatus(AuthStatus.AUTHENTICATED);
     },
     [ensureFirebaseSession, phoneToken, refreshMe, resetLocalSession],
   );
@@ -529,7 +464,6 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    syncDeviceSessionRegistration,
     logout: logoutWithState,
     refreshMe: refreshMeWithState,
     fetchOnboardingPrefill,
@@ -546,7 +480,6 @@ export function useAuthController(): AuthContextType {
     verifyOtpCode,
     resendOtpCode,
     completeOnboarding,
-    syncDeviceSessionRegistration,
     logoutWithState,
     refreshMeWithState,
     fetchOnboardingPrefill,

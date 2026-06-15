@@ -12,6 +12,21 @@ export type RootStackParamList = {
     screen: string;
     params?: unknown;
   };
+  [ROOT_SCREEN.PROFILE_DETAILS_NAVIGATOR]: {
+    screen: string;
+    params?: unknown;
+  };
+};
+
+export type PendingNavigation = {
+  type?: 'navigate';
+  routeName: string;
+  params?: unknown;
+} | {
+  type: 'protectedRoot';
+  mainRouteName: string;
+  routeName: string;
+  params?: unknown;
 };
 
 export type AuthStackParamList = {

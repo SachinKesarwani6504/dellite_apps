@@ -1,5 +1,4 @@
 import { Linking } from 'react-native';
-import { navigateSafely } from '@/navigation/navigationRef';
 import { JOB_STACK_SCREENS, MAIN_TAB_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import {
   WORKER_NOTIFICATION_SCREENS,
@@ -7,6 +6,7 @@ import {
   type NotificationNavigationPayload,
 } from '@/types/notifications';
 import type { NotificationAction, NotificationData, UserLiveEvent } from '@/types/live-notifications';
+import { openWorkerMainTabs, openWorkerProtectedRoot } from '@/utils/protected-navigation';
 
 const WORKER_ROLE = 'WORKER';
 const ALLOWED_WORKER_SCREENS = new Set<string>(Object.values(WORKER_NOTIFICATION_SCREENS));
@@ -122,7 +122,7 @@ export function normalizeNotificationPayload(source: NotificationSource): Notifi
 }
 
 function openWorkerProfileHome() {
-  navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
+  openWorkerMainTabs({
     screen: MAIN_TAB_SCREENS.profile,
     initial: false,
     params: {
@@ -132,17 +132,17 @@ function openWorkerProfileHome() {
 }
 
 function openWorkerNotifications() {
-  navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
-    screen: MAIN_TAB_SCREENS.profile,
-    params: {
-      initial: false,
-      screen: PROFILE_SCREENS.notifications,
-    },
+  openWorkerProfileDetails(PROFILE_SCREENS.notifications);
+}
+
+function openWorkerProfileDetails(screen: string) {
+  openWorkerProtectedRoot(ROOT_SCREENS.profileDetailsNavigator, {
+    screen,
   });
 }
 
 function openWorkerJobsHome() {
-  navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
+  openWorkerMainTabs({
     screen: MAIN_TAB_SCREENS.jobs,
     initial: false,
     params: {
@@ -157,8 +157,7 @@ function openWorkerJobDetails(targetId: string | undefined, notificationId: stri
     return;
   }
 
-  openWorkerJobsHome();
-  navigateSafely(ROOT_SCREENS.jobDetailsNavigator, {
+  openWorkerProtectedRoot(ROOT_SCREENS.jobDetailsNavigator, {
     screen: JOB_STACK_SCREENS.details,
     params: {
       jobId: targetId,
@@ -212,34 +211,37 @@ export async function handleNotificationNavigation(source: NotificationSource) {
       openWorkerJobDetails(getString(data?.targetId), payload.notificationId);
       return;
     case WORKER_NOTIFICATION_SCREENS.EARNINGS:
-      navigateSafely(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.earnings });
+      openWorkerMainTabs({ screen: MAIN_TAB_SCREENS.earnings });
       return;
     case WORKER_NOTIFICATION_SCREENS.PROFILE:
       openWorkerProfileHome();
       return;
+    case WORKER_NOTIFICATION_SCREENS.NOTIFICATIONS:
+      openWorkerProfileDetails(PROFILE_SCREENS.notifications);
+      return;
+    case WORKER_NOTIFICATION_SCREENS.EDIT_PROFILE:
+      openWorkerProfileDetails(PROFILE_SCREENS.editProfile);
+      return;
+    case WORKER_NOTIFICATION_SCREENS.HELP_SUPPORT:
+      openWorkerProfileDetails(PROFILE_SCREENS.helpSupport);
+      return;
+    case WORKER_NOTIFICATION_SCREENS.REFERRAL:
+      openWorkerProfileDetails(PROFILE_SCREENS.referral);
+      return;
+    case WORKER_NOTIFICATION_SCREENS.ALL_SKILLS:
+      openWorkerProfileDetails(PROFILE_SCREENS.allSkills);
+      return;
     case WORKER_NOTIFICATION_SCREENS.AADHAAR_SCREEN:
-      navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
-        screen: MAIN_TAB_SCREENS.profile,
-        params: { screen: PROFILE_SCREENS.identityVerification, initial: false },
-      });
+      openWorkerProfileDetails(PROFILE_SCREENS.identityVerification);
       return;
     case WORKER_NOTIFICATION_SCREENS.BANK_ACCOUNT_INFO:
-      navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
-        screen: MAIN_TAB_SCREENS.profile,
-        params: { screen: PROFILE_SCREENS.payoutDetails, initial: false },
-      });
+      openWorkerProfileDetails(PROFILE_SCREENS.payoutDetails);
       return;
     case WORKER_NOTIFICATION_SCREENS.CERTIFICATE_ADD_EDIT:
-      navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
-        screen: MAIN_TAB_SCREENS.profile,
-        params: { screen: PROFILE_SCREENS.certificateManager, initial: false },
-      });
+      openWorkerProfileDetails(PROFILE_SCREENS.certificateManager);
       return;
     case WORKER_NOTIFICATION_SCREENS.ADD_SKILL:
-      navigateSafely(ROOT_SCREENS.mainTabsNavigator, {
-        screen: MAIN_TAB_SCREENS.profile,
-        params: { screen: PROFILE_SCREENS.skillManager, initial: false },
-      });
+      openWorkerProfileDetails(PROFILE_SCREENS.skillManager);
       return;
     default:
       openWorkerProfileHome();

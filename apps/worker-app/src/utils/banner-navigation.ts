@@ -7,6 +7,7 @@ import {
 } from '@/types/app-banner';
 import type { BannerActionHandlerParams } from '@/types/banner-navigation';
 import { MAIN_TAB_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
+import { openWorkerProtectedRoot } from '@/utils/protected-navigation';
 
 type BannerRouteResolver = (action: AppBannerAction, params: BannerActionHandlerParams) => Promise<boolean>;
 
@@ -63,15 +64,13 @@ const screenRouteConfig: Record<AppBannerTargetScreen, (params: BannerActionHand
     params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.profile });
   },
   [APP_BANNER_TARGET_SCREEN.SUPPORT]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
-      screen: MAIN_TAB_SCREENS.profile,
-      params: { screen: PROFILE_SCREENS.helpSupport },
+    openWorkerProtectedRoot(ROOT_SCREENS.profileDetailsNavigator, {
+      screen: PROFILE_SCREENS.helpSupport,
     });
   },
   [APP_BANNER_TARGET_SCREEN.REFERRAL]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
-      screen: MAIN_TAB_SCREENS.profile,
-      params: { screen: PROFILE_SCREENS.referral },
+    openWorkerProtectedRoot(ROOT_SCREENS.profileDetailsNavigator, {
+      screen: PROFILE_SCREENS.referral,
     });
   },
 };

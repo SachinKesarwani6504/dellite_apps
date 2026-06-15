@@ -14,7 +14,7 @@ import { useDeviceAuthGuard } from '@/hooks/useDeviceAuthGuard';
 import { PayoutMethodType, UserBankInfo } from '@/types/auth';
 import { DEVICE_AUTH_STATUS } from '@/types/device-auth';
 import { ProfileStackParamList } from '@/types/navigation';
-import { PROFILE_SCREENS } from '@/types/screen-names';
+import { MAIN_TAB_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import { formatDateToDdMmmYyyy, mapBankInfoToForm } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
@@ -155,7 +155,9 @@ export function PayoutDetailsScreen({ navigation }: Props) {
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {
-        navigation.navigate(PROFILE_SCREENS.home);
+        (navigation as any).getParent()?.navigate(ROOT_SCREENS.mainTabsNavigator, {
+          screen: MAIN_TAB_SCREENS.profile,
+        });
       }
     } finally {
       setSaveLoading(false);

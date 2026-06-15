@@ -7,10 +7,21 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./src/assets/images/png/dellite_logo.png",
+      "image": "./src/assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 180
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -31,13 +42,14 @@
         "backgroundColor": "#FFFFFF"
       }
     },
-    "extra": {
-      "eas": {
-        "projectId": "585e8776-84bb-4e4d-a41f-dc974035861e"
-      }
-    },
     "web": {
       "bundler": "metro"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1f71e6d8-f117-4eb4-8ab8-128f5436b8e3"
+      }
+    },
+    "owner": "sachin_kesarwani"
   }
 }

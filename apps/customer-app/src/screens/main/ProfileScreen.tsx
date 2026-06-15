@@ -13,9 +13,10 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { CustomerBookingsSummary } from '@/types/api';
-import { PROFILE_SCREEN } from '@/types/screen-names';
+import { PROFILE_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 
 const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
   allBookings: 0,
@@ -27,9 +28,13 @@ export function ProfileScreen() {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { authState, logout, loading, refreshMe } = useAuthContext();
+  const { showConfirmSheet } = useBottomSheetContext();
   const navigation = useNavigation();
   const user = authState.user;
   const [summary, setSummary] = useState<CustomerBookingsSummary>(DEFAULT_BOOKINGS_SUMMARY);
+  const navigateToProfileDetails = useCallback((screen: string) => {
+    (navigation as any).navigate(ROOT_SCREEN.PROFILE_DETAILS_NAVIGATOR, { screen });
+  }, [navigation]);
 
   const refreshSummary = useCallback(async () => {
     try {
@@ -146,7 +151,7 @@ export function ProfileScreen() {
               if (loading) {
                 return;
               }
-              navigation.navigate(PROFILE_SCREEN.EDIT_PROFILE);
+              navigateToProfileDetails(PROFILE_SCREEN.EDIT_PROFILE);
             }}
             className={`mt-4 rounded-full px-6 py-2.5 ${loading ? 'opacity-60' : ''}`}
             style={{ backgroundColor: theme.colors.primary }}
@@ -228,7 +233,7 @@ export function ProfileScreen() {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREEN.NOTIFICATIONS)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREEN.NOTIFICATIONS)}
           showDivider
         />
 
@@ -239,7 +244,7 @@ export function ProfileScreen() {
           iconColor={theme.colors.primary}
           iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
           isDark={isDark}
-          onPress={() => navigation.navigate(PROFILE_SCREEN.REFERRAL)}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREEN.REFERRAL)}
           showDivider
         />
 
@@ -255,7 +260,19 @@ export function ProfileScreen() {
           disabled={loading}
           showChevron={false}
           onPress={() => {
-            void logout();
+            showConfirmSheet({
+              title: APP_TEXT.profile.logoutConfirmTitle,
+              subtitle: APP_TEXT.profile.logoutConfirmSubtitle,
+              confirmAction: {
+                id: 'customer-confirm-logout',
+                label: APP_TEXT.profile.logoutButton,
+                tone: 'danger',
+                closeOnPress: false,
+                onPress: async () => {
+                  await logout();
+                },
+              },
+            });
           }}
         />
       </View>

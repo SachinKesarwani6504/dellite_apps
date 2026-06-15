@@ -85,6 +85,7 @@ export const APP_TEXT = {
       actionLabel: 'Allow location',
       helpText: 'You can turn this off later in device settings.',
       noLocationLabel: 'No Location',
+      locatingLabel: 'Locating...',
     },
     bookings: {
       titlePrefix: 'My',
@@ -313,6 +314,9 @@ export const APP_TEXT = {
     notificationsSubtitle: 'Booking updates, offers, and account alerts',
     logoutTitle: 'Logout',
     logoutSubtitle: 'Sign out from this device',
+    logoutConfirmTitle: 'Log out now?',
+    logoutConfirmSubtitle: 'You will be signed out from this device.',
+    logoutButton: 'Logout',
     edit: {
       step: 'UPDATE PROFILE',
       titlePrefix: 'Update your',
@@ -372,6 +376,10 @@ export const APP_TEXT = {
     loadingMore: 'Loading more updates...',
     loadMoreAction: 'Load more',
     viewAction: 'View',
+  },
+  bottomSheet: {
+    closeButton: 'Close',
+    cancelButton: 'Cancel',
   },
   tabs: {
     homeLabel: 'Home',

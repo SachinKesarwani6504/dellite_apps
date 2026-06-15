@@ -4,6 +4,7 @@ export const ROOT_SCREEN = {
   MAIN_TABS_NAVIGATOR: 'MainTabsNavigator',
   BOOKING_FLOW_NAVIGATOR: 'BookingFlowNavigator',
   BOOKING_DETAILS_NAVIGATOR: 'BookingDetailsNavigator',
+  PROFILE_DETAILS_NAVIGATOR: 'ProfileDetailsNavigator',
 } as const;
 
 export const AUTH_SCREEN = {

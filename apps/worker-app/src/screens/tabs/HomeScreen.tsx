@@ -75,6 +75,7 @@ export function HomeScreen() {
     requestLocationPermission,
     initializeLocation,
   } = locationState;
+  const isLocationPermissionPending = permissionStatus === 'undetermined';
   const isLocationGranted = permissionStatus === 'granted';
   const resolvedLocation = useMemo(() => resolveProductLocation({
     city,
@@ -85,7 +86,7 @@ export function HomeScreen() {
     longitude,
   }), [city, formattedAddress, latitude, locality, longitude, state]);
   const selectedCity = resolvedLocation.serviceableCity ?? '';
-  const cityLabel = isLocationGranted
+  const cityLabel = isLocationPermissionPending || isLocationGranted
     ? resolvedLocation.displayCity || 'Locating...'
     : APP_TEXT.home.locationAccess.noLocationLabel;
   const displayCityLabel = cityLabel === 'Locating...'
@@ -97,7 +98,16 @@ export function HomeScreen() {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
-  const isLocationPending = isLocationGranted && (!initialized || locationLoading || locationRefreshing) && !resolvedLocation.displayCity;
+  const isLocationPending =
+    isLocationPermissionPending
+    || (
+      isLocationGranted
+      && (
+        !initialized
+        || locationLoading
+        || locationRefreshing
+      )
+    );
 
   const handleLocationPermissionAction = useCallback(async () => {
     const status = await requestLocationPermission();
@@ -147,6 +157,14 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (isLocationPermissionPending) {
+        setLoading(true);
+        setHomeData(null);
+        setError(null);
+        setCityUnavailable(false);
+        return;
+      }
+
       if (!selectedCity) {
         setLoading(isLocationPending);
         setHomeData(null);
@@ -162,7 +180,7 @@ export function HomeScreen() {
         return;
       }
       void loadHomeData({ showFullScreenLoader: true });
-    }, [isLocationGranted, isLocationPending, loadHomeData, selectedCity]),
+    }, [isLocationGranted, isLocationPending, isLocationPermissionPending, loadHomeData, selectedCity]),
   );
 
   const nearbyJobs = useMemo(
@@ -225,7 +243,7 @@ export function HomeScreen() {
     workerId,
   ]);
 
-  if (isLocationGranted && (loading || isLocationPending) && !homeData) {
+  if ((isLocationPermissionPending || isLocationGranted) && (loading || isLocationPending) && !homeData) {
     const loadingMessage = isLocationPending ? APP_TEXT.home.loadingLocation : APP_TEXT.home.nearbyJobsLoading;
     return (
       <GradientScreen>
