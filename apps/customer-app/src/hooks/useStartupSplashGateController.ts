@@ -78,9 +78,13 @@ export function useStartupSplashGateController({
 
     hasRequestedInitialLocationRef.current = true;
     void (async () => {
-      const nextStatus = await requestLocationPermission();
-      if (nextStatus === 'granted') {
-        await initializeLocation({ forceRefresh: true });
+      try {
+        const nextStatus = await requestLocationPermission();
+        if (nextStatus === 'granted') {
+          await initializeLocation({ forceRefresh: true });
+        }
+      } catch {
+        // Location startup failures are surfaced through location state; avoid unhandled rejections.
       }
     })();
   }, [
@@ -96,7 +100,7 @@ export function useStartupSplashGateController({
       return;
     }
 
-    void initializeLocation();
+    void initializeLocation().catch(() => undefined);
   }, [
     initializeLocation,
     initialized,
