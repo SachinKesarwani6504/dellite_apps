@@ -104,14 +104,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
   const [failedPopularImages, setFailedPopularImages] = useState<Record<string, true>>({});
-  const isLocationPending = isLocationPermissionPending
-    || (
-      isLocationGranted
-      && (
-        !initialized
-        || locationLoading
-        || locationRefreshing
-      )
+  const isLocationPending = isLocationGranted
+    && (
+      !initialized
+      || locationLoading
+      || locationRefreshing
     );
 
   const contentSections = useMemo(
@@ -173,7 +170,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
   useEffect(() => {
     if (isLocationPermissionPending) {
-      setLoading(true);
+      setLoading(false);
       setHomeData(null);
       setError(null);
       setCityUnavailable(false);
@@ -349,9 +346,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [failedPopularImages, isDark, onOpenCategory, onOpenService]);
 
   const cityLabel = isLocationPermissionPending || isLocationGranted
-    ? selectedCity || 'Locating...'
+    ? selectedCity || APP_TEXT.main.locationAccess.locatingLabel
     : APP_TEXT.main.locationAccess.noLocationLabel;
-  const displayCityLabel = cityLabel === 'Locating...'
+  const displayCityLabel = cityLabel === APP_TEXT.main.locationAccess.locatingLabel
     || cityLabel === APP_TEXT.main.locationAccess.noLocationLabel
     ? cityLabel
     : titleCase(cityLabel);
@@ -374,7 +371,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [city, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
 
   const isHomePayloadEmpty = !homeData || (!shouldShowContent && !homeData.footer);
-  const locationPermissionPrompt = !isLocationPermissionPending && !isLocationGranted ? (
+  const locationPermissionPrompt = (isLocationPermissionPending || !isLocationGranted) ? (
     <View className="mb-4 mt-4">
       <PermissionPromptCard
         tone="location"

@@ -155,30 +155,16 @@ export function AppBottomSheet() {
   const footerActions = useMemo(() => getFooterActions(activeSheet), [activeSheet]);
 
   useEffect(() => {
-    if (activeSheet) {
-      const frameId = requestAnimationFrame(() => {
-        modalRef.current?.present();
-      });
-
-      return () => {
-        cancelAnimationFrame(frameId);
-      };
-    }
-
-    return undefined;
-  }, [activeSheet]);
-
-  useEffect(() => {
     if (!activeSheet) {
       return undefined;
     }
 
-    const fallbackTimer = setTimeout(() => {
+    const frameId = requestAnimationFrame(() => {
       modalRef.current?.present();
-    }, 0);
+    });
 
     return () => {
-      clearTimeout(fallbackTimer);
+      cancelAnimationFrame(frameId);
     };
   }, [activeSheet]);
 
@@ -188,6 +174,9 @@ export function AppBottomSheet() {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (activeSheet.dismissible === false) {
+        return true;
+      }
       closeSheet();
       return true;
     });
@@ -244,6 +233,7 @@ export function AppBottomSheet() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 }}
           showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
         >
           <View
             className="mb-4 h-1 w-12 rounded-full"
@@ -277,7 +267,7 @@ export function AppBottomSheet() {
                 return (
                   <Pressable
                     key={action.id}
-                    onPress={() => { void runAction(action); }}
+                    onPress={() => { void runAction(action).catch(() => undefined); }}
                     disabled={action.disabled || isLoading}
                     className={(action.disabled || isLoading) ? 'opacity-60' : ''}
                     style={{
@@ -321,7 +311,7 @@ export function AppBottomSheet() {
                   action={action}
                   isDark={isDark}
                   isLoading={pendingActionId === action.id}
-                  onPress={() => { void runAction(action); }}
+                  onPress={() => { void runAction(action).catch(() => undefined); }}
                 />
               ))}
             </View>

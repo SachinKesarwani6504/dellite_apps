@@ -70,6 +70,15 @@ function extractPhoneTokenFromVerifyOtpResponse(response: VerifyOtpResult & { st
   return response.phoneToken ? normalizeBearerToken(response.phoneToken) : null;
 }
 
+function getAuthTokenLogMetadata(tokens: AuthTokens | null) {
+  return {
+    hasAccessToken: Boolean(tokens?.accessToken),
+    hasRefreshToken: Boolean(tokens?.refreshToken),
+    hasFirebaseCustomToken: Boolean(tokens?.firebaseCustomToken),
+    service: keyChainValues.authService,
+  };
+}
+
 async function clearAllStoredTokens() {
   await clearAuthTokens();
   await clearOnboardingPhoneToken();
@@ -272,7 +281,7 @@ export function useAuthController(): AuthContextType {
       if (typeof response.message === 'string' && response.message.trim().length > 0) {
         showApiSuccessToast(response.message);
       }
-      console.log('[Auth Flow] OTP Verification Response:', response);
+      console.log('[Auth Flow] OTP Verification Response:', { status: response.status });
       setPhone(phoneNumber);
 
       const statusResult = response.status;
@@ -314,21 +323,21 @@ export function useAuthController(): AuthContextType {
 
       // CASE 2: LOGIN SUCCESS -> Authenticate Session
       const tokens = extractTokensFromVerifyOtpResponse(response);
-      console.log('[Auth Flow] Extracted Session Tokens:', tokens);
+      console.log('[Auth Flow] Extracted Session Tokens:', getAuthTokenLogMetadata(tokens));
       if (!tokens?.accessToken) {
         console.error('[Auth Flow] Invalid token response: No access token found.');
         throw new Error('OTP verified, but no valid token set was returned.');
       }
 
       await saveAuthTokens(tokens);
-      console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+      console.log(`[Auth Flow] Saved Auth Tokens in secure storage [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, getAuthTokenLogMetadata(tokens));
       await ensureFirebaseSession(tokens.firebaseCustomToken ?? response.firebaseCustomToken ?? null);
       await clearOnboardingPhoneToken();
       setPhoneToken(null);
       setOnboardingPrefill(null);
-      await registerDeviceSessionAfterOtpVerification();
       await refreshMe();
       setStatus(AuthStatus.AUTHENTICATED);
+      void registerDeviceSessionAfterOtpVerification();
       },
     [ensureFirebaseSession, refreshMe, registerDeviceSessionAfterOtpVerification],
   );
@@ -395,7 +404,7 @@ export function useAuthController(): AuthContextType {
       };
 
       await saveAuthTokens(tokens);
-      console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, tokens);
+      console.log(`[Auth Flow] Saved NEW Auth Tokens after profile creation [Service: ${keyChainValues.authService}, Key: ${keyChainValues.authUsername}]`, getAuthTokenLogMetadata(tokens));
       await ensureFirebaseSession(tokens.firebaseCustomToken ?? profile.firebaseCustomToken ?? null);
       await clearOnboardingPhoneToken();
       setPhoneToken(null);

@@ -85,6 +85,7 @@ export const APP_TEXT = {
       actionLabel: 'Allow location',
       helpText: 'You can turn this off later in device settings.',
       noLocationLabel: 'No Location',
+      locatingLabel: 'Locating...',
     },
     bookings: {
       titlePrefix: 'My',

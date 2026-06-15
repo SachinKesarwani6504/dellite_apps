@@ -18,6 +18,17 @@ export type RootStackParamList = {
   };
 };
 
+export type PendingNavigation = {
+  type?: 'navigate';
+  routeName: string;
+  params?: unknown;
+} | {
+  type: 'protectedRoot';
+  mainRouteName: string;
+  routeName: string;
+  params?: unknown;
+};
+
 export type AuthStackParamList = {
   [AUTH_SCREEN.PHONE_LOGIN]: undefined;
   [AUTH_SCREEN.OTP_VERIFICATION]: undefined;

@@ -1,17 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useColorScheme } from 'react-native';
-import type { ImageSourcePropType } from 'react-native';
 
+import type { AnimatedLogoSplashProps, GradientColors } from '@/types/animated-logo-splash';
 import { palette, theme, uiColors } from '@/utils/theme';
-
-type GradientColors = readonly [string, string, string];
-
-type AnimatedLogoSplashProps = {
-  logoSource?: ImageSourcePropType;
-  logoWidth?: number;
-  onAnimationEnd?: () => void;
-};
 
 const DEFAULT_LOGO = require('@/assets/images/png/dellite_logo.png');
 

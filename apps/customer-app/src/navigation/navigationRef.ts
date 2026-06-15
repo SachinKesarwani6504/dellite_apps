@@ -1,18 +1,8 @@
 import { StackActions, createNavigationContainerRef } from '@react-navigation/native';
 
+import type { PendingNavigation } from '@/types/navigation';
+
 export const navigationRef = createNavigationContainerRef();
-
-type PendingNavigation = {
-  type?: 'navigate';
-  routeName: string;
-  params?: unknown;
-} | {
-  type: 'protectedRoot';
-  mainRouteName: string;
-  routeName: string;
-  params?: unknown;
-};
-
 let pendingNavigations: PendingNavigation[] = [];
 
 function canNavigateToRoute(routeName: string) {

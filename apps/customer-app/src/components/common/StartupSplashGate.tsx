@@ -1,106 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+
 import { useAuthContext } from '@/contexts/AuthContext';
-import { AUTH_STATUS } from '@/types/auth';
+import { useStartupSplashGateController } from '@/hooks/useStartupSplashGateController';
 import { AnimatedLogoSplash } from './AnimatedLogoSplash';
 
-const LOCATION_SPLASH_MAX_WAIT_MS = 2400;
-
 export function StartupSplashGate() {
-  const [isInitialStartupComplete, setIsInitialStartupComplete] = useState(false);
-  const [hasLocationSplashTimedOut, setHasLocationSplashTimedOut] = useState(false);
-  const hasRequestedInitialLocationRef = useRef(false);
   const { authState, locationState } = useAuthContext();
-  const {
-    city,
-    error,
-    formattedAddress,
-    initialized,
-    latitude,
-    loading,
-    longitude,
-    permissionStatus,
-    refreshing,
-    initializeLocation,
-    requestLocationPermission,
-  } = locationState;
-  const isAuthenticated = authState.status === AUTH_STATUS.AUTHENTICATED;
-  const isAuthBootstrapping = authState.status === AUTH_STATUS.BOOTSTRAPPING;
-  const hasCoordinates = latitude !== null && longitude !== null;
-  const hasLocationInfo = hasCoordinates || Boolean(city || formattedAddress);
-  const isLocationBusy = loading || refreshing;
-  const isLocationSettled =
-    !isAuthenticated
-    || permissionStatus === 'denied'
-    || (
-      permissionStatus === 'granted'
-      && initialized
-      && (hasLocationInfo || Boolean(error))
-      && !isLocationBusy
-    );
-  const shouldShowSplash = isAuthBootstrapping || (!isLocationSettled && !hasLocationSplashTimedOut);
-
-  useEffect(() => {
-    if (!isAuthenticated || isLocationSettled || hasLocationSplashTimedOut) {
-      return;
-    }
-
-    const timerId = setTimeout(() => {
-      setHasLocationSplashTimedOut(true);
-    }, LOCATION_SPLASH_MAX_WAIT_MS);
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [hasLocationSplashTimedOut, isAuthenticated, isLocationSettled]);
-
-  useEffect(() => {
-    if (isInitialStartupComplete || shouldShowSplash) {
-      return;
-    }
-
-    setIsInitialStartupComplete(true);
-  }, [isInitialStartupComplete, shouldShowSplash]);
-
-  useEffect(() => {
-    if (
-      isInitialStartupComplete
-      || !isAuthenticated
-      || hasRequestedInitialLocationRef.current
-      || permissionStatus !== 'undetermined'
-    ) {
-      return;
-    }
-
-    hasRequestedInitialLocationRef.current = true;
-    void (async () => {
-      const nextStatus = await requestLocationPermission();
-      if (nextStatus === 'granted') {
-        await initializeLocation({ forceRefresh: true });
-      }
-    })();
-  }, [
-    initializeLocation,
-    isInitialStartupComplete,
-    isAuthenticated,
-    permissionStatus,
-    requestLocationPermission,
-  ]);
-
-  useEffect(() => {
-    if (isInitialStartupComplete || !isAuthenticated || permissionStatus !== 'granted' || initialized || isLocationBusy) {
-      return;
-    }
-
-    void initializeLocation();
-  }, [
-    initializeLocation,
-    initialized,
-    isInitialStartupComplete,
-    isAuthenticated,
-    isLocationBusy,
-    permissionStatus,
-  ]);
+  const { isInitialStartupComplete, shouldShowSplash } = useStartupSplashGateController({
+    authState,
+    locationState,
+  });
 
   if (isInitialStartupComplete || !shouldShowSplash) {
     return null;

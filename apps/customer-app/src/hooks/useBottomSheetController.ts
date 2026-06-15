@@ -57,6 +57,11 @@ export function useBottomSheetController(): BottomSheetContextValue {
       if (!shouldClose && (action.closeOnSuccess ?? true)) {
         closeSheet();
       }
+    } catch (error) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[bottom-sheet] action failed', { actionId: action.id, error });
+      }
     } finally {
       if (!shouldClose) {
         setPendingActionId(currentActionId => (currentActionId === action.id ? null : currentActionId));
