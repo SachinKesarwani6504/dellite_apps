@@ -7,10 +7,21 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./src/assets/images/png/splash.png",
-      "resizeMode": "cover",
+      "image": "./src/assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 180
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ],
