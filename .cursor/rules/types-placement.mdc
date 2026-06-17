@@ -1,0 +1,14 @@
+---
+description: API and app-local type hygiene
+globs: apps/**/src/types/**/*,packages/app-core/**/*
+alwaysApply: false
+---
+
+# Type placement
+
+- `src/types/*` reflects **current** backend contract only — no speculative or legacy fields.
+- Backend enum values must match exactly (no broad `string` unless API allows).
+- Detail/list migrations: ID path params in routes/actions; name/search in query types only.
+- Shared types → `packages/app-core` first; app-local only when role-specific.
+
+Full guide: `docs/architecture/type-system.md` · ADR: `docs/decisions/adr-003-strict-type-placement.md`

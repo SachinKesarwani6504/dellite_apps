@@ -1,3 +1,5 @@
+import type { BookingPaymentStatus } from '@/types/booking';
+
 export type ApiMeta = {
   requestId?: string;
   timestamp?: string;
@@ -61,14 +63,18 @@ export interface Booking {
   bookingCode?: string | null;
   bookingType?: 'INSTANT' | 'SCHEDULED' | string | null;
   bookingStatus: BookingStatus;
-  paymentStatus?: string | null;
+  paymentStatus?: BookingPaymentStatus | null;
   scheduledStartAt?: string | null;
+  payableAmount?: string | number | null;
   totalAmount?: string | number | null;
   currency?: 'INR' | string | null;
   services?: BookingListServiceLine[];
   addressSummary?: BookingListAddressSummary | null;
   customerInfo?: BookingListPersonInfo | null;
   workerInfo?: BookingListPersonInfo | null;
+  invite?: {
+    inviteStatus?: string | null;
+  } | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -86,6 +92,10 @@ export type CustomerBookingsSummary = {
   completedBookings: number;
 };
 
+export type CustomerBookingListTab = 'ALL' | 'ONGOING' | 'COMPLETED';
+
+export type CustomerBookingsListMode = 'ONGOING' | 'ALL';
+
 export type BookingListAddressSummary = {
   area?: string | null;
   addressLine1?: string | null;
@@ -98,4 +108,8 @@ export type BookingListPersonInfo = {
   lastName?: string | null;
   phone?: string | null;
   profileImageUrl?: string | null;
+  profileImage?: {
+    id?: string | null;
+    url?: string | null;
+  } | null;
 };

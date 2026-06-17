@@ -266,17 +266,6 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
                 </Text>
               ) : null}
             </View>
-            <Pressable
-              onPress={() => {
-                void refreshCurrentLocation();
-              }}
-              className="mt-3 items-center rounded-full px-4 py-3"
-              style={{ backgroundColor: theme.colors.primary }}
-            >
-              <Text className="text-xs font-extrabold text-white">
-                {locationRefreshing ? APP_TEXT.main.bookingFlow.refreshingLocationLabel : APP_TEXT.main.bookingFlow.useCurrentLocationCta}
-              </Text>
-            </Pressable>
           </View>
         ) : null}
 
@@ -294,6 +283,17 @@ export function BookingDraftDetailsScreen({ navigation }: BookingDraftDetailsScr
                 {pinnedLocationSummary}
               </Text>
             </View>
+            <Pressable
+              onPress={() => {
+                void refreshCurrentLocation();
+              }}
+              className="mt-3 items-center rounded-full px-4 py-3"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
+              <Text className="text-xs font-extrabold text-white">
+                {locationRefreshing ? APP_TEXT.main.bookingFlow.refreshingLocationLabel : APP_TEXT.main.bookingFlow.useCurrentLocationCta}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => navigation.navigate(HOME_SCREEN.BOOKING_LOCATION_PICKER)}
               className="mt-3 items-center rounded-full px-4 py-3"

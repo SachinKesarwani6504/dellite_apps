@@ -1,19 +1,30 @@
 import type {
+  BookingBillAmounts,
   BookingDetailsAddress,
+  BookingDetailsBooking,
   BookingDetailsResponse,
   BookingDetailsRole,
+  BookingDetailsSelectedPriceOption,
+  BookingDetailsServiceDisplay,
   BookingDetailsServiceLine,
   BookingDetailsOverviewChip,
   BookingDetailsOverviewRow,
-  BookingDetailsServiceDisplay,
   BookingDetailsTabItem,
   BookingDetailsTabValue,
   BookingDetailsTimelineItem,
   BookingDetailsUser,
+  BookingPaymentBreakdown,
+  BookingPaymentInfo,
   UpdateBookingPayload,
 } from '@/types/booking-details';
+import { BOOKING_PAYMENT_STATUS } from '@/types/booking';
+import type { BookingPaymentStatus } from '@/types/booking';
 import type { WorkerRouteCoordinates } from '@/types/worker-live-location';
 import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
+import { APP_TEXT } from '@/utils/appText';
+import { formatDisplayDateTime } from '@/utils/date-display';
+import { getPriceRowTitle } from '@/utils/pricing.utils';
+import { formatDurationChip } from '@/utils/service-pricing';
 
 export const BOOKING_DURATION_STEP_MINUTES = 30;
 
@@ -62,13 +73,7 @@ export function formatBookingDateTime(value: string | null | undefined) {
   if (!normalized) return 'Instant booking';
   const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return normalized;
-  return parsed.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatDisplayDateTime(parsed);
 }
 
 export function formatBookingDuration(minutes: number | null | undefined) {
@@ -136,6 +141,10 @@ export function getBookingWorkerId(details: BookingDetailsResponse | null | unde
   return details?.workerInfo?.id?.trim() || null;
 }
 
+export function getBookingWorkerUserId(details: BookingDetailsResponse | null | undefined) {
+  return details?.workerInfo?.userId?.trim() || details?.workerInfo?.user?.id?.trim() || null;
+}
+
 export function canTrackBookingWorker(details: BookingDetailsResponse | null | undefined) {
   if (!details) return false;
 
@@ -184,6 +193,48 @@ export function getBookingDetailsHeaderSubtitle(details: BookingDetailsResponse 
   return serviceLines.length === 1 ? firstService : `${firstService} +${serviceLines.length - 1}`;
 }
 
+export function getBookingPaymentInfo(details: BookingDetailsResponse | null | undefined): BookingPaymentInfo | null {
+  return details?.paymentInfo ?? details?.payment ?? null;
+}
+
+export function getBookingPaymentModeLabel(mode: string | null | undefined) {
+  if (!mode) return 'Not paid yet';
+  const normalized = mode.trim().toUpperCase();
+  if (normalized === 'CASH_TO_WORKER') return 'Cash';
+  if (normalized === 'UPI_TO_WORKER') return 'UPI';
+  if (normalized === 'ONLINE_PLATFORM') return 'Online';
+  if (normalized === 'PLATFORM_UPI_QR') return 'Dellite UPI';
+  return titleCaseBookingValue(mode);
+}
+
+export function normalizeBookingPaymentStatus(value: string | null | undefined): BookingPaymentStatus | null {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  const statuses = Object.values(BOOKING_PAYMENT_STATUS) as BookingPaymentStatus[];
+  return statuses.includes(normalized as BookingPaymentStatus) ? (normalized as BookingPaymentStatus) : null;
+}
+
+export function getBookingPaymentStatusLabel(value: string | null | undefined) {
+  const status = normalizeBookingPaymentStatus(value);
+  return titleCaseBookingValue(status ?? value);
+}
+
+export function isBookingPaymentPending(value: string | null | undefined) {
+  return normalizeBookingPaymentStatus(value) === BOOKING_PAYMENT_STATUS.PENDING;
+}
+
+export function isBookingPaymentProblem(value: string | null | undefined) {
+  const status = normalizeBookingPaymentStatus(value);
+  return status === BOOKING_PAYMENT_STATUS.FAILED
+    || status === BOOKING_PAYMENT_STATUS.REFUND_PENDING
+    || status === BOOKING_PAYMENT_STATUS.REFUNDED;
+}
+
+export function isBookingPaymentSuccessful(value: string | null | undefined) {
+  const status = normalizeBookingPaymentStatus(value);
+  return status === BOOKING_PAYMENT_STATUS.PAID || status === BOOKING_PAYMENT_STATUS.CASH_COLLECTED;
+}
+
 export function getBookingDetailsOverviewChips(details: BookingDetailsResponse): BookingDetailsOverviewChip[] {
   const bookingTypeLabel = details.booking.bookingType
     ? titleCaseBookingValue(details.booking.bookingType)
@@ -226,36 +277,72 @@ export function getBookingDetailsOverviewRows(details: BookingDetailsResponse): 
   ];
 }
 
+export function getBookingDetailsNotes(details: BookingDetailsResponse | null | undefined): string | null {
+  const notes = details?.booking?.notes?.trim();
+  return notes ? notes : null;
+}
+
+function normalizeBookingPriceType(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function shouldAllowBookingDetailsQuantityControl(
+  option: BookingDetailsSelectedPriceOption | null | undefined,
+) {
+  const priceType = normalizeBookingPriceType(option?.priceType ?? null);
+  return priceType === 'DAILY' || priceType === 'PER_UNIT';
+}
+
+function getBookingDetailsServiceSelectedValue(line: BookingDetailsServiceLine) {
+  const selectedOption = line.selectedPriceOption;
+  const priceType = normalizeBookingPriceType(selectedOption?.priceType ?? line.priceType);
+
+  if (priceType === 'HOURLY') {
+    const durationMinutes = getBookingLineDurationMinutes(line);
+    return durationMinutes
+      ? {
+        label: APP_TEXT.main.bookingFlow.durationLabel,
+        value: formatDurationChip(durationMinutes),
+      }
+      : null;
+  }
+
+  if (shouldAllowBookingDetailsQuantityControl(selectedOption)) {
+    return {
+      label: APP_TEXT.main.bookingFlow.quantityLabel,
+      value: String(getBookingLineQuantity(line)),
+    };
+  }
+
+  return null;
+}
+
 export function getBookingDetailsServiceDisplay(line: BookingDetailsServiceLine): BookingDetailsServiceDisplay {
-  const durationMinutes = getBookingLineDurationMinutes(line);
-  const isHourly = isBookingHourlyLine(line);
   const selectedPriceOption = line.selectedPriceOption;
   const priceType = selectedPriceOption?.priceType ?? line.priceType ?? null;
-  const pricingTitle = selectedPriceOption?.title?.trim()
-    || titleCaseBookingValue(priceType)
-    || 'Price';
+  const computationMode = selectedPriceOption?.priceComputationMode ?? null;
+  const selectedValueRow = getBookingDetailsServiceSelectedValue(line);
   const unitPrice = selectedPriceOption?.price ?? line.unitPriceAmount;
 
   return {
     key: getBookingLineKey(line),
     title: titleCaseBookingValue(line.serviceName),
     subtitle: titleCaseBookingValue(line.categoryName ?? line.subCategoryName),
-    quantityLabel: String(getBookingLineQuantity(line)),
-    durationLabel: isHourly ? formatBookingDuration(durationMinutes) : null,
-    pricingTitle,
+    selectedValueLabel: selectedValueRow?.label ?? APP_TEXT.main.bookingFlow.quantityLabel,
+    selectedValue: selectedValueRow?.value ?? String(getBookingLineQuantity(line)),
+    pricingTitle: getPriceRowTitle(priceType, computationMode),
     pricingValue: formatBookingMoney(unitPrice),
     totalLabel: formatBookingMoney(line.lineTotalAmount),
-    isHourly,
   };
 }
 
 export function getBookingDetailsTabs(): BookingDetailsTabItem[] {
   return [
     { label: 'Bill', value: 'BILL', iconName: 'wallet-outline' },
-    { label: 'All Services', value: 'SERVICES', iconName: 'sparkles-outline' },
-    { label: 'Live Location', value: 'LIVE_LOCATION', iconName: 'navigate-outline' },
+    { label: 'Live location', value: 'LIVE_LOCATION', iconName: 'navigate-outline' },
+    { label: 'Services', value: 'SERVICES', iconName: 'sparkles-outline' },
+    { label: 'Payments', value: 'PAYMENT', iconName: 'card-outline' },
     { label: 'History', value: 'ASSIGNMENTS', iconName: 'checkmark-done-outline' },
-    { label: 'Payment', value: 'PAYMENT', iconName: 'card-outline' },
   ];
 }
 
@@ -303,7 +390,7 @@ export function isBookingHourlyLine(line: BookingDetailsServiceLine) {
 export function buildBookingQuantityPatch(line: BookingDetailsServiceLine, quantity: number): UpdateBookingPayload {
   return {
     serviceLineUpdates: [{
-      serviceName: line.serviceName,
+      ...(line.id ? { serviceLineId: line.id } : { serviceName: line.serviceName }),
       quantity,
     }],
   };
@@ -312,8 +399,77 @@ export function buildBookingQuantityPatch(line: BookingDetailsServiceLine, quant
 export function buildBookingDurationPatch(line: BookingDetailsServiceLine, minutes: number): UpdateBookingPayload {
   return {
     serviceLineUpdates: [{
-      serviceName: line.serviceName,
-      actualBillableMinutes: minutes,
+      ...(line.id ? { serviceLineId: line.id } : { serviceName: line.serviceName }),
+      selectedDurationMinutes: minutes,
     }],
   };
+}
+
+export function hasBookingMoneyAmount(value: string | number | null | undefined): boolean {
+  const amount = toNumber(value);
+  return amount != null && amount > 0;
+}
+
+export function getBookingBillBookingTotalAmount(
+  booking: Pick<BookingDetailsBooking, 'payableAmount' | 'baseTotalAmount' | 'totalAmount' | 'tipAmount'>,
+): string | number | null | undefined {
+  const payable = toNumber(booking.payableAmount);
+  if (payable != null) {
+    return booking.payableAmount ?? null;
+  }
+
+  const baseTotal = toNumber(booking.baseTotalAmount);
+  if (baseTotal != null) {
+    return booking.baseTotalAmount ?? null;
+  }
+
+  const total = toNumber(booking.totalAmount);
+  const tip = toNumber(booking.tipAmount) ?? 0;
+  if (total != null && tip > 0) {
+    const bookingTotal = total - tip;
+    return bookingTotal >= 0 ? bookingTotal : booking.totalAmount;
+  }
+
+  return booking.totalAmount ?? null;
+}
+
+export function resolveBookingBillAmounts(booking: BookingDetailsBooking): BookingBillAmounts {
+  return {
+    subtotalAmount: booking.subtotalAmount,
+    platformFeeAmount: booking.platformFeeAmount,
+    taxAmount: booking.taxAmount,
+    discountAmount: booking.discountAmount,
+    bookingTotalAmount: getBookingBillBookingTotalAmount(booking),
+    tipAmount: booking.tipAmount,
+    commissionAmount: booking.bookingCommissionAmount,
+  };
+}
+
+export function resolveBookingPaymentBreakdown(
+  payment: Pick<BookingPaymentInfo, 'tipAmount' | 'paidAmount' | 'amount' | 'payableAmount' | 'baseTotalAmount'>,
+): BookingPaymentBreakdown {
+  const tipAmount = hasBookingMoneyAmount(payment.tipAmount) ? payment.tipAmount ?? null : null;
+  const tip = toNumber(tipAmount) ?? 0;
+  const baseTotal = toNumber(payment.baseTotalAmount);
+  const payable = toNumber(payment.payableAmount);
+  const paid = toNumber(payment.paidAmount ?? payment.amount);
+
+  let billAmount: string | number | null = null;
+  if (baseTotal != null && baseTotal > 0) {
+    billAmount = payment.baseTotalAmount ?? null;
+  } else if (payable != null) {
+    const bill = payable - tip;
+    billAmount = bill >= 0 ? bill : payment.payableAmount ?? null;
+  } else if (paid != null && tip > 0) {
+    const bill = paid - tip;
+    billAmount = bill >= 0 ? bill : null;
+  }
+
+  let receivedAmount: string | number | null = payment.paidAmount ?? payment.amount ?? null;
+  if (!hasBookingMoneyAmount(receivedAmount) && billAmount != null) {
+    const bill = toNumber(billAmount) ?? 0;
+    receivedAmount = tip > 0 ? bill + tip : billAmount;
+  }
+
+  return { billAmount, tipAmount, receivedAmount };
 }

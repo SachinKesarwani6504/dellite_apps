@@ -138,6 +138,24 @@ function isNetworkError(error: unknown): boolean {
     || message.includes('network request failed');
 }
 
+export function isAuthSessionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('statusCode' in error)) {
+    return false;
+  }
+  const statusCode = (error as { statusCode?: unknown }).statusCode;
+  return statusCode === 401 || statusCode === 403;
+}
+
+export function isTransientApiError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode;
+    if (typeof statusCode === 'number') {
+      return statusCode === 429 || statusCode >= 500;
+    }
+  }
+  return isNetworkError(error);
+}
+
 export function parseApiError(params: ParseApiErrorParams): ParsedApiError {
   const statusCode = params.statusCode ?? getStatusFromPayload(params.payload);
   const statusFallback = getFallbackByStatus(statusCode);

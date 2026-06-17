@@ -103,9 +103,17 @@ Keep both apps very similar in engineering fundamentals while allowing role-spec
 
 ## In Progress: Customer Pricing + Booking Flow
 
+- [x] Worker + Customer: removed unused `react-native-skeleton-placeholder` and restored `@react-native-masked-view/masked-view` to Expo SDK 54's expected `0.3.2` for clean EAS dependency validation.
 - [x] Customer app: primary price options now exclude optional/additional rules from main selection.
 - [x] Customer app: fixed-duration base options render as selectable duration cards and suppress manual duration controls.
 - [x] Customer app: booking payload keeps fixed-duration services ID-based through `selectedPriceOptionId` without sending a custom duration.
 - [x] Customer app: optional/additional price options remain visible as possible add-ons and support FLAT, PER_BLOCK, and PER_MINUTE labels.
 - [x] Customer app: quote loading falls back to a local estimate for compatibility while booking creation remains backend-owned.
+- [x] Customer app: added backend action wrappers for booking update/status, contact-event history, and payment claim flows.
+- [x] Worker app: added backend action wrappers for invite status, assignment progress, contact-event history, and payment review flows.
+- [x] Worker app: wired wallet, ledger, earnings, commission dues, and payouts read APIs into the Earnings tab.
+- [x] Worker app: removed local trusted payout calculation from job cards/details; payout now displays only backend-provided payout/net earning fields.
+- [x] Customer app: added booking edit screen for allowed increases/notes/schedule, cancel-before-start, and payment claim/review UI.
+- [x] Worker app: added cancel-before-start, assignment progress buttons, and worker payment review actions on job detail.
+- [x] Worker + Customer: added role-specific booking/payment flow docs under each app `docs/` folder.
 - [ ] Backend/admin panel: not present in this monorepo workspace; implement quote/final-charge calculation and admin price-option CRUD in the backend/admin repository.

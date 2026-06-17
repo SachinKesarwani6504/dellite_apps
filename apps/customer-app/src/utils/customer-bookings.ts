@@ -1,5 +1,9 @@
-import type { Booking, BookingStatus } from '@/types/api';
+import type { Booking, BookingStatus, CustomerBookingListTab } from '@/types/api';
+import { BOOKING_PAYMENT_STATUS, CUSTOMER_BOOKING_TYPE } from '@/types/booking';
+import { APP_TEXT } from '@/utils/appText';
+import { formatDisplayDateTime } from '@/utils/date-display';
 import { theme, uiColors } from '@/utils/theme';
+import { extractImageUrl } from '@/utils';
 
 export type CustomerBookingStatus = 'ONGOING' | 'COMPLETED';
 
@@ -132,20 +136,28 @@ function toBookingAmount(value: string | number | null | undefined) {
 export function buildCustomerBookingsListPath(params: {
   page: number;
   limit: number;
-  tab: 'ALL' | 'ONGOING' | 'COMPLETED';
+  tab: CustomerBookingListTab;
 }) {
   const query = new URLSearchParams();
   query.set('page', String(params.page));
   query.set('limit', String(params.limit));
 
   const includedStatuses: BookingStatus[] = params.tab === 'ONGOING'
-    ? ['CONFIRMED', 'IN_PROGRESS']
+    ? ['CREATED', 'SEARCHING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED']
     : params.tab === 'COMPLETED'
       ? ['COMPLETED']
+      : [];
+  const includedPaymentStatuses = params.tab === 'ONGOING'
+    ? [BOOKING_PAYMENT_STATUS.PENDING]
+    : params.tab === 'COMPLETED'
+      ? [BOOKING_PAYMENT_STATUS.PAID, BOOKING_PAYMENT_STATUS.CASH_COLLECTED]
       : [];
 
   includedStatuses.forEach(status => {
     query.append('includeBookingStatus', status);
+  });
+  includedPaymentStatuses.forEach(status => {
+    query.append('bookingPaymentStatus', status);
   });
 
   return `/bookings?${query.toString()}`;
@@ -171,21 +183,49 @@ export function getCustomerBookingReferenceLabel(booking: Booking) {
   return booking.bookingCode ?? booking.id.slice(0, 8).toUpperCase();
 }
 
-export function getCustomerBookingScheduleLabel(booking: Booking) {
+export function isCustomerInstantBooking(booking: Booking) {
+  return booking.bookingType === CUSTOMER_BOOKING_TYPE.INSTANT;
+}
+
+export function getCustomerBookingTypeChipLabel(booking: Booking) {
+  if (booking.bookingType === CUSTOMER_BOOKING_TYPE.INSTANT) {
+    return APP_TEXT.main.bookingFlow.instantSummaryLabel;
+  }
+  if (booking.bookingType === CUSTOMER_BOOKING_TYPE.SCHEDULED) {
+    return APP_TEXT.main.bookingFlow.scheduledSummaryLabel;
+  }
+  return titleCaseBookingText(booking.bookingType) ?? 'Booking';
+}
+
+export function getCustomerBookingScheduledDateTimeLabel(booking: Booking) {
+  if (isCustomerInstantBooking(booking)) {
+    return null;
+  }
+
   const scheduledStartAt = normalizeText(booking.scheduledStartAt);
   if (!scheduledStartAt) {
-    return booking.bookingType === 'INSTANT' ? 'Instant booking' : 'Schedule pending';
+    return APP_TEXT.main.bookings.schedulePendingLabel;
   }
 
   const parsed = new Date(scheduledStartAt);
-  if (Number.isNaN(parsed.getTime())) return scheduledStartAt;
-  return parsed.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(parsed.getTime())) {
+    return scheduledStartAt;
+  }
+
+  return formatDisplayDateTime(parsed);
+}
+
+export function getCustomerBookingScheduleLabel(booking: Booking) {
+  const scheduledDateTime = getCustomerBookingScheduledDateTimeLabel(booking);
+  if (scheduledDateTime) {
+    return scheduledDateTime;
+  }
+
+  if (isCustomerInstantBooking(booking)) {
+    return APP_TEXT.main.bookingFlow.instantSummaryLabel;
+  }
+
+  return APP_TEXT.main.bookings.schedulePendingLabel;
 }
 
 export function getCustomerBookingAddressLabel(booking: Booking) {
@@ -212,6 +252,12 @@ export function getCustomerBookingWorkerInitial(booking: Booking) {
 
 export function getCustomerBookingWorkerSubtitle(booking: Booking) {
   return 'Worker';
+}
+
+export function getCustomerBookingWorkerImageUrl(booking: Booking) {
+  const worker = booking.workerInfo;
+  return extractImageUrl(worker?.profileImage)
+    ?? (typeof worker?.profileImageUrl === 'string' ? worker.profileImageUrl.trim() : null);
 }
 
 export function getCustomerBookingAmountLabel(booking: Booking) {

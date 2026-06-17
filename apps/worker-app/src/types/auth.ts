@@ -3,7 +3,7 @@ import type { MultipartFile } from '@/types/http';
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
 export type DeviceSessionRole = Extract<UserRole, 'CUSTOMER' | 'WORKER'>;
 export type DevicePlatform = 'ANDROID' | 'IOS';
-export const APP_AUTH_ROLE: UserRole = 'WORKER';
+export const APP_AUTH_ROLE: DeviceSessionRole = 'WORKER';
 export const REFERRAL_ROLES = {
   CUSTOMER: 'CUSTOMER',
   WORKER: 'WORKER',
@@ -444,7 +444,6 @@ export interface WorkerHomeNearbyJob {
   title?: string;
   distanceKm?: number;
   city?: string;
-  payout?: number;
   imageUrl?: string;
   booking?: {
     id?: string;
@@ -454,6 +453,7 @@ export interface WorkerHomeNearbyJob {
     scheduledStartAt?: string | null;
     totalAmount?: string | number | null;
     bookingCommissionAmount?: string | number | null;
+    workerPayoutAmount?: string | number | null;
   };
   services?: Array<{
     id?: string;

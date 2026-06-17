@@ -10,6 +10,7 @@ This document explains how to keep the documentation wiki current as the Dellite
 
 **Files to Update**:
 - `docs/architecture/monorepo-structure.md` - Add screen to relevant section
+- `.cursor/docs/WIKI_MAP.md` - Add row if new feature area / doc path
 - `docs/flows/[flow-name].md` - Update flow if part of existing flow
 - `docs/prompts/index.md` - Update templates if introducing new pattern
 
@@ -220,6 +221,8 @@ fi
 ## Quick Links for Maintenance
 
 - **Main Index**: [docs/index.md](index.md)
+- **Agent wiki map**: [.cursor/docs/WIKI_MAP.md](../.cursor/docs/WIKI_MAP.md)
+- **Cursor config**: [.cursor/README.md](../.cursor/README.md)
 - **Architecture**: [docs/architecture/index.md](architecture/index.md)
 - **Flows**: [docs/flows/index.md](flows/index.md)
 - **Decisions**: [docs/decisions/index.md](decisions/index.md)
@@ -321,5 +324,5 @@ Then update with current best practices.
 ---
 
 **Maintained By**: Development Team  
-**Last Updated**: 2024  
+**Last Updated**: 2026  
 **Review Frequency**: Monthly

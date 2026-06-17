@@ -28,6 +28,17 @@ docs/
 └── prompts/                     AI coding standards & templates
 ```
 
+**Cursor agent config** (token-efficient routing — not a duplicate of this wiki):
+
+```
+.cursor/
+├── README.md
+├── docs/WIKI_MAP.md             Compact index → load only needed docs/
+├── rules/                       .mdc project rules
+├── skills/                      Agent Skills (SKILL.md)
+└── commands/                    /review-wiki, /verify-all, /parity-check
+```
+
 ## 🚀 Quick Navigation
 
 ### I Want To...
@@ -44,6 +55,7 @@ docs/
 | **Deploy the app** | [Deployment Guide](/docs/deployment/index.md) |
 | **Understand design decisions** | [Architecture Decisions](/docs/decisions/index.md) |
 | **Check coding standards** | [AGENTS.md](/AGENTS.md) |
+| **Agent: review project (low tokens)** | [.cursor/docs/WIKI_MAP.md](/.cursor/docs/WIKI_MAP.md) |
 
 ## 📊 Key Documentation Files
 

@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'default-notifications-v2';
+export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'default-notifications-v3';
 export const DEFAULT_NOTIFICATION_CHANNEL_NAME = 'Notifications';
 export const DEFAULT_NOTIFICATION_SOUND = 'notifictaion.mp3';
 export const DEFAULT_NOTIFICATION_SOUND_PATH = './src/assets/sounds/notifictaion.mp3';

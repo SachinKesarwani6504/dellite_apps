@@ -88,6 +88,7 @@ Token rules for worker flow:
 
 - No hardcoded screen copy; use app text constants.
 - No hardcoded color values in screens/components; use theme tokens.
+- User-facing dates must use `formatDisplayDate` / `formatDisplayDateTime` from `src/utils/date-display.ts` in each app. Format: `05 Jul 2026` (date-only) or `05 Jul 2026, 2:30 pm` (with time). Do not use ad-hoc `toLocaleDateString` in screens/components.
 - Keep static option lists in `utils/options`.
 - Scrollbars: default to hiding scroll indicators in scrollable lists/containers:
   - `showsVerticalScrollIndicator={false}`
@@ -120,9 +121,13 @@ Before finishing:
 
 ## 11) Repo-Local Skills
 
-- Reusable Codex skills live in:
-  - `skills/dellite-monorepo-defaults/SKILL.md`
-  - `skills/dellite-refactor-execution/SKILL.md`
+- Reusable Agent Skills live in **`.cursor/skills/`** (Cursor standard):
+  - `.cursor/skills/dellite-monorepo-defaults/SKILL.md`
+  - `.cursor/skills/dellite-refactor-execution/SKILL.md`
+  - `.cursor/skills/dellite-wiki-review/SKILL.md`
+  - `.cursor/skills/dellite-verify/SKILL.md`
+- Agent wiki index (token-efficient): `.cursor/docs/WIKI_MAP.md` → full wiki in `docs/`
+- Legacy copies under `skills/` are deprecated; prefer `.cursor/skills/`.
 - Prefer using these skills for day-to-day implementation to reduce repeated prompting, avoid regression, and keep worker/customer parity.
 - Keep skill instructions aligned with this `AGENTS.md` contract.
 

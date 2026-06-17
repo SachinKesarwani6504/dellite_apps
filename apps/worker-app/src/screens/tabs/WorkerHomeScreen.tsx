@@ -9,6 +9,7 @@ import { palette, theme, uiColors } from '@/utils/theme';
 export function WorkerHomeScreen() {
   const isDark = useColorScheme() === 'dark';
   const { user, me, isAuthenticated } = useAuthContext();
+  const workerUserId = user?.id ?? null;
   const resolvedWorkerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
     [me, user],
@@ -21,7 +22,7 @@ export function WorkerHomeScreen() {
     lastLocation,
     error,
     goOnline,
-  } = useWorkerLiveLocation({ workerId: resolvedWorkerId });
+  } = useWorkerLiveLocation({ workerUserId, workerId: resolvedWorkerId });
 
   useEffect(() => {
     if (!isAuthenticated) {

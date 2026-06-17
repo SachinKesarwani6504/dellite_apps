@@ -354,6 +354,28 @@ export function ProfileHomeScreen({ navigation }: Props) {
         />
 
         <ProfileActionRow
+          title={APP_TEXT.profile.settingsTitle}
+          subtitle={APP_TEXT.profile.settingsSubtitle}
+          icon="settings-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.settings)}
+          showDivider
+        />
+
+        <ProfileActionRow
+          title={APP_TEXT.profile.allJobsButton}
+          subtitle={APP_TEXT.profile.allJobsSubtitle}
+          icon="briefcase-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.allJobs)}
+          showDivider
+        />
+
+        <ProfileActionRow
           title={APP_TEXT.profile.identityVerification.menuTitle}
           subtitle={APP_TEXT.profile.identityVerification.menuSubtitle}
           icon="shield-checkmark-outline"

@@ -3,6 +3,14 @@ import { apiGet, apiPatch, apiPost } from '@/actions/http/httpClient';
 import { ApiError, type ApiEnvelope } from '@/types/api';
 import type { CustomerBookingsSummary } from '@/types/api';
 import type {
+  BookingContactEventPayload,
+  BookingContactEventType,
+  CustomerBookingMutationResponse,
+  CustomerBookingTipUpdatePayload,
+  CustomerBookingStatusUpdate,
+  CustomerBookingUpdatePayload,
+} from '@/types/booking-actions';
+import type {
   AppBannerAction,
   AppBannerItem,
   AppBannerQuery,
@@ -981,4 +989,133 @@ export async function getCustomerBookingStartOtp(bookingId: string): Promise<Boo
     bookingId: typeof data.bookingId === 'string' ? data.bookingId : null,
     otp: typeof data.otp === 'string' ? data.otp : null,
   };
+}
+
+export async function updateCustomerBooking(
+  bookingId: string,
+  payload: CustomerBookingUpdatePayload,
+): Promise<CustomerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPatch<ApiEnvelope<CustomerBookingMutationResponse> | CustomerBookingMutationResponse, CustomerBookingUpdatePayload>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        successTitle: 'Booking Updated',
+        successMessage: 'Booking details were updated.',
+        errorTitle: 'Booking Update Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function updateCustomerBookingTip(
+  bookingId: string,
+  payload: CustomerBookingTipUpdatePayload,
+): Promise<CustomerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPatch<ApiEnvelope<CustomerBookingMutationResponse> | CustomerBookingMutationResponse, CustomerBookingTipUpdatePayload>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        successTitle: 'Tip Added',
+        successMessage: 'Your tip was updated successfully.',
+        errorTitle: 'Tip Update Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function updateCustomerBookingStatus(
+  bookingId: string,
+  bookingStatus: CustomerBookingStatusUpdate,
+): Promise<CustomerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPatch<ApiEnvelope<CustomerBookingMutationResponse> | CustomerBookingMutationResponse>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/booking-status?bookingStatus=${encodeURIComponent(bookingStatus)}`,
+    undefined,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        successTitle: 'Booking Cancelled',
+        successMessage: 'Booking status was updated.',
+        errorTitle: 'Booking Status Update Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function createCustomerBookingContactEvent(
+  bookingId: string,
+  eventType: BookingContactEventType,
+  payload?: BookingContactEventPayload,
+): Promise<CustomerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<CustomerBookingMutationResponse> | CustomerBookingMutationResponse, BookingContactEventPayload | undefined>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/contact-event?eventType=${encodeURIComponent(eventType)}`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: false,
+        errorTitle: 'Contact Event Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function markCustomerWorkCompleted(
+  bookingId: string,
+): Promise<CustomerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<CustomerBookingMutationResponse> | CustomerBookingMutationResponse>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/work-completion?workConfirmationStatus=COMPLETED`,
+    undefined,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        successTitle: 'Work Completed',
+        successMessage: 'Waiting for partner to confirm payment received.',
+        errorTitle: 'Work Completion Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
 }

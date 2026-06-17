@@ -42,18 +42,6 @@ export const statusToneColors = {
   neutral: { light: uiColors.status.neutralLight, dark: uiColors.status.neutralDark, text: uiColors.status.neutralText },
 } as const;
 
-export const workerStatusBadgeToneMap = {
-  ONGOING: 'success',
-  COMPLETED: 'info',
-  CANCELLED: 'danger',
-  PENDING: 'warning',
-  NEW_JOB_REQUEST: 'warning',
-  VIEWED: 'info',
-  ACCEPTED: 'success',
-  REJECTED: 'danger',
-  EXPIRED: 'danger',
-} as const;
-
 export const liveTrackingToneMap = {
   success: 'success',
   warning: 'warning',
@@ -68,11 +56,6 @@ export function getStatusToneColors(tone: keyof typeof statusToneColors, isDark:
     text: colors.text,
     icon: colors.text,
   };
-}
-
-export function getWorkerStatusBadgeColors(status: string, isDark: boolean) {
-  const tone = workerStatusBadgeToneMap[status as keyof typeof workerStatusBadgeToneMap] ?? 'neutral';
-  return getStatusToneColors(tone, isDark);
 }
 
 export function getLiveTrackingToneColors(tone: keyof typeof liveTrackingToneMap, isDark: boolean) {

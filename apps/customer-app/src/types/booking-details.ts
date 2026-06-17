@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import type { BookingPaymentStatus } from '@/types/booking';
+import type { OnlinePaymentBlock, OnlinePaymentFlowResult, OnlinePaymentFlowState, OnlinePaymentOffer } from '@/payments/types';
 
 export type BookingDetailsRole = 'CUSTOMER' | 'WORKER';
 
@@ -11,11 +13,13 @@ export type BookingDetailsBookingStatus =
   | 'CANCELLED'
   | 'EXPIRED';
 
-export type BookingDetailsPaymentStatus =
-  | 'PENDING'
-  | 'PAID'
-  | 'FAILED'
-  | 'REFUNDED'
+export type BookingDetailsPaymentStatus = BookingPaymentStatus;
+
+export type BookingDetailsAssignmentStatus =
+  | 'EN_ROUTE'
+  | 'ARRIVED'
+  | 'STARTED'
+  | 'COMPLETED'
   | 'CANCELLED';
 
 export type BookingDetailsPriceType = 'VISIT' | 'HOURLY' | 'DAILY' | 'PER_UNIT';
@@ -62,12 +66,15 @@ export type BookingDetailsBooking = {
   bookingCode?: string | null;
   bookingType?: 'INSTANT' | 'SCHEDULED' | null;
   bookingStatus?: BookingDetailsBookingStatus | string | null;
-  paymentStatus?: BookingDetailsPaymentStatus | string | null;
+  paymentStatus?: BookingDetailsPaymentStatus | null;
   scheduledStartAt?: string | null;
   subtotalAmount?: string | number | null;
   discountAmount?: string | number | null;
   platformFeeAmount?: string | number | null;
   taxAmount?: string | number | null;
+  baseTotalAmount?: string | number | null;
+  payableAmount?: string | number | null;
+  tipAmount?: string | number | null;
   totalAmount?: string | number | null;
   bookingCommissionAmount?: string | number | null;
   notes?: string | null;
@@ -146,6 +153,67 @@ export type BookingDetailsCommission = {
   commissionAmount?: string | number | null;
 };
 
+export type BookingPaymentReviewStatus =
+  | 'NONE'
+  | 'WAITING_CUSTOMER_PAYMENT'
+  | 'WAITING_WORKER_CONFIRMATION'
+  | 'WORKER_NOT_RECEIVED'
+  | 'PAID';
+
+export type BookingPaymentReview = {
+  id?: string | null;
+  status?: BookingPaymentReviewStatus | string | null;
+  mode?: string | null;
+  amount?: string | number | null;
+  tipAmount?: string | number | null;
+  reference?: string | null;
+  note?: string | null;
+};
+
+export type BookingPaymentMode =
+  | 'CASH_TO_WORKER'
+  | 'UPI_TO_WORKER'
+  | 'ONLINE_PLATFORM'
+  | 'PLATFORM_UPI_QR';
+
+export type BookingPaymentInfo = {
+  bookingPaymentId?: string | null;
+  paymentId?: string | null;
+  paymentMode?: BookingPaymentMode | string | null;
+  paymentProvider?: string | null;
+  gatewayPaymentStatus?: string | null;
+  paymentStatus?: BookingDetailsPaymentStatus | null;
+  status?: BookingDetailsPaymentStatus | null;
+  mode?: string | null;
+  amount?: string | number | null;
+  paidAmount?: string | number | null;
+  baseTotalAmount?: string | number | null;
+  payableAmount?: string | number | null;
+  tipAmount?: string | number | null;
+  paidAt?: string | null;
+  onlinePayment?: OnlinePaymentBlock | null;
+};
+
+export type BookingDetailsAssignment = {
+  id?: string | null;
+  assignmentStatus?: BookingDetailsAssignmentStatus | string | null;
+};
+
+export type BookingDetailsPayment = {
+  status?: BookingDetailsPaymentStatus | null;
+  paymentId?: string | null;
+  mode?: string | null;
+  paymentMode?: BookingPaymentMode | string | null;
+  amount?: string | number | null;
+  paidAmount?: string | number | null;
+  baseTotalAmount?: string | number | null;
+  payableAmount?: string | number | null;
+  tipAmount?: string | number | null;
+  reference?: string | null;
+  paidAt?: string | null;
+  canWorkerRecordPayment?: boolean | null;
+};
+
 export type BookingStartOtp = {
   bookingId?: string | null;
   otp?: string | null;
@@ -155,6 +223,12 @@ export type BookingDetailsResponse = {
   booking: BookingDetailsBooking;
   customerInfo?: BookingDetailsCustomerInfo | null;
   workerInfo?: BookingDetailsWorkerInfo | null;
+  assignment?: BookingDetailsAssignment | null;
+  assignments?: BookingDetailsAssignment[];
+  invite?: {
+    id?: string | null;
+    inviteStatus?: string | null;
+  } | null;
   startOtp?: BookingStartOtp | null;
   address?: BookingDetailsAddress | null;
   serviceLines?: BookingDetailsServiceLine[];
@@ -162,12 +236,16 @@ export type BookingDetailsResponse = {
   discounts?: BookingDetailsDiscount[];
   history: BookingDetailsHistoryItem[];
   commissions?: BookingDetailsCommission[];
+  paymentReview?: BookingPaymentReview | null;
+  payment?: BookingDetailsPayment | null;
+  paymentInfo?: BookingPaymentInfo | null;
 };
 
 export type BookingServiceLineUpdateInput = {
-  serviceName: string;
+  serviceLineId?: string;
+  serviceName?: string;
   quantity?: number;
-  actualBillableMinutes?: number;
+  selectedDurationMinutes?: number;
 };
 
 export type UpdateBookingPayload = {
@@ -207,12 +285,11 @@ export type BookingDetailsServiceDisplay = {
   key: string;
   title: string;
   subtitle: string;
-  quantityLabel: string;
-  durationLabel: string | null;
+  selectedValueLabel: string;
+  selectedValue: string;
   pricingTitle: string;
   pricingValue: string;
   totalLabel: string;
-  isHourly: boolean;
 };
 
 export type BookingDetailsTabValue = 'BILL' | 'SERVICES' | 'LIVE_LOCATION' | 'ASSIGNMENTS' | 'PAYMENT';
@@ -234,6 +311,53 @@ export type BookingDetailsControllerArgs = {
   role: BookingDetailsRole;
 };
 
+export type BookingTipSheetContentProps = {
+  initialTipAmount: number | null;
+  onConfirmTip: (amount: number) => Promise<void> | void;
+  onClose: () => void;
+};
+
+export type BookingPaymentDetailsCardActions = {
+  onlinePayment: OnlinePaymentBlock | null;
+  showOnlinePayment: boolean;
+  flowState: OnlinePaymentFlowState;
+  isBusy: boolean;
+  onPayOnline: (couponCode?: string) => void;
+  canShowAddTip: boolean;
+  hasTip: boolean;
+  tipAmount: string | number | null;
+  onAddTip?: () => void;
+  onRemoveTip?: () => void;
+  displayOffers: OnlinePaymentOffer[];
+  displaySavingsIfOnline: string;
+  displayDiscountTotal: string;
+};
+
+export type BookingOnlinePaymentMethod = 'PHONEPE' | 'RAZORPAY';
+
+export type BookingOnlinePaymentOffersListProps = {
+  offers: OnlinePaymentOffer[];
+  selectedCouponCode?: string | null;
+  disabled?: boolean;
+  onSelectOffer: (couponCode: string) => void;
+};
+
+export type BookingOnlinePaymentSheetProps = {
+  onlinePayableAmount: string;
+  currentPayableAmount: string;
+  savingsAmount?: string | null;
+  offers: OnlinePaymentOffer[];
+  initialCouponCode?: string;
+  providers: Array<'RAZORPAY' | 'PHONEPE'>;
+  onClose: () => void;
+  onPay: (method: BookingOnlinePaymentMethod, couponCode?: string) => Promise<OnlinePaymentFlowResult>;
+};
+
+export type BookingDetailsPaymentTabProps = {
+  onAddTip?: () => void;
+  onRemoveTip?: () => void;
+};
+
 export type BookingDetailsContextValue = {
   details: BookingDetailsResponse | null;
   startOtp: BookingStartOtp | null;
@@ -241,9 +365,47 @@ export type BookingDetailsContextValue = {
   isInitialLoading: boolean;
   isRefreshing: boolean;
   error: string | null;
+  isNotFound: boolean;
   refresh: () => Promise<void>;
 };
 
 export type BookingDetailsProviderProps = BookingDetailsControllerArgs & {
   children: ReactNode;
+};
+
+export type BookingBillLineTone = 'default' | 'positive' | 'primary' | 'caution';
+
+export type BookingBillAmounts = {
+  subtotalAmount?: string | number | null;
+  platformFeeAmount?: string | number | null;
+  taxAmount?: string | number | null;
+  discountAmount?: string | number | null;
+  bookingTotalAmount?: string | number | null;
+  tipAmount?: string | number | null;
+  commissionAmount?: string | number | null;
+  workerEarningAmount?: string | number | null;
+};
+
+export type BookingBillSummaryCardProps = {
+  title: string;
+  amounts: BookingBillAmounts;
+  isPaymentComplete?: boolean;
+};
+
+export type BookingPaymentStatusCopy = {
+  title: string;
+  description: string;
+};
+
+export type BookingPaymentBreakdown = {
+  billAmount: string | number | null;
+  tipAmount: string | number | null;
+  receivedAmount: string | number | null;
+};
+
+export type BookingPaymentDetailsCardProps = {
+  paymentStatus: BookingDetailsPaymentStatus | null;
+  payment: BookingPaymentInfo;
+  statusCopy: BookingPaymentStatusCopy;
+  actions?: BookingPaymentDetailsCardActions;
 };

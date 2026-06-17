@@ -1,6 +1,7 @@
 import type { NotificationListItem, NotificationsQuery, NotificationTypeMeta } from '@/types/notifications';
 import type { NotificationData, UserLiveEvent } from '@/types/live-notifications';
 import { theme } from '@/utils/theme';
+import { formatDisplayDate } from '@/utils/date-display';
 
 const NOTIFICATION_TYPE_META: Record<NotificationListItem['type'], NotificationTypeMeta> = {
   BOOKING: { label: 'Booking', icon: 'calendar-outline', color: theme.colors.primary },
@@ -37,7 +38,7 @@ export function formatNotificationTimestamp(value: string) {
   if (diffMs < hourMs) return `${Math.max(1, Math.floor(diffMs / minuteMs))}m ago`;
   if (diffMs < dayMs) return `${Math.floor(diffMs / hourMs)}h ago`;
   if (diffMs < 7 * dayMs) return `${Math.floor(diffMs / dayMs)}d ago`;
-  return createdAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDisplayDate(createdAt);
 }
 
 export function toLiveEventFromNotification(item: NotificationListItem): UserLiveEvent {

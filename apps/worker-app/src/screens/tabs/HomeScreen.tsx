@@ -12,12 +12,15 @@ import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBann
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { WorkerNearbyGoldenJobCard } from '@/components/common/WorkerNearbyGoldenJobCard';
+import { WorkerOngoingJobsRow } from '@/components/common/WorkerOngoingJobsRow';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
 import { LoadingState } from '@/components/common/LoadingState';
 import { AppImage } from '@/components/common/AppImage';
 import { SectionHeaderRow } from '@/components/common/SectionHeaderRow';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useHomeLocationPermissionPrompt } from '@/hooks/useHomeLocationPermissionPrompt';
+import { useWorkerOngoingJobs } from '@/hooks/useWorkerOngoingJobs';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
@@ -52,6 +55,7 @@ export function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const { locationState, user, me, isAuthenticated } = useAuthContext();
+  const workerUserId = user?.id ?? null;
   const workerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
     [me, user],
@@ -60,7 +64,7 @@ export function HomeScreen() {
   const {
     isOnline: isWorkerLiveOnline,
     goOnline: goWorkerLiveOnline,
-  } = useWorkerLiveLocation({ workerId });
+  } = useWorkerLiveLocation({ workerUserId, workerId });
   const {
     city,
     locality,
@@ -98,15 +102,11 @@ export function HomeScreen() {
   const [cityUnavailable, setCityUnavailable] = useState(false);
   const [homeData, setHomeData] = useState<WorkerHomeData | null>(null);
   const [homeBanners, setHomeBanners] = useState<AppBannerItem[]>([]);
-  const isLocationPending =
-    isLocationPermissionPending
-    || (
-      isLocationGranted
-      && (
-        !initialized
-        || locationLoading
-        || locationRefreshing
-      )
+  const isLocationPending = isLocationGranted
+    && (
+      !initialized
+      || locationLoading
+      || locationRefreshing
     );
 
   const handleLocationPermissionAction = useCallback(async () => {
@@ -115,6 +115,23 @@ export function HomeScreen() {
       await initializeLocation({ forceRefresh: true });
     }
   }, [initializeLocation, requestLocationPermission]);
+
+  useHomeLocationPermissionPrompt({
+    permissionStatus,
+    requestLocationPermission,
+    initializeLocation,
+  });
+
+  const {
+    items: ongoingJobs,
+  } = useWorkerOngoingJobs(isLocationGranted);
+
+  const onOpenOngoingJob = useCallback((jobId: string) => {
+    navigation.navigate(ROOT_SCREENS.jobDetailsNavigator, {
+      screen: JOB_STACK_SCREENS.details,
+      params: { jobId },
+    });
+  }, [navigation]);
 
   const loadHomeData = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
     const showFullScreenLoader = options?.showFullScreenLoader ?? true;
@@ -157,8 +174,8 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (isLocationPermissionPending) {
-        setLoading(true);
+      if (!isLocationGranted) {
+        setLoading(false);
         setHomeData(null);
         setError(null);
         setCityUnavailable(false);
@@ -180,7 +197,7 @@ export function HomeScreen() {
         return;
       }
       void loadHomeData({ showFullScreenLoader: true });
-    }, [isLocationGranted, isLocationPending, isLocationPermissionPending, loadHomeData, selectedCity]),
+    }, [isLocationGranted, isLocationPending, loadHomeData, selectedCity]),
   );
 
   const nearbyJobs = useMemo(
@@ -243,8 +260,13 @@ export function HomeScreen() {
     workerId,
   ]);
 
-  if ((isLocationPermissionPending || isLocationGranted) && (loading || isLocationPending) && !homeData) {
-    const loadingMessage = isLocationPending ? APP_TEXT.home.loadingLocation : APP_TEXT.home.nearbyJobsLoading;
+  if (
+    isLocationPermissionPending
+    || (isLocationGranted && (loading || isLocationPending) && !homeData)
+  ) {
+    const loadingMessage = isLocationPermissionPending || isLocationPending
+      ? APP_TEXT.home.loadingLocation
+      : APP_TEXT.home.nearbyJobsLoading;
     return (
       <GradientScreen>
         <View className="px-4 pt-6">
@@ -324,20 +346,6 @@ export function HomeScreen() {
         <>
           {homeFallbackContent}
 
-          {error && homeData ? (
-            <View
-              className="mb-3 rounded-xl border px-3 py-2"
-              style={{
-                borderColor: theme.colors.caution,
-                backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
-              }}
-            >
-              <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                Showing cached data. Pull to refresh.
-              </Text>
-            </View>
-          ) : null}
-
           {homeData ? (
             <>
               {shouldShowCurrentStatusBanner ? (
@@ -358,6 +366,13 @@ export function HomeScreen() {
                 />
               ) : null}
 
+              {isLocationGranted && ongoingJobs.length > 0 ? (
+                <WorkerOngoingJobsRow
+                  items={ongoingJobs}
+                  onPressJob={onOpenOngoingJob}
+                />
+              ) : null}
+
               <View className="mt-3 flex-row gap-2">
                 <View
                   className="flex-1 items-center rounded-ui-md border px-3 py-3"
@@ -367,7 +382,14 @@ export function HomeScreen() {
                   }}
                 >
                   <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
-                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{homeData.todayStats?.totalJobs ?? 0}</Text>
+                  <Text
+                    className="mt-2 text-xl font-bold text-baseDark dark:text-white"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {homeData.todayStats?.totalJobs ?? 0}
+                  </Text>
                   <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.todayJobsLabel}</Text>
                 </View>
                 <View
@@ -378,7 +400,14 @@ export function HomeScreen() {
                   }}
                 >
                   <Ionicons name="cash-outline" size={16} color={theme.colors.primary} />
-                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatInrCurrency(homeData.todayStats?.totalEarning)}</Text>
+                  <Text
+                    className="mt-2 text-xl font-bold text-baseDark dark:text-white"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {formatInrCurrency(homeData.todayStats?.totalEarning)}
+                  </Text>
                   <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.earningsLabel}</Text>
                 </View>
                 <View
@@ -389,7 +418,14 @@ export function HomeScreen() {
                   }}
                 >
                   <Ionicons name="trending-up-outline" size={16} color={theme.colors.primary} />
-                  <Text className="mt-2 text-2xl font-bold text-baseDark dark:text-white">{formatSignedPercent(homeData.todayStats?.growth)}</Text>
+                  <Text
+                    className="mt-2 text-xl font-bold text-baseDark dark:text-white"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {formatSignedPercent(homeData.todayStats?.growth)}
+                  </Text>
                   <Text className="mt-1 text-[11px] text-textPrimary/70 dark:text-white/70">{APP_TEXT.home.growthLabel}</Text>
                 </View>
               </View>
@@ -399,14 +435,10 @@ export function HomeScreen() {
                   <SectionHeaderRow
                     title={APP_TEXT.home.nearbyJobsTitle}
                     onPressAction={homeData.isMoreThanThreeAvailableJobs ? () => {
-                      navigation.navigate(ROOT_SCREENS.mainTabsNavigator, {
-                        screen: MAIN_TAB_SCREENS.jobs,
+                      navigation.navigate(ROOT_SCREENS.jobsNavigator, {
+                        screen: JOB_STACK_SCREENS.availableJobs,
                         params: {
-                          screen: JOB_STACK_SCREENS.home,
-                          params: {
-                            initialTab: 'NEW_JOBS',
-                            initialTabRequestKey: Date.now(),
-                          },
+                          listMode: 'NEW_JOBS',
                         },
                       });
                     } : undefined}

@@ -1,70 +1,52 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Text, View, useColorScheme } from 'react-native';
 
-import { getCustomerStatusBadgeColors, uiColors } from '@/utils/theme';
-
-export type StatusBadgeType =
-  | 'ONGOING'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'CREATED'
-  | 'SEARCHING'
-  | 'CONFIRMED'
-  | 'IN_PROGRESS'
-  | 'EXPIRED';
-
-type StatusBadgeProps = {
-  status: StatusBadgeType | string;
-  label?: string;
-  dotColor?: string;
-  showDot?: boolean;
-  forceBlue?: boolean;
-  forceBlueText?: boolean;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  ONGOING: 'Ongoing',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  CREATED: 'Created',
-  SEARCHING: 'Searching',
-  CONFIRMED: 'Confirmed',
-  IN_PROGRESS: 'In Progress',
-  EXPIRED: 'Expired',
-};
+import type { StatusBadgeProps } from '@/types/status-badge';
+import { getStatusBadgeConfig, getStatusBadgeTextColor } from '@/utils/status-badge';
 
 export function StatusBadge({
   status,
+  type,
   label,
   dotColor,
+  iconName,
   showDot = true,
   forceBlue = false,
   forceBlueText = false,
 }: StatusBadgeProps) {
   const isDark = useColorScheme() === 'dark';
-  const colors = forceBlue
-    ? getCustomerStatusBadgeColors('CONFIRMED', isDark)
-    : getCustomerStatusBadgeColors(status, isDark);
-  const textColor = forceBlueText ? uiColors.status.infoText : colors.text;
+  const config = forceBlue
+    ? getStatusBadgeConfig('IN_PROGRESS', 'booking')
+    : getStatusBadgeConfig(status, type);
+  const textColor = forceBlueText ? config.textColor : config.textColor;
+  const backgroundColor = isDark ? `${config.textColor}24` : config.bgColor;
+  const shouldShowDot = showDot && !iconName;
 
   return (
     <View
-      className="flex-row items-center rounded-full px-3 py-1"
       style={{
-        backgroundColor: colors.background,
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 999,
+        paddingHorizontal: 7,
+        paddingVertical: 3.5,
+        backgroundColor,
         borderWidth: 1,
-        borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.status.subtleBorderLight,
+        borderColor: config.borderColor,
       }}
     >
-      {showDot ? (
-        <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? textColor }} />
+      {shouldShowDot ? (
+        <View style={{ marginRight: 5, height: 6, width: 6, borderRadius: 3, backgroundColor: dotColor ?? textColor }} />
       ) : null}
-      <Text className="text-xs font-bold" style={{ color: textColor }}>
-        {label ?? STATUS_LABELS[status] ?? status}
+      {iconName ? (
+        <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={11} color={textColor} style={{ marginRight: 5 }} />
+      ) : null}
+      <Text style={{ color: textColor, fontSize: 11, fontWeight: '600' }}>
+        {label ?? config.label}
       </Text>
     </View>
   );
 }
 
-export function getStatusBadgeTextColor(status: StatusBadgeType | string) {
-  return getCustomerStatusBadgeColors(status, false).text;
-}
+export { getStatusBadgeTextColor };

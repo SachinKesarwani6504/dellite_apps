@@ -2,10 +2,12 @@
   "expo": {
     "name": "Dellite",
     "slug": "dellite",
+    "scheme": "dellite",
     "icon": "./src/assets/icon.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "splash": {
       "image": "./src/assets/icon.png",
       "resizeMode": "contain",
@@ -13,12 +15,37 @@
     },
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./src/assets/sounds/notifictaion.mp3"
+          ],
+          "defaultChannel": "default-notifications-v3",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./src/assets/icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF",
           "imageWidth": 180
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "extraMavenRepos": [
+              "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android"
+            ],
+            "extraProguardRules": "-keepattributes *Annotation*\n-dontwarn com.razorpay.**\n-keep class com.razorpay.** {*;}\n-optimizations !method/inlining/*\n-keepclasseswithmembers class * {\n  public void onPayment*(...);\n}"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
         }
       ]
     ],

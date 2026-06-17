@@ -3,6 +3,7 @@ export type WorkerStartBookingWithOtpResponse = {
   message?: string;
   booking?: {
     id?: string;
+    bookingStatus?: string;
     status?: string;
     startedAt?: string;
   } | null;

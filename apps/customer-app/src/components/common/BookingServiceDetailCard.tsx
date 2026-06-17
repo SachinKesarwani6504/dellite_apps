@@ -22,6 +22,12 @@ export function BookingServiceDetailCard({
   onDecreaseQuantity,
   onIncreaseQuantity,
   onRemoveService,
+  hideRemoveAction,
+  hideDecreaseQuantityAction,
+  minSelectableDurationMinutes,
+  hideFlexiblePriceOptionChoices,
+  readOnly,
+  readOnlyReason,
 }: BookingServiceDetailCardProps) {
   const includedTasks = Array.isArray(service.includedTasks) ? service.includedTasks : [];
   const excludedTasks = Array.isArray(service.excludedTasks) ? service.excludedTasks : [];
@@ -50,7 +56,26 @@ export function BookingServiceDetailCard({
         onDecreaseQuantity={onDecreaseQuantity}
         onIncreaseQuantity={onIncreaseQuantity}
         onRemoveService={onRemoveService}
+        hideRemoveAction={hideRemoveAction}
+        hideDecreaseQuantityAction={hideDecreaseQuantityAction}
+        minSelectableDurationMinutes={minSelectableDurationMinutes}
+        hideFlexiblePriceOptionChoices={hideFlexiblePriceOptionChoices}
+        readOnly={readOnly}
       />
+
+      {readOnly && readOnlyReason ? (
+        <View
+          className="mt-3 flex-row items-start rounded-xl px-3 py-3"
+          style={{
+            backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+          }}
+        >
+          <Ionicons name="information-circle-outline" size={15} color={theme.colors.primary} />
+          <Text className="ml-2 flex-1 text-xs font-semibold leading-4" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+            {readOnlyReason}
+          </Text>
+        </View>
+      ) : null}
 
       {selectedPriceOption ? (
         <View className="mt-3">

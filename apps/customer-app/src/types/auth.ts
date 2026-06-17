@@ -13,6 +13,7 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type UserRole = 'CUSTOMER' | 'WORKER' | 'ADMIN';
 export type DeviceSessionRole = Extract<UserRole, 'CUSTOMER' | 'WORKER'>;
 export type DevicePlatform = 'ANDROID' | 'IOS';
+export const APP_AUTH_ROLE: DeviceSessionRole = 'CUSTOMER';
 export const REFERRAL_ROLES = {
   CUSTOMER: 'CUSTOMER',
   WORKER: 'WORKER',
@@ -111,6 +112,14 @@ export type AuthUser = {
   isOnboardingDone?: boolean;
   isOnboardingCompleted?: boolean;
   bookingCounts?: CustomerBookingCounts;
+  roleLink?: {
+    id?: string;
+    customerId?: string;
+    customer_id?: string;
+    hasSeenOnboardingWelcomeScreen?: boolean;
+    bookingCounts?: CustomerBookingCounts;
+    [key: string]: unknown;
+  };
 };
 
 export type AuthMeOnboarding = {

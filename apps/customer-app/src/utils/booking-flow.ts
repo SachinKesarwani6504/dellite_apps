@@ -20,6 +20,7 @@ import type {
   BookingFlowSelectedServiceLine,
 } from '@/types/booking-flow-context';
 import type { LocationCoordinates } from '@/modules/location/types/location.types';
+import { formatDisplayDateTime } from '@/utils/date-display';
 
 function toTrimmedString(value?: string | null) {
   return typeof value === 'string' ? value.trim() : '';
@@ -603,11 +604,7 @@ export function formatBookingTimeChipLabel(value: string) {
 }
 
 export function getInstantScheduleLabel() {
-  const formatter = new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-  return `As soon as possible - ${formatter.format(new Date())}`;
+  return `As soon as possible - ${formatDisplayDateTime(new Date())}`;
 }
 
 export function buildCreateBookingPayload(input: {

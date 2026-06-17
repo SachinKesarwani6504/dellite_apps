@@ -32,8 +32,8 @@ export function BookingDetailsServicesTab() {
               mode={BOOKING_SERVICE_SUMMARY_CARD_MODE.VIEW}
               title={display.title}
               subtitle={display.subtitle}
-              selectedValueLabel={display.isHourly ? APP_TEXT.main.bookingFlow.durationLabel : APP_TEXT.main.bookingFlow.quantityLabel}
-              selectedValue={display.durationLabel ?? display.quantityLabel}
+              selectedValueLabel={display.selectedValueLabel}
+              selectedValue={display.selectedValue}
               pricingTitle={display.pricingTitle}
               pricingValue={display.pricingValue}
               totalLabel={display.totalLabel}

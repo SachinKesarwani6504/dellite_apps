@@ -1,21 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View, useColorScheme } from "react-native";
 
-import { StatusBadge, getStatusBadgeTextColor } from "@/components/common/StatusBadge";
+import { AppImage } from "@/components/common/AppImage";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { StatusInfoTile } from "@/components/common/StatusInfoTile";
 import type { CustomerBookingCardProps } from "@/types/component-types";
 import { CUSTOMER_BOOKING_TYPE } from "@/types/booking";
 import { formatTitle } from "@/utils";
 import {
   getCustomerBookingAddressLabel,
   getCustomerBookingAmountLabel,
-  getCustomerBookingCategoryLabel,
+  getCustomerBookingWorkerImageUrl,
   getCustomerBookingReferenceLabel,
   getCustomerBookingScheduleLabel,
-  getCustomerBookingServiceTitle,
   getCustomerBookingWorkerInitial,
   getCustomerBookingWorkerName,
   getCustomerBookingWorkerSubtitle,
 } from "@/utils/customer-bookings";
+import { getBookingPaymentStatusLabel } from "@/utils/booking-details";
+import { APP_TEXT } from "@/utils/appText";
+import { getStatusBadgeTextColor, getStatusTileIconName } from "@/utils/status-badge";
 import { palette, theme, uiColors } from "@/utils/theme";
 
 export function CustomerBookingCard({
@@ -27,9 +31,13 @@ export function CustomerBookingCard({
   const addressLabel = getCustomerBookingAddressLabel(item);
   const workerName = getCustomerBookingWorkerName(item);
   const workerInitial = getCustomerBookingWorkerInitial(item);
+  const workerImageUrl = getCustomerBookingWorkerImageUrl(item);
   const workerSubtitle = getCustomerBookingWorkerSubtitle(item);
   const amountLabel = getCustomerBookingAmountLabel(item);
-  const statusAccentColor = getStatusBadgeTextColor(item.bookingStatus);
+  const statusAccentColor = getStatusBadgeTextColor(item.bookingStatus, "booking");
+  const inviteStatus = item.invite?.inviteStatus ?? null;
+  const paymentStatus = item.paymentStatus ?? null;
+  const paymentStatusLabel = paymentStatus ? getBookingPaymentStatusLabel(paymentStatus) : null;
 
   // Extract data safely from the new BookingListItem shape
   const firstService = item.services?.[0];
@@ -43,9 +51,10 @@ export function CustomerBookingCard({
   const scheduledStartAtLabel = item.scheduledStartAt
     ? getCustomerBookingScheduleLabel(item)
     : null;
+
   return (
     <View
-      className="mb-4 overflow-hidden rounded-3xl border"
+      className="mb-4 overflow-hidden rounded-2xl border"
       style={{
         backgroundColor: isDark ? palette.dark.card : palette.light.card,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight,
@@ -54,30 +63,18 @@ export function CustomerBookingCard({
       }}
     >
       <View className="p-4">
-        <View className="flex-row items-start justify-between">
-          <View className="mr-3 flex-1">
-            <Text className="text-lg font-bold text-baseDark dark:text-white">
-              {subcategoryName}
-            </Text>
-            <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
-              {(item.services || []).map((service) => (
-                <View
-                  key={service.id}
-                  className="rounded-full px-2.5 py-1"
-                  style={{
-                    backgroundColor: isDark
-                      ? uiColors.surface.overlayDark10
-                      : uiColors.surface.accentSoft20,
-                  }}
-                >
-                  <Text className="text-xs font-semibold text-primary">
-                    {formatTitle(service.serviceName ?? undefined)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+        <View>
+          <Text className="text-xl font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
+            {subcategoryName}
+          </Text>
+          <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+            {(item.services || []).slice(0, 2).map((service) => (
+              <StatusBadge key={service.id ?? service.serviceName ?? 'service'} status="CONFIRMED" label={formatTitle(service.serviceName ?? undefined)} showDot={false} />
+            ))}
+            {(item.services?.length ?? 0) > 2 ? (
+              <StatusBadge status="CONFIRMED" label={`+${(item.services?.length ?? 0) - 2}`} showDot={false} />
+            ) : null}
           </View>
-          <StatusBadge status={item.bookingStatus} showDot={false} />
         </View>
 
         <View className="mt-3 gap-2">
@@ -128,7 +125,7 @@ export function CustomerBookingCard({
             </View>
           </View>
         </View>
-        {scheduledStartAtLabel && (
+        {scheduledStartAtLabel ? (
           <View
             className="mt-2 rounded-xl px-3 py-2.5"
             style={{
@@ -148,7 +145,7 @@ export function CustomerBookingCard({
               </Text>
             </View>
           </View>
-        )}
+        ) : null}
         <View
           className="mt-2 rounded-xl px-3 py-2.5"
           style={{
@@ -160,41 +157,43 @@ export function CustomerBookingCard({
           <View className="flex-row items-center">
             <Ionicons
               name="location-outline"
-              size={16}
+              size={26}
               color={theme.colors.primary}
             />
-            <Text className="ml-2 text-sm font-medium text-baseDark dark:text-white">
+            <Text className="ml-3 flex-1 text-sm font-medium leading-5 text-baseDark dark:text-white" numberOfLines={3}>
               {addressLabel}
             </Text>
           </View>
         </View>
 
-        <View
-          className="my-4 h-px"
-          style={{
-            backgroundColor: isDark
-              ? uiColors.surface.overlayDark14
-              : uiColors.surface.borderNeutralLight,
-          }}
-        />
+        <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
+          <StatusInfoTile status={item.bookingStatus} type="booking" subtitle={APP_TEXT.main.bookings.cardBookingStatusLabel} />
+          {inviteStatus ? <StatusInfoTile status={inviteStatus} type="invite" subtitle={APP_TEXT.main.bookings.cardInviteStatusLabel} /> : null}
+        </View>
+
+        <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight }} />
 
         <View className="flex-row items-center justify-between">
           <View className="mr-3 flex-1 flex-row items-center">
             <View
-              className="h-9 w-9 items-center justify-center rounded-full"
+              className="h-12 w-12 overflow-hidden items-center justify-center rounded-full"
               style={{
                 backgroundColor: isDark
                   ? uiColors.surface.overlayDark95
                   : uiColors.surface.warmPanelLight,
               }}
             >
-              <Text className="text-sm font-bold text-primary">
-                {workerInitial}
-              </Text>
+              {workerImageUrl ? (
+                <AppImage source={{ uri: workerImageUrl }} className="h-full w-full" resizeMode="cover" />
+              ) : (
+                <Text className="text-base font-bold text-primary">
+                  {workerInitial}
+                </Text>
+              )}
             </View>
-            <View className="ml-2.5 flex-1">
+            <View className="ml-3 flex-1">
               <Text
-                className="text-base font-semibold text-baseDark dark:text-white"
+                className="text-base font-extrabold text-baseDark dark:text-white"
                 numberOfLines={1}
               >
                 {workerName}
@@ -207,19 +206,49 @@ export function CustomerBookingCard({
               </Text>
             </View>
           </View>
-          <View className="flex-row items-center">
-            <Text className="text-xl font-extrabold text-primary">
-              {amountLabel}
-            </Text>
+        </View>
+
+        <View
+          className="mt-4 rounded-xl border px-4 py-3"
+          style={{
+            borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+            backgroundColor: isDark ? uiColors.surface.overlayDark08 : palette.light.card,
+            borderStyle: 'dotted',
+          }}
+        >
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-[11px] font-semibold text-baseDark/50 dark:text-white/60">
+                {APP_TEXT.main.bookings.cardTotalBillLabel}
+              </Text>
+              <Text className="mt-1 text-lg font-extrabold text-baseDark dark:text-white">{amountLabel}</Text>
+            </View>
+            <View className="flex-1 items-end">
+              <Text className="text-[11px] font-semibold text-baseDark/50 dark:text-white/60">
+                {APP_TEXT.main.bookings.cardPaymentStatusLabel}
+              </Text>
+              <View className="mt-1">
+                {paymentStatus ? (
+                  <StatusBadge
+                    status={paymentStatus}
+                    type="payment"
+                    label={paymentStatusLabel ?? undefined}
+                    iconName={getStatusTileIconName(paymentStatus)}
+                  />
+                ) : (
+                  <Text className="text-base font-extrabold text-baseDark dark:text-white">--</Text>
+                )}
+              </View>
+            </View>
           </View>
         </View>
 
         <Pressable
           onPress={() => onPress(item.id)}
-          className="mt-4 items-center justify-center rounded-2xl py-3.5"
+          className="mt-4 items-center justify-center rounded-xl py-3.5"
           style={{ backgroundColor: theme.colors.primary }}
         >
-          <Text className="text-base font-bold text-white">View Booking</Text>
+          <Text className="text-base font-bold text-white">{APP_TEXT.main.bookings.cardViewAction}</Text>
         </Pressable>
       </View>
     </View>

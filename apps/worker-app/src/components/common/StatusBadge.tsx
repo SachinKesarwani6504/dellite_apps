@@ -1,51 +1,39 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Text, View, useColorScheme } from 'react-native';
-import { getWorkerStatusBadgeColors, theme, uiColors, workerStatusBadgeToneMap } from '@/utils/theme';
+import type { StatusBadgeProps } from '@/types/status-badge';
+import { getStatusBadgeConfig, getStatusBadgeTextColor } from '@/utils/status-badge';
 
-type StatusBadgeType = keyof typeof workerStatusBadgeToneMap;
-
-type StatusBadgeProps = {
-  status: StatusBadgeType;
-  label?: string;
-  dotColor?: string;
-  showDot?: boolean;
-};
-
-const STATUS_LABELS: Record<StatusBadgeType, string> = {
-  ONGOING: 'Ongoing',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  PENDING: 'Pending',
-  NEW_JOB_REQUEST: 'New Job Request',
-  VIEWED: 'Viewed',
-  ACCEPTED: 'Accepted',
-  REJECTED: 'Rejected',
-  EXPIRED: 'Expired',
-};
-
-export function StatusBadge({ status, label, dotColor, showDot = true }: StatusBadgeProps) {
+export function StatusBadge({ status, type, label, dotColor, iconName, showDot = true }: StatusBadgeProps) {
   const isDark = useColorScheme() === 'dark';
-  const colors = getWorkerStatusBadgeColors(status, isDark);
-  const textColor = isDark ? theme.colors.accent : colors.text;
+  const config = getStatusBadgeConfig(status, type);
+  const backgroundColor = isDark ? `${config.textColor}24` : config.bgColor;
+  const shouldShowDot = showDot && !iconName;
+
   return (
     <View
-      className="flex-row items-center rounded-full px-3 py-1"
       style={{
-        backgroundColor: colors.background,
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 999,
+        paddingHorizontal: 7,
+        paddingVertical: 3.5,
+        backgroundColor,
         borderWidth: 1,
-        borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.status.subtleBorderLight,
+        borderColor: config.borderColor,
       }}
     >
-      {showDot ? (
-        <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: dotColor ?? textColor }} />
+      {shouldShowDot ? (
+        <View style={{ marginRight: 5, height: 6, width: 6, borderRadius: 3, backgroundColor: dotColor ?? config.textColor }} />
       ) : null}
-      <Text className="text-xs font-bold" style={{ color: textColor }}>
-        {label ?? STATUS_LABELS[status]}
+      {iconName ? (
+        <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={11} color={config.textColor} style={{ marginRight: 5 }} />
+      ) : null}
+      <Text style={{ color: config.textColor, fontSize: 11, fontWeight: '600' }}>
+        {label ?? config.label}
       </Text>
     </View>
   );
 }
 
-export function getStatusBadgeTextColor(status: StatusBadgeType, isDark: boolean) {
-  const colors = getWorkerStatusBadgeColors(status, isDark);
-  return isDark ? theme.colors.accent : colors.text;
-}
+export { getStatusBadgeTextColor };

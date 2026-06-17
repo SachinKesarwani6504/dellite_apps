@@ -8,6 +8,8 @@ import { ProfileCertificateAddAndEditScreen } from '@/screens/profile/ProfileCer
 import { ProfileSkillAddAndEditScreen } from '@/screens/profile/ProfileSkillAddAndEditScreen';
 import { ProfileSkillsScreen } from '@/screens/profile/ProfileSkillsScreen';
 import { ReferralScreen } from '@/screens/profile/ReferralScreen';
+import { SettingsScreen } from '@/screens/profile/SettingsScreen';
+import { JobsScreen } from '@/screens/tabs/JobsScreen';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
 
@@ -20,8 +22,14 @@ export function ProfileDetailsNavigator() {
       <Stack.Screen name={PROFILE_SCREENS.payoutDetails} component={PayoutDetailsScreen} />
       <Stack.Screen name={PROFILE_SCREENS.helpSupport} component={HelpSupportScreen} />
       <Stack.Screen name={PROFILE_SCREENS.notifications} component={NotificationsScreen} />
+      <Stack.Screen name={PROFILE_SCREENS.settings} component={SettingsScreen} />
       <Stack.Screen name={PROFILE_SCREENS.identityVerification} component={IdentityVerificationScreen} />
       <Stack.Screen name={PROFILE_SCREENS.referral} component={ReferralScreen} />
+      <Stack.Screen
+        name={PROFILE_SCREENS.allJobs}
+        component={JobsScreen}
+        initialParams={{ listMode: 'ALL' }}
+      />
       <Stack.Screen name={PROFILE_SCREENS.allSkills} component={ProfileSkillsScreen} />
       <Stack.Screen name={PROFILE_SCREENS.certificateManager} component={ProfileCertificateAddAndEditScreen} />
       <Stack.Screen name={PROFILE_SCREENS.skillManager} component={ProfileSkillAddAndEditScreen} />

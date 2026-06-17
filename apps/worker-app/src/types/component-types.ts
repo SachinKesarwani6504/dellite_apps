@@ -1,6 +1,7 @@
 import type { ComponentProps, ElementRef } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 import type { Image, ImageBackground, ImageSourcePropType, StyleProp, ViewProps, ViewStyle } from 'react-native';
+import type { WorkerJobListItem } from '@/types/jobs';
 import type { WorkerCurrentStatus } from '@/types/auth';
 import type { ImageCacheMode } from '@/types/shared';
 import type { UploadPreviewFile } from '@/types/file-upload';
@@ -153,4 +154,27 @@ export type BookingServiceSummaryCardProps = {
   totalLabel: string;
   addons?: BookingServiceSummaryCardAddon[];
   onRemove?: () => void;
+};
+
+export type WorkerOngoingJobCardProps = {
+  item: WorkerJobListItem;
+  onPress: (jobId: string) => void;
+};
+
+export type WorkerOngoingJobsRowProps = {
+  items: WorkerJobListItem[];
+  onPressJob: (jobId: string) => void;
+};
+
+export type LivePulseIndicatorSize = 'default' | 'compact';
+
+export type LivePulseIndicatorProps = {
+  size?: LivePulseIndicatorSize;
+};
+
+export type SectionHeaderRowProps = {
+  title: string;
+  onPressAction?: () => void;
+  actionIconName?: 'chevron-forward' | 'arrow-forward' | 'ellipsis-horizontal';
+  showLiveIndicator?: boolean;
 };

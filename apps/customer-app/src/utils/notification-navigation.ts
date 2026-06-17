@@ -123,12 +123,10 @@ export function normalizeNotificationPayload(source: NotificationSource): Notifi
 
 function openCustomerBookingsList() {
   openCustomerMainTabs({
-    screen: MAIN_TAB_SCREEN.BOOKINGS,
+    screen: MAIN_TAB_SCREEN.PROFILE,
     initial: false,
-    params: {
-      screen: BOOKINGS_SCREEN.HOME,
-    },
   });
+  openCustomerProfileDetails(PROFILE_SCREEN.BOOKINGS);
 }
 
 function openCustomerProfileHome() {

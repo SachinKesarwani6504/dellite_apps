@@ -3,7 +3,6 @@ import { useColorScheme } from 'react-native';
 
 import { APP_TEXT } from '@/utils/appText';
 import { AppIcon } from '@/icons';
-import { BookingsNavigator } from '@/navigation/BookingsNavigator';
 import { HomeNavigator } from '@/navigation/HomeNavigator';
 import { AllServicesNavigator } from '@/navigation/AllServicesNavigator';
 import { ProfileNavigator } from '@/navigation/ProfileNavigator';
@@ -22,10 +21,9 @@ export function MainTabsNavigator() {
         tabBarInactiveTintColor: isDark ? palette.dark.mutedText : palette.light.mutedText,
         tabBarStyle: { backgroundColor: isDark ? palette.dark.card : palette.light.card },
         tabBarIcon: ({ color, size }: { color: string; size: number }) => {
-          const tabIconMap: Record<keyof MainTabsParamList, 'home' | 'allServices' | 'bookings' | 'profile'> = {
+          const tabIconMap: Record<keyof MainTabsParamList, 'home' | 'allServices' | 'profile'> = {
             [MAIN_TAB_SCREEN.HOME]: 'home',
             [MAIN_TAB_SCREEN.ALL_SERVICES]: 'allServices',
-            [MAIN_TAB_SCREEN.BOOKINGS]: 'bookings',
             [MAIN_TAB_SCREEN.PROFILE]: 'profile',
           };
           const iconName = tabIconMap[route.name as keyof MainTabsParamList];
@@ -44,11 +42,6 @@ export function MainTabsNavigator() {
         options={{ title: APP_TEXT.tabs.allServicesLabel }}
       />
       <Tab.Screen
-        name={MAIN_TAB_SCREEN.BOOKINGS}
-        component={BookingsNavigator}
-        options={{ title: APP_TEXT.tabs.bookingsLabel }}
-      />
-      <Tab.Screen
         name={MAIN_TAB_SCREEN.PROFILE}
         component={ProfileNavigator}
         options={{ title: APP_TEXT.tabs.profileLabel }}
@@ -56,4 +49,3 @@ export function MainTabsNavigator() {
     </Tab.Navigator>
   );
 }
-

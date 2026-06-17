@@ -32,6 +32,9 @@ export function PhoneLoginScreen({ navigation }: Props) {
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [activePillId, setActivePillId] = useState(TRUST_PILLS[0].id);
   const isDark = useColorScheme() === 'dark';
+  const heroGradient = isDark
+    ? ([palette.dark.background, uiColors.surface.cardDefaultDark, uiColors.surface.cardMutedDark] as const)
+    : theme.gradients.hero;
   const normalizedPhone = phoneNumber.replace(/\D/g, '');
   const isPhoneComplete = normalizedPhone.length === 10;
 
@@ -66,6 +69,10 @@ export function PhoneLoginScreen({ navigation }: Props) {
 
   return (
     <GradientScreen
+      useGradient
+      gradientColors={heroGradient}
+      gradientStart={{ x: 0, y: 0 }}
+      gradientEnd={{ x: 0, y: 1 }}
       contentContainerStyle={{ padding: 0, paddingBottom: 24 }}
     >
       <View className="flex-1">

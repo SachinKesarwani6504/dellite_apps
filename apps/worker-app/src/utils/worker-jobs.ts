@@ -1,10 +1,23 @@
 import type {
-  WorkerJobAssignmentStatus,
+  BookingPaymentStatus,
+} from '@/types/booking';
+import { BOOKING_PAYMENT_STATUS } from '@/types/booking';
+import type {
   WorkerJobBookingStatus,
   WorkerJobInviteStatus,
   WorkerJobListItem,
   WorkerJobListTab,
 } from '@/types/jobs';
+import { extractImageUrl } from '@/utils';
+import { formatDisplayDateTime } from '@/utils/date-display';
+import { getBookingPaymentStatusLabel } from '@/utils/booking-details';
+
+export function normalizeWorkerJobListTabForUi(tab: WorkerJobListTab | undefined): WorkerJobListTab {
+  if (tab === 'NEW_JOBS' || tab === 'COMPLETED') {
+    return tab;
+  }
+  return 'ALL';
+}
 
 function normalizeText(value: string | null | undefined) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -41,6 +54,8 @@ export function buildWorkerJobsListPath(params: {
   page: number;
   limit: number;
   tab: WorkerJobListTab;
+}, options?: {
+  disablePaymentStatusFilter?: boolean;
 }) {
   const query = new URLSearchParams();
   query.set('page', String(params.page));
@@ -50,15 +65,25 @@ export function buildWorkerJobsListPath(params: {
   const excludeBookingStatus: WorkerJobBookingStatus[] = [];
   const includeInviteStatus: WorkerJobInviteStatus[] = [];
   const excludeInviteStatus: WorkerJobInviteStatus[] = [];
+  const includePaymentStatus: BookingPaymentStatus[] = [];
 
   if (params.tab === 'NEW_JOBS') {
     includeInviteStatus.push('NEW_JOB_REQUEST' ,"VIEWED");
   } else if (params.tab === 'ONGOING') {
-    includeBookingStatus.push('CONFIRMED', 'IN_PROGRESS');
+    includeBookingStatus.push('CREATED', 'SEARCHING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED');
     includeInviteStatus.push('ACCEPTED');
+    if (!options?.disablePaymentStatusFilter) {
+      includePaymentStatus.push(
+        BOOKING_PAYMENT_STATUS.PENDING,
+        BOOKING_PAYMENT_STATUS.FAILED,
+        BOOKING_PAYMENT_STATUS.REFUND_PENDING,
+        BOOKING_PAYMENT_STATUS.REFUNDED,
+      );
+    }
   } else if (params.tab === 'COMPLETED') {
     includeBookingStatus.push('COMPLETED');
     includeInviteStatus.push('ACCEPTED');
+    includePaymentStatus.push(BOOKING_PAYMENT_STATUS.PAID, BOOKING_PAYMENT_STATUS.CASH_COLLECTED);
   } else {
     includeInviteStatus.push('ACCEPTED');
   }
@@ -67,6 +92,7 @@ export function buildWorkerJobsListPath(params: {
   excludeBookingStatus.forEach(value => query.append('excludeBookingStatus', value));
   includeInviteStatus.forEach(value => query.append('includeInviteStatus', value));
   excludeInviteStatus.forEach(value => query.append('excludeInviteStatus', value));
+  includePaymentStatus.forEach(value => query.append('bookingPaymentStatus', value));
 
   return `/jobs?${query.toString()}`;
 }
@@ -98,13 +124,7 @@ export function getWorkerJobScheduleLabel(item: WorkerJobListItem) {
   }
   const parsed = new Date(scheduledStartAt);
   if (Number.isNaN(parsed.getTime())) return scheduledStartAt;
-  return parsed.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatDisplayDateTime(parsed);
 }
 
 export function getWorkerJobAddressLabel(item: WorkerJobListItem) {
@@ -133,32 +153,44 @@ export function getWorkerJobCustomerSubtitle(item: WorkerJobListItem) {
   return 'Customer';
 }
 
+export function getWorkerJobCustomerImageUrl(item: WorkerJobListItem) {
+  const user = item.customerInfo?.user;
+  return extractImageUrl(user?.profileImage)
+    ?? (typeof user?.profileImageUrl === 'string' ? user.profileImageUrl.trim() : null);
+}
+
 export function getWorkerJobBookingAmountLabel(item: WorkerJobListItem) {
-  return formatInrAmount(toAmount(item.booking.totalAmount));
+  return formatInrAmount(toAmount(item.booking.payableAmount ?? item.booking.totalAmount));
 }
 
 export function getWorkerJobPayoutAmountLabel(item: WorkerJobListItem) {
-  const bookingTotalAmount = toAmount(item.booking.totalAmount) ?? 0;
-  const commissionFromBooking = toAmount(item.booking.bookingCommissionAmount);
-  const commissionFromLines = (item.commissions ?? [])
-    .reduce((sum, commission) => sum + (toAmount(commission.commissionAmount) ?? 0), 0);
-  const resolvedCommission = commissionFromBooking ?? (commissionFromLines > 0 ? commissionFromLines : 0);
-  return formatInrAmount(Math.max(0, bookingTotalAmount - resolvedCommission));
+  return formatInrAmount(toAmount(item.booking.workerPayoutAmount));
+}
+
+export function getWorkerJobPaymentStatusLabel(item: WorkerJobListItem) {
+  return getBookingPaymentStatusLabel(item.booking.paymentStatus);
+}
+
+export function getWorkerJobVisibleServiceLabels(item: WorkerJobListItem) {
+  const serviceNames = (item.services ?? [])
+    .map(service => titleCaseText(service.serviceName))
+    .filter((value): value is string => Boolean(value));
+  const visible = serviceNames.slice(0, 2);
+  const extraCount = Math.max(0, serviceNames.length - visible.length);
+  return { visible, extraCount };
 }
 
 export function getWorkerJobStatusLabel(item: WorkerJobListItem) {
-  const assignmentStatus = item.assignments?.[0]?.assignmentStatus;
   const inviteStatus = item.invite?.inviteStatus;
   const bookingStatus = item.booking.bookingStatus;
-  return titleCaseText(assignmentStatus ?? inviteStatus ?? bookingStatus) ?? 'Ongoing';
+  return titleCaseText(inviteStatus ?? bookingStatus) ?? 'Ongoing';
 }
 
 export function getWorkerJobStatusBadgeState(item: WorkerJobListItem): 'ONGOING' | 'COMPLETED' | 'CANCELLED' {
-  const assignmentStatus = item.assignments?.[0]?.assignmentStatus;
   const inviteStatus = item.invite?.inviteStatus;
   const bookingStatus = item.booking.bookingStatus;
 
-  const negativeStatuses: Array<WorkerJobBookingStatus | WorkerJobInviteStatus | WorkerJobAssignmentStatus> = [
+  const negativeStatuses: Array<WorkerJobBookingStatus | WorkerJobInviteStatus> = [
     'CANCELLED',
     'EXPIRED',
     'REJECTED',
@@ -166,12 +198,11 @@ export function getWorkerJobStatusBadgeState(item: WorkerJobListItem): 'ONGOING'
   if (
     (bookingStatus && negativeStatuses.includes(bookingStatus))
     || (inviteStatus && negativeStatuses.includes(inviteStatus))
-    || (assignmentStatus && negativeStatuses.includes(assignmentStatus))
   ) {
     return 'CANCELLED';
   }
 
-  if (bookingStatus === 'COMPLETED' || assignmentStatus === 'COMPLETED') {
+  if (bookingStatus === 'COMPLETED') {
     return 'COMPLETED';
   }
 

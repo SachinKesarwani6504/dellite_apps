@@ -46,19 +46,19 @@ const screenRouteConfig: Record<AppBannerTargetScreen, (params: BannerActionHand
     params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.CATEGORY_SELECT]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.jobs });
+    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.SUBCATEGORY_SELECT]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.jobs });
+    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.SERVICE_SELECT]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.jobs });
+    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.BOOKING_REVIEW]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.jobs });
+    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.MY_BOOKINGS]: (params) => {
-    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.jobs });
+    params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.home });
   },
   [APP_BANNER_TARGET_SCREEN.PROFILE]: (params) => {
     params.navigation.navigate(ROOT_SCREENS.mainTabsNavigator, { screen: MAIN_TAB_SCREENS.profile });

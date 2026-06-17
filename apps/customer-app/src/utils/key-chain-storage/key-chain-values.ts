@@ -1,8 +1,8 @@
 export const keyChainValues = {
   authService: 'dellite.customer.tokens',
-  authUsername: 'auth',
+  authUsername: 'customer_auth',
   onboardingService: 'dellite.customer.onboarding',
-  onboardingUsername: 'phone_token',
+  onboardingUsername: 'customer_phone_token',
   deviceService: 'dellite.customer.device',
-  deviceUsername: 'device_id',
+  deviceUsername: 'customer_device_id',
 } as const;

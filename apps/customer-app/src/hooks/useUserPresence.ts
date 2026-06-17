@@ -1,7 +1,8 @@
 import { AppState, AppStateStatus } from 'react-native';
 import { useEffect, useMemo, useRef } from 'react';
 import { onDisconnect } from 'firebase/database';
-import { getRealtimeServerTimestamp, getUserPresenceRef, updateUserPresence } from '@/lib/firebase';
+import { buildUserPresencePayload, getRealtimeServerTimestamp, getUserPresenceRef, updateUserPresence } from '@/lib/firebase';
+import { APP_AUTH_ROLE } from '@/types/auth';
 import { resolveFirebasePresenceUserId } from '@/utils/firebase-session';
 
 const PRESENCE_HEARTBEAT_MS = 30000;
@@ -31,9 +32,11 @@ function now() {
 
 export function useUserPresence({
   userId,
+  roleEntityId,
   enabled = true,
 }: {
   userId: string | null | undefined;
+  roleEntityId: string | null | undefined;
   enabled?: boolean;
 }) {
   const currentStateRef = useRef<AppStateStatus>(AppState.currentState);
@@ -48,6 +51,7 @@ export function useUserPresence({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let resolvedPresenceUserId: string | null = null;
+    let resolvedRoleEntityId: string | null = null;
     let presenceRef: ReturnType<typeof getUserPresenceRef> | null = null;
 
     const clearRetryTimer = () => {
@@ -68,7 +72,7 @@ export function useUserPresence({
     };
 
     const markPresence = async (nextAppState: AppStateStatus, reason: string) => {
-      if (!resolvedPresenceUserId || !presenceRef) {
+      if (!resolvedPresenceUserId || !resolvedRoleEntityId || !presenceRef) {
         scheduleRetry(nextAppState);
         return;
       }
@@ -77,14 +81,13 @@ export function useUserPresence({
       const timestamp = now();
 
       try {
-        await updateUserPresence(resolvedPresenceUserId, {
+        await updateUserPresence(resolvedPresenceUserId, resolvedRoleEntityId, buildUserPresencePayload(APP_AUTH_ROLE, resolvedPresenceUserId, resolvedRoleEntityId, {
           appState,
           isConnected: true,
-          userId: resolvedPresenceUserId,
           lastSeenAt: timestamp,
           disconnectedAt: null,
           updatedAt: timestamp,
-        });
+        }));
         logPresence('updated', { userId: resolvedPresenceUserId, appState, reason });
       } catch (error) {
         logPresence('update-failed', {
@@ -103,17 +106,18 @@ export function useUserPresence({
         logPresence('setup-skipped-no-presence-user-id', { userId });
         return;
       }
+      resolvedRoleEntityId = roleEntityId ?? resolvedPresenceUserId;
 
-      presenceRef = getUserPresenceRef(resolvedPresenceUserId);
+      presenceRef = getUserPresenceRef(resolvedPresenceUserId, resolvedRoleEntityId);
 
       try {
-        await onDisconnect(presenceRef).update({
+        await onDisconnect(presenceRef).update(buildUserPresencePayload(APP_AUTH_ROLE, resolvedPresenceUserId, resolvedRoleEntityId, {
           appState: 'OFFLINE',
           isConnected: false,
-          userId: resolvedPresenceUserId,
-          disconnectedAt: getRealtimeServerTimestamp(),
-          updatedAt: getRealtimeServerTimestamp(),
-        });
+          lastSeenAt: now(),
+          disconnectedAt: getRealtimeServerTimestamp() as unknown as number,
+          updatedAt: getRealtimeServerTimestamp() as unknown as number,
+        }));
         logPresence('ondisconnect-registered', { userId: resolvedPresenceUserId });
       } catch (error) {
         logPresence('ondisconnect-register-failed', {
@@ -146,18 +150,17 @@ export function useUserPresence({
       }
       void (async () => {
         try {
-          if (!resolvedPresenceUserId) {
+          if (!resolvedPresenceUserId || !resolvedRoleEntityId) {
             return;
           }
 
-          await updateUserPresence(resolvedPresenceUserId, {
+          await updateUserPresence(resolvedPresenceUserId, resolvedRoleEntityId, buildUserPresencePayload(APP_AUTH_ROLE, resolvedPresenceUserId, resolvedRoleEntityId, {
             appState: 'OFFLINE',
             isConnected: false,
-            userId: resolvedPresenceUserId,
             lastSeenAt: now(),
             disconnectedAt: now(),
             updatedAt: now(),
-          });
+          }));
           logPresence('offline-cleanup-written', { userId: resolvedPresenceUserId });
         } catch {
           // Non-blocking cleanup.
@@ -174,7 +177,7 @@ export function useUserPresence({
         }
       })();
     };
-  }, [enabled, userId]);
+  }, [enabled, roleEntityId, userId]);
 
   return useMemo(() => ({
     isActive: enabled && Boolean(userId) && !cleanupInProgressRef.current,

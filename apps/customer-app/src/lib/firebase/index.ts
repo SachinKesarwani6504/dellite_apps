@@ -6,6 +6,7 @@ import { Database, DataSnapshot, getDatabase, onDisconnect, onValue, ref, remove
 import type { UserLiveEvent } from '@/types/live-notifications';
 import type { UserPresence } from '@/types/rtdb';
 import type { WorkerLiveLocationRecord } from '@/types/worker-live-location';
+import type { DeviceSessionRole } from '@/types/auth';
 import { ENV } from '@/utils/env';
 
 export type FirebaseRuntimeConfig = {
@@ -117,48 +118,67 @@ export function getLiveLocationPath(namespace: LiveLocationNamespace, userId: st
   return `${namespace}/${userId}`;
 }
 
-export function getWorkerLivePath(userId: string) {
-  return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.WORKER, userId);
+export function getWorkerLivePath(workerUserId: string, workerId: string) {
+  return `${getLiveLocationPath(LIVE_LOCATION_NAMESPACE.WORKER, workerUserId)}/${workerId}`;
 }
 
 export function getCustomerLivePath(userId: string) {
   return getLiveLocationPath(LIVE_LOCATION_NAMESPACE.CUSTOMER, userId);
 }
 
-export function getUserPresencePath(userId: string) {
-  return `userPresence/${userId}`;
+function getRoleScopedUserPath(root: 'userPresence' | 'userLiveEvents', userId: string, roleEntityId: string) {
+  return `${root}/${userId}/${roleEntityId}`;
 }
 
-export function getUserLiveEventsPath(userId: string) {
-  return `userLiveEvents/${userId}`;
+export function getUserPresencePath(userId: string, roleEntityId: string) {
+  return getRoleScopedUserPath('userPresence', userId, roleEntityId);
 }
 
-export function getUserLiveEventPath(userId: string, eventId: string) {
-  return `${getUserLiveEventsPath(userId)}/${eventId}`;
+export function getUserLiveEventsPath(userId: string, roleEntityId: string) {
+  return getRoleScopedUserPath('userLiveEvents', userId, roleEntityId);
 }
 
-export function getUserPresenceRef(userId: string) {
-  return ref(getFirebaseDatabase(), getUserPresencePath(userId));
+export function getUserLiveEventPath(userId: string, roleEntityId: string, eventId: string) {
+  return `${getUserLiveEventsPath(userId, roleEntityId)}/${eventId}`;
 }
 
-export function getUserLiveEventsRef(userId: string) {
-  return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId));
+export function getUserPresenceRef(userId: string, roleEntityId: string) {
+  return ref(getFirebaseDatabase(), getUserPresencePath(userId, roleEntityId));
 }
 
-export function getUserLiveEventRef(userId: string, eventId: string) {
-  return ref(getFirebaseDatabase(), getUserLiveEventPath(userId, eventId));
+export function getUserLiveEventsRef(userId: string, roleEntityId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventsPath(userId, roleEntityId));
 }
 
-export async function updateUserPresence(userId: string, payload: UserPresence) {
-  await update(getUserPresenceRef(userId), payload);
+export function getUserLiveEventRef(userId: string, roleEntityId: string, eventId: string) {
+  return ref(getFirebaseDatabase(), getUserLiveEventPath(userId, roleEntityId, eventId));
 }
 
-export async function removeUserLiveEvent(userId: string, eventId: string) {
-  await remove(getUserLiveEventRef(userId, eventId));
+export function buildUserPresencePayload(
+  role: DeviceSessionRole,
+  userId: string,
+  roleEntityId: string,
+  payload: Omit<UserPresence, 'role' | 'userId' | 'customerId' | 'workerId'>,
+): UserPresence {
+  return {
+    ...payload,
+    role,
+    userId,
+    customerId: role === 'CUSTOMER' ? roleEntityId : null,
+    workerId: role === 'WORKER' ? roleEntityId : null,
+  };
 }
 
-export function registerUserPresenceOnDisconnect(userId: string) {
-  return onDisconnect(getUserPresenceRef(userId));
+export async function updateUserPresence(userId: string, roleEntityId: string, payload: UserPresence) {
+  await update(getUserPresenceRef(userId, roleEntityId), payload);
+}
+
+export async function removeUserLiveEvent(userId: string, roleEntityId: string, eventId: string) {
+  await remove(getUserLiveEventRef(userId, roleEntityId, eventId));
+}
+
+export function registerUserPresenceOnDisconnect(userId: string, roleEntityId: string) {
+  return onDisconnect(getUserPresenceRef(userId, roleEntityId));
 }
 
 export function getRealtimeServerTimestamp() {
@@ -166,26 +186,43 @@ export function getRealtimeServerTimestamp() {
 }
 
 export function subscribeWorkerLiveLocation(
+  workerUserId: string,
   workerId: string,
   onLocation: (location: WorkerLiveLocationRecord | null) => void,
   onError: (error: Error) => void,
 ) {
-  const workerLiveRef = ref(getFirebaseDatabase(), getWorkerLivePath(workerId));
-  return onValue(
-    workerLiveRef,
-    (snapshot: DataSnapshot) => {
-      onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
-    },
-    onError,
-  );
+  if (!isFirebaseConfigured) {
+    queueMicrotask(() => {
+      onError(new Error(
+        `[firebase-config] Missing firebase env keys: ${missingFirebaseConfigKeys.join(', ')}.`,
+      ));
+    });
+    return () => {};
+  }
+
+  try {
+    return onValue(
+      ref(getFirebaseDatabase(), getWorkerLivePath(workerUserId, workerId)),
+      (snapshot: DataSnapshot) => {
+        onLocation(snapshot.exists() ? (snapshot.val() as WorkerLiveLocationRecord) : null);
+      },
+      onError,
+    );
+  } catch (error) {
+    queueMicrotask(() => {
+      onError(error instanceof Error ? error : new Error('Unable to subscribe to worker live location.'));
+    });
+    return () => {};
+  }
 }
 
 export function subscribeUserLiveEvents(
   userId: string,
+  roleEntityId: string,
   onEvent: (event: UserLiveEvent | null) => void,
   onError: (error: Error) => void,
 ) {
-  const eventsRef = getUserLiveEventsRef(userId);
+  const eventsRef = getUserLiveEventsRef(userId, roleEntityId);
   return onValue(
     eventsRef,
     (snapshot: DataSnapshot) => {

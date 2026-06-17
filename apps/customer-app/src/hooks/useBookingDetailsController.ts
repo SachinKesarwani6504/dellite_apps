@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { customerActions } from '@/actions';
 import { apiGet } from '@/actions/http/httpClient';
-import type { ApiEnvelope } from '@/types/api';
+import { ApiError, type ApiEnvelope } from '@/types/api';
 import { BOOKING_STATUS } from '@/types/booking';
 import type {
   BookingStartOtp,
@@ -60,6 +60,7 @@ export function useBookingDetailsController({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [startOtp, setStartOtp] = useState<BookingStartOtp | null>(null);
 
   const bookingStatus = details?.booking.bookingStatus ?? null;
@@ -73,6 +74,7 @@ export function useBookingDetailsController({
       setIsRefreshing(true);
     }
     setError(null);
+    setIsNotFound(false);
 
     try {
       const response = await apiGet<BookingDetailsResponse | ApiEnvelope<BookingDetailsResponse>>(detailsPath, {
@@ -81,6 +83,9 @@ export function useBookingDetailsController({
       });
       setDetails(normalizeBookingDetails(unwrapBookingDetails(response)));
     } catch (fetchError) {
+      setDetails(null);
+      setStartOtp(null);
+      setIsNotFound(fetchError instanceof ApiError && fetchError.statusCode === 404);
       setError(getErrorMessage(fetchError, 'Unable to load booking details.'));
     } finally {
       setIsInitialLoading(false);
@@ -126,6 +131,7 @@ export function useBookingDetailsController({
     isInitialLoading,
     isRefreshing,
     error,
+    isNotFound,
     refresh,
   };
 }

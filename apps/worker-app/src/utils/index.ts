@@ -1,5 +1,6 @@
 export { normalizeCityName } from '@/utils/location';
 import { parseApiError } from '@/utils/api-error';
+import { formatDisplayDate } from '@/utils/date-display';
 
 export function toBearerToken(value: string): string {
   const trimmed = value.trim();
@@ -26,24 +27,7 @@ export function titleCase(value: string): string {
 }
 
 export function formatDateToDdMmmYyyy(value?: string | number | Date | null): string {
-  if (value == null) {
-    return '--';
-  }
-
-  const normalized = typeof value === 'string' ? value.trim() : value;
-  if (typeof normalized === 'string' && !normalized) {
-    return '--';
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return '--';
-  }
-
-  const day = String(parsed.getDate()).padStart(2, '0');
-  const month = parsed.toLocaleString('en-US', { month: 'short' });
-  const year = parsed.getFullYear();
-  return `${day} ${month} ${year}`;
+  return formatDisplayDate(value, { fallback: '--' });
 }
 
 // Keep reusable helpers here (avoid defining helpers inside screens/components).
@@ -94,12 +78,14 @@ export * from '@/utils/profile';
 export * from '@/utils/referral';
 export * from '@/utils/onboarding';
 export * from '@/utils/date';
+export * from '@/utils/date-display';
 export * from '@/utils/certificate-onboarding';
 export * from '@/utils/certificate-payload';
 export * from '@/utils/firebase-session';
 export * from '@/utils/locationDistance';
 export * from '@/utils/worker-live';
 export * from '@/utils/booking-details';
+export * from '@/utils/history-timeline';
 export * from '@/utils/live-tracking';
 export * from '@/utils/live-route';
 export * from '@/utils/svgicons';
@@ -107,10 +93,13 @@ export * from '@/utils/image-cache';
 export * from '@/utils/otp';
 export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
+export * from '@/utils/status-badge';
 export * from '@/utils/worker-jobs';
+export * from '@/utils/worker-finance';
 export * from '@/utils/api-error';
 export * from '@/utils/device-session';
 export * from '@/utils/notification-channel';
+export * from '@/utils/notification-handler';
 export * from '@/utils/in-app-notification';
 export * from '@/utils/live-notifications';
 export * from '@/utils/live-event-navigation';

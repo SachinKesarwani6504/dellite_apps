@@ -1,70 +1,62 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Text, View, useColorScheme, RefreshControl } from 'react-native';
-import { BookingServiceSummaryCard } from '@/components/common/BookingServiceSummaryCard';
+import { useCallback, useMemo, useState } from 'react';
+import { Linking, Pressable, Text, View, useColorScheme, RefreshControl } from 'react-native';
+import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
+import { BookingDetailsHistoryTab } from '@/components/booking-details/BookingDetailsHistoryTab';
+import { BookingDetailsPaymentTab } from '@/components/booking-details/BookingDetailsPaymentTab';
+import { BookingDetailsServicesTab } from '@/components/booking-details/BookingDetailsServicesTab';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
+import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
-import { StatusBadge } from '@/components/common/StatusBadge';
+import { StatusInfoTile } from '@/components/common/StatusInfoTile';
 import { OtpCodeInput } from '@/components/common/OtpCodeInput';
 import { WorkerBookingRouteMap } from '@/components/common/WorkerBookingRouteMap';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import { useBookingLiveRoute } from '@/hooks/useBookingLiveRoute';
 import { useBookingDetailsController } from '@/hooks/useBookingDetailsController';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocationReader } from '@/hooks/useWorkerLiveLocationReader';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
-import type { BookingDetailsServiceLine } from '@/types/booking-details';
+import { AppImage } from '@/components/common/AppImage';
+import type { JobStackParamList } from '@/types/navigation';
 import { BOOKING_STATUS, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
-import type { JobStackParamList } from '@/types/navigation';
 import { APP_TEXT } from '@/utils/appText';
 import {
   formatBookingAddress,
-  formatBookingDateTime,
+  getBookingCustomerCardDisplay,
   getBookingDetailsHeaderSubtitle,
   getBookingDetailsOverviewChips,
   getBookingDetailsOverviewRows,
-  formatBookingMoney,
-  getBookingLineDurationMinutes,
-  getBookingLineKey,
-  getBookingLineQuantity,
+  getBookingDetailsNotes,
   getBookingMapDestinationCoordinates,
   getBookingUserName,
-  isBookingHourlyLine,
-  titleCaseBookingValue,
 } from '@/utils/booking-details';
+import {
+  canWorkerCancelBeforeStart,
+  canWorkerUpdateProgress,
+  canWorkerRecordPayment,
+} from '@/utils/job-actions';
 import { resolveWorkerIdFromAuthUser } from '@/utils';
+import { createWorkerBookingContactEvent } from '@/actions/workerActions';
+import { showToast } from '@/utils/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 const JOB_DETAILS_TABS = [
   { label: 'Bill', value: 'BILL', iconName: 'receipt-outline' as const },
+  { label: 'Live location', value: 'LIVE_LOCATION', iconName: 'navigate-outline' as const },
   { label: 'Services', value: 'SERVICES', iconName: 'construct-outline' as const },
-  { label: 'Live Location', value: 'LIVE_LOCATION', iconName: 'navigate-outline' as const },
+  { label: 'Payments', value: 'PAYMENT', iconName: 'card-outline' as const },
   { label: 'History', value: 'HISTORY', iconName: 'time-outline' as const },
 ] as const;
-
-function getLineSelectedValue(line: BookingDetailsServiceLine) {
-  if (isBookingHourlyLine(line)) {
-    const minutes = getBookingLineDurationMinutes(line);
-    const hoursLabel = minutes ? `${Math.max(1, Math.round(minutes / 60))} hr` : '1 hr';
-    return {
-      label: 'Duration',
-      value: hoursLabel,
-    };
-  }
-
-  return {
-    label: 'Quantity',
-    value: `${getBookingLineQuantity(line)}`,
-  };
-}
 
 function getInviteStatusFromDetails(details: unknown): WorkerJobInviteStatus | null {
   if (!details || typeof details !== 'object') return null;
@@ -79,7 +71,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
+  const { showConfirmSheet } = useBottomSheetContext();
   const { user, me } = useAuthContext();
+  const workerUserId = user?.id ?? null;
   const workerId = useMemo(
     () => resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null),
     [me, user],
@@ -91,20 +85,24 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     goOnline,
     updateAvailability,
     updateVehicleMode,
-  } = useWorkerLiveLocation({ workerId });
+  } = useWorkerLiveLocation({ workerUserId, workerId });
   const routeVehicleMode = liveVehicleMode === 'UNKNOWN' ? 'CAR' : liveVehicleMode;
   const {
     details,
     loading,
     error,
+    isNotFound,
     startOtp,
     startOtpError,
     startingJob,
     inviteActionLoading,
+    jobActionLoading,
     setStartOtp,
     acceptInvite,
     rejectInvite,
     startBookingWithOtp,
+    updateProgress,
+    confirmPaymentReceived,
     refetch,
   } = useBookingDetailsController(route.params.jobId, 'WORKER', {
     onInviteAccepted: async () => {
@@ -117,7 +115,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     return status === BOOKING_STATUS.SEARCHING || status === BOOKING_STATUS.CONFIRMED || status === BOOKING_STATUS.IN_PROGRESS;
   }, [details]);
 
-  const workerLiveState = useWorkerLiveLocationReader(workerId, Boolean(details) && showLiveLocation);
+  const workerLiveState = useWorkerLiveLocationReader(workerUserId, workerId, Boolean(details) && showLiveLocation);
   const cardStyle = {
     borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
     backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
@@ -128,6 +126,9 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     elevation: 3,
   };
   const mutedTextColor = isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight;
+  const showInitialLoading = loading && !details;
+  const showNotFoundState = !showInitialLoading && isNotFound && !details;
+  const showErrorState = !showInitialLoading && !showNotFoundState && Boolean(error) && !details;
 
   const originCoordinates = useMemo(() => {
     const latitude = workerLiveState.location?.lat;
@@ -137,7 +138,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     return { latitude, longitude };
   }, [workerLiveState.location?.lat, workerLiveState.location?.lng]);
   const destinationCoordinates = getBookingMapDestinationCoordinates(details?.address);
-
   const routeState = useBookingLiveRoute({
     origin: originCoordinates,
     destination: destinationCoordinates,
@@ -153,87 +153,113 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   const canAcceptReject = inviteStatus === WORKER_JOB_INVITE_STATUS.VIEWED || inviteStatus === WORKER_JOB_INVITE_STATUS.NEW_JOB_REQUEST;
   const canStartWithOtp = inviteStatus === WORKER_JOB_INVITE_STATUS.ACCEPTED
     && details?.booking.bookingStatus === BOOKING_STATUS.CONFIRMED;
-  const availableTabs = useMemo(() => {
-    return JOB_DETAILS_TABS.filter((tab) => tab.value !== 'LIVE_LOCATION' || showLiveLocation);
-  }, [showLiveLocation]);
-
-  useEffect(() => {
-    if (activeTab === 'LIVE_LOCATION' && !showLiveLocation && details) {
-      setActiveTab('BILL');
-    }
-  }, [activeTab, showLiveLocation, details]);
+  const canCancelBeforeStart = canWorkerCancelBeforeStart(details);
+  const canUpdateJobProgress = canWorkerUpdateProgress(details);
+  const assignmentStatus = details?.assignment?.assignmentStatus?.trim().toUpperCase() ?? '';
+  const canMarkArrived = canUpdateJobProgress && assignmentStatus === 'EN_ROUTE';
+  const canMarkWorkerWorkComplete = canUpdateJobProgress && assignmentStatus === 'ARRIVED';
+  const showWorkerProgressActions = canMarkArrived || canMarkWorkerWorkComplete;
+  const canCallCustomer = details?.booking.bookingStatus === BOOKING_STATUS.CONFIRMED
+    || details?.booking.bookingStatus === BOOKING_STATUS.IN_PROGRESS;
+  const customerPhone = details?.customerInfo?.user?.phone?.trim() ?? '';
+  const customerCard = useMemo(() => getBookingCustomerCardDisplay(details), [details]);
 
   const refreshDetails = useCallback(async () => {
-    setActiveTab('BILL');
     await refetch();
   }, [refetch]);
   const { refreshing, onRefresh } = usePullToRefresh(refreshDetails);
+
+  const handleCallCustomer = useCallback(async () => {
+    if (!details?.booking.id || !customerPhone) return;
+    try {
+      await createWorkerBookingContactEvent(details.booking.id, 'WORKER_CALLED_CUSTOMER', {
+        metadata: { source: 'job_detail' },
+      });
+    } catch {
+      showToast('info', APP_TEXT.jobs.contactEventError);
+    } finally {
+      void Linking.openURL(`tel:${customerPhone}`);
+    }
+  }, [customerPhone, details?.booking.id]);
+
+  const handleCancelJob = useCallback(() => {
+    showConfirmSheet({
+      title: APP_TEXT.jobs.cancelConfirmTitle,
+      subtitle: APP_TEXT.jobs.cancelConfirmSubtitle,
+      confirmAction: {
+        id: 'cancel-worker-job',
+        label: APP_TEXT.jobs.cancelConfirmButton,
+        tone: 'danger',
+        closeOnPress: false,
+        onPress: () => updateProgress('CANCELLED'),
+      },
+    });
+  }, [showConfirmSheet, updateProgress]);
+
+  const handleWorkerWorkComplete = useCallback(() => {
+    showConfirmSheet({
+      title: APP_TEXT.jobs.progressCompleteConfirmTitle,
+      subtitle: APP_TEXT.jobs.progressCompleteConfirmSubtitle,
+      confirmAction: {
+        id: 'complete-worker-job-work',
+        label: APP_TEXT.jobs.progressCompleteConfirmButton,
+        tone: 'primary',
+        closeOnPress: false,
+        onPress: () => updateProgress('COMPLETED'),
+      },
+    });
+  }, [showConfirmSheet, updateProgress]);
+
   const renderTabContent = () => {
     if (!details) return null;
 
     if (activeTab === 'BILL') {
-      const totalAmount = Number(details.booking.totalAmount ?? 0);
-      const commissionAmount = Number(details.booking.bookingCommissionAmount ?? 0);
-      const payoutAmount = Math.max(0, totalAmount - commissionAmount);
       return (
-        <View className="mt-4 overflow-hidden rounded-2xl border" style={cardStyle}>
-          <View className="flex-row items-center px-4 py-4" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft40 }}>
-            <Ionicons name="sparkles-outline" size={21} color={theme.colors.primary} />
-            <Text className="ml-2 text-base font-extrabold uppercase tracking-[2px] text-baseDark dark:text-white">
-              Bill Summary
-            </Text>
-          </View>
-
-          <View className="p-4">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm text-baseDark dark:text-white">Booking Total</Text>
-              <Text className="text-base font-extrabold text-baseDark dark:text-white">{formatBookingMoney(details.booking.totalAmount)}</Text>
-            </View>
-
-            <View className="mt-4 flex-row items-center justify-between">
-              <Text className="text-sm text-baseDark dark:text-white">Commission</Text>
-              <Text className="text-base font-extrabold text-primary">{formatBookingMoney(commissionAmount)}</Text>
-            </View>
-
-            <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
-
-            <View className="flex-row items-center justify-between px-1 py-1">
-              <Text className="text-sm font-bold" style={{ color: theme.colors.positive }}>
-                Your Payout
-              </Text>
-              <Text className="text-2xl font-extrabold" style={{ color: theme.colors.positive }}>
-                {formatBookingMoney(payoutAmount)}
-              </Text>
-            </View>
-          </View>
+        <View className="mt-4">
+          <BookingDetailsBillTab booking={details.booking} />
         </View>
       );
     }
 
     if (activeTab === 'SERVICES') {
+      return <BookingDetailsServicesTab details={details} />;
+    }
+
+    if (activeTab === 'PAYMENT') {
       return (
-        <View className="mt-4 gap-3">
-          {(details.serviceLines ?? []).map((line, index) => {
-            const selectedValue = getLineSelectedValue(line);
-            return (
-              <BookingServiceSummaryCard
-                key={line.id ?? `${getBookingLineKey(line)}-${index}`}
-                mode="VIEW"
-                title={titleCaseBookingValue(line.serviceName)}
-                subtitle={titleCaseBookingValue(line.subCategoryName ?? line.categoryName)}
-                selectedValueLabel={selectedValue.label}
-                selectedValue={selectedValue.value}
-                pricingTitle="Rate"
-                pricingValue={formatBookingMoney(line.unitPriceAmount)}
-                totalLabel={formatBookingMoney(line.lineTotalAmount)}
-              />
-            );
-          })}
-        </View>
+        <BookingDetailsPaymentTab
+          details={details}
+          canRecordPayment={canWorkerRecordPayment(details)}
+          jobActionLoading={jobActionLoading}
+          onConfirmPaymentReceived={confirmPaymentReceived}
+        />
       );
     }
 
     if (activeTab === 'LIVE_LOCATION') {
+      if (!showLiveLocation) {
+        return (
+          <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
+            <View className="flex-row items-start">
+              <View
+                className="h-11 w-11 items-center justify-center rounded-full"
+                style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+              >
+                <Ionicons name="navigate-outline" size={20} color={theme.colors.primary} />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                  {APP_TEXT.jobs.liveLocationNotReadyTitle}
+                </Text>
+                <Text className="mt-1 text-sm leading-5" style={{ color: mutedTextColor }}>
+                  {APP_TEXT.jobs.liveLocationNotReadySubtitle}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      }
+
       const shouldShowLocationEnableState = permissionStatus === Location.PermissionStatus.DENIED
         || (!originCoordinates && Boolean(liveLocationError));
 
@@ -272,8 +298,8 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
         return (
           <ListEmptyState
             containerClassName="mt-4"
-            title="Live location unavailable"
-            description="Worker live location is not available in RTDB yet."
+            title={APP_TEXT.jobs.liveLocationUnavailableTitle}
+            description={APP_TEXT.jobs.liveLocationUnavailableSubtitle}
             icon="navigate-outline"
           />
         );
@@ -298,64 +324,11 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
       );
     }
 
-    if ((details.history ?? []).length === 0) {
-      return (
-        <ListEmptyState
-          containerClassName="mt-4"
-          title="No timeline yet"
-          description="Booking updates will appear here."
-          icon="time-outline"
-        />
-      );
+    if (activeTab === 'HISTORY') {
+      return <BookingDetailsHistoryTab details={details} />;
     }
 
-    return (
-      <View className="mt-4 gap-4">
-        {(details.history ?? []).map((item, index) => (
-          <View
-            key={item.id ?? `history-${index}`}
-            className="overflow-hidden rounded-2xl border"
-            style={{
-              backgroundColor: isDark ? palette.dark.card : palette.light.card,
-              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-              borderTopWidth: 4,
-              borderTopColor: theme.colors.primary,
-              shadowColor: uiColors.shadow.base,
-              shadowOpacity: isDark ? 0 : 0.04,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 2,
-            }}
-          >
-            <View className="p-4">
-              <View className="flex-row items-center justify-between">
-                <View className="mr-3 flex-1 flex-row items-center">
-                  <View
-                    className="mr-3 h-8 w-8 items-center justify-center rounded-full"
-                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
-                  >
-                    <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-                  </View>
-                  <Text className="flex-1 text-base font-extrabold text-baseDark dark:text-white">
-                    {titleCaseBookingValue(item.title)}
-                  </Text>
-                </View>
-                <Text className="text-xs font-semibold" style={{ color: mutedTextColor }}>
-                  {formatBookingDateTime(item.createdAt)}
-                </Text>
-              </View>
-              {item.description ? (
-                <View className="mt-3 pl-11">
-                  <Text className="text-sm leading-5" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                    {item.description}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ))}
-      </View>
-    );
+    return null;
   };
 
   return (
@@ -372,24 +345,33 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     >
       <DetailsTopBar onBack={() => navigation.goBack()} />
 
-      {loading && !details ? (
+      {showInitialLoading ? (
         <LoadingState minHeight={360} />
       ) : null}
 
-      {error ? (
-        <View className="mt-4 rounded-2xl border p-4" style={cardStyle}>
-          <Text className="text-sm font-semibold" style={{ color: theme.colors.negative }}>{error}</Text>
-          <View className="mt-3">
-            <Button
-              label="Retry"
-              variant="secondary"
-              onPress={() => {
-                setActiveTab('BILL');
-                void refetch();
-              }}
-            />
-          </View>
-        </View>
+      {showNotFoundState ? (
+        <ListEmptyState
+          containerClassName="mt-4"
+          icon="search-outline"
+          title="Job not found"
+          description="This job may have been removed, expired, or is no longer available for your account."
+          actionLabel="Refresh"
+          onAction={() => {
+            void refetch();
+          }}
+        />
+      ) : null}
+
+      {showErrorState ? (
+        <ListErrorState
+          containerClassName="mt-4"
+          title={error ?? APP_TEXT.jobs.detailsLoadError}
+          description={APP_TEXT.jobs.tryAgainDescription}
+          actionLabel={APP_TEXT.jobs.retryAction}
+          onAction={() => {
+            void refetch();
+          }}
+        />
       ) : null}
 
       {details ? (
@@ -420,9 +402,6 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                     {getBookingDetailsHeaderSubtitle(details)}
                   </Text>
                 </View>
-              </View>
-              <View className="flex-row items-center">
-                <StatusBadge status={headerInviteStatus} showDot={false} />
               </View>
             </View>
 
@@ -470,6 +449,45 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                   </View>
                 ))}
               </View>
+
+              <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
+                <StatusInfoTile
+                  status={details.booking.bookingStatus ?? 'CREATED'}
+                  type="booking"
+                  subtitle={APP_TEXT.jobs.cardBookingStatusLabel}
+                />
+                <StatusInfoTile
+                  status={headerInviteStatus}
+                  type="invite"
+                  subtitle={APP_TEXT.jobs.cardInviteStatusLabel}
+                />
+              </View>
+
+              {getBookingDetailsNotes(details) ? (
+                <View
+                  className="mt-3 flex-row items-start border px-3 py-3"
+                  style={{
+                    borderRadius: 12,
+                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
+                  }}
+                >
+                  <View
+                    className="h-8 w-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card }}
+                  >
+                    <Ionicons name="document-text-outline" size={14} color={theme.colors.primary} />
+                  </View>
+                  <View className="ml-2 flex-1">
+                    <Text className="text-xs font-semibold" style={{ color: mutedTextColor }}>
+                      {APP_TEXT.jobs.detailsNotesLabel}
+                    </Text>
+                    <Text className="mt-0.5 text-sm font-bold leading-5 text-baseDark dark:text-white">
+                      {getBookingDetailsNotes(details)}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -493,16 +511,21 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.accentSoft20,
+                overflow: 'hidden',
               }}
             >
-              <Text className="text-base font-extrabold text-primary">
-                {getBookingUserName(details.customerInfo?.user).charAt(0).toUpperCase()}
-              </Text>
+              {customerCard.profileImageUrl ? (
+                <AppImage source={{ uri: customerCard.profileImageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              ) : (
+                <Text className="text-base font-extrabold text-primary">
+                  {customerCard.initial}
+                </Text>
+              )}
             </View>
 
             <View className="ml-3 flex-1">
               <Text className="text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
-                {getBookingUserName(details.customerInfo?.user)}
+                {customerCard.name ?? getBookingUserName(details.customerInfo?.user)}
               </Text>
               <Text
                 className="mt-0.5 text-xs font-semibold"
@@ -513,15 +536,85 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
               </Text>
             </View>
 
+            {canCallCustomer && customerPhone ? (
+              <Pressable
+                accessibilityLabel={APP_TEXT.jobs.callCustomerAction}
+                onPress={() => {
+                  void handleCallCustomer();
+                }}
+                className="h-11 w-11 items-center justify-center rounded-full border"
+                style={{
+                  backgroundColor: theme.colors.primary,
+                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                }}
+              >
+                <Ionicons name="call" size={19} color={theme.colors.onPrimary} />
+              </Pressable>
+            ) : null}
+
           </View>
 
+          {canCancelBeforeStart ? (
+            <View className="mt-3 overflow-hidden rounded-2xl border px-4 py-4" style={cardStyle}>
+              <View className="flex-row items-center">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-full border"
+                  style={{
+                    borderColor: theme.colors.secondary,
+                    backgroundColor: isDark ? `${theme.colors.secondary}18` : `${theme.colors.secondary}12`,
+                  }}
+                >
+                  <Ionicons name="warning-outline" size={21} color={theme.colors.secondary} />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                    {APP_TEXT.jobs.cancelCardTitle}
+                  </Text>
+                  <Text className="mt-0.5 text-sm leading-5" style={{ color: mutedTextColor }}>
+                    {APP_TEXT.jobs.cancelCardSubtitle}
+                  </Text>
+                </View>
+                <Pressable
+                  disabled={Boolean(jobActionLoading)}
+                  onPress={handleCancelJob}
+                  className="ml-3 rounded-xl border px-4 py-3"
+                  style={{
+                    borderColor: theme.colors.secondary,
+                    backgroundColor: isDark ? `${theme.colors.secondary}08` : palette.light.card,
+                    opacity: jobActionLoading ? 0.65 : 1,
+                  }}
+                >
+                  <Text className="text-sm font-extrabold" style={{ color: theme.colors.secondary }}>
+                    {APP_TEXT.jobs.cancelAction}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
           {canStartWithOtp ? (
-            <View className="mt-3 rounded-2xl border p-4" style={cardStyle}>
-              <Text className="text-sm font-bold text-baseDark dark:text-white">
-                {APP_TEXT.jobs.startOtpTitle}
-                <Text style={{ color: theme.colors.negative }}> *</Text>
-              </Text>
-              <View className="mt-3">
+            <View className="mt-3 overflow-hidden rounded-2xl border" style={cardStyle}>
+              <View className="flex-row items-start px-4 pt-4">
+                <View
+                  className="h-11 w-11 items-center justify-center rounded-full border"
+                  style={{
+                    borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+                    backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
+                  }}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.primary} />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                    {APP_TEXT.jobs.startOtpTitle}
+                  </Text>
+                  <Text className="mt-0.5 text-sm leading-5" style={{ color: mutedTextColor }}>
+                    {APP_TEXT.jobs.startOtpSubtitle}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="px-4 pb-4 pt-4">
                 <OtpCodeInput
                   value={startOtp}
                   onChange={(value) => {
@@ -535,22 +628,85 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
                     {startOtpError}
                   </Text>
                 ) : null}
+                <View className="mt-4 flex-row items-center rounded-xl px-3 py-3" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95 }}>
+                  <View
+                    className="h-7 w-7 items-center justify-center rounded-full"
+                    style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20 }}
+                  >
+                    <Ionicons name="information-circle-outline" size={16} color={theme.colors.primary} />
+                  </View>
+                  <Text className="ml-2 flex-1 text-xs font-medium leading-4" style={{ color: mutedTextColor }}>
+                    {APP_TEXT.jobs.startOtpNote}
+                  </Text>
+                </View>
+                <View className="mt-4">
+                  <Button
+                    label={APP_TEXT.jobs.startOtpButton}
+                    onPress={() => {
+                      void startBookingWithOtp();
+                    }}
+                    loading={startingJob}
+                    disabled={startOtp.trim().length !== 4 || startingJob}
+                  />
+                </View>
               </View>
-              <View className="mt-3">
-                <Button
-                  label={APP_TEXT.jobs.startOtpButton}
-                  onPress={() => {
-                    void startBookingWithOtp();
+            </View>
+          ) : null}
+
+          {showWorkerProgressActions ? (
+            <View className="mt-3 overflow-hidden rounded-2xl border px-4 py-4" style={cardStyle}>
+              <View className="flex-row items-start">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-full border"
+                  style={{
+                    borderColor: theme.colors.primary,
+                    backgroundColor: isDark ? `${theme.colors.primary}18` : uiColors.surface.accentSoft20,
                   }}
-                  loading={startingJob}
-                  disabled={startOtp.trim().length !== 4 || startingJob}
-                />
+                >
+                  <Ionicons name="walk-outline" size={21} color={theme.colors.primary} />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-extrabold text-baseDark dark:text-white">
+                    {APP_TEXT.jobs.progressTitle}
+                  </Text>
+                  <Text className="mt-0.5 text-sm leading-5" style={{ color: mutedTextColor }}>
+                    {canMarkWorkerWorkComplete
+                      ? APP_TEXT.jobs.progressCompleteHint
+                      : APP_TEXT.jobs.progressArrivedHint}
+                  </Text>
+                </View>
+              </View>
+              <View className="mt-4 flex-row items-center" style={{ gap: 10 }}>
+                {canMarkArrived ? (
+                  <View className="flex-1">
+                    <Button
+                      label={APP_TEXT.jobs.progressArrived}
+                      loading={jobActionLoading === 'ARRIVED'}
+                      disabled={Boolean(jobActionLoading)}
+                      onPress={() => {
+                        void updateProgress('ARRIVED');
+                      }}
+                    />
+                  </View>
+                ) : null}
+                {canMarkWorkerWorkComplete ? (
+                  <View className="flex-1">
+                    <Button
+                      label={APP_TEXT.jobs.progressComplete}
+                      loading={jobActionLoading === 'COMPLETED'}
+                      disabled={Boolean(jobActionLoading)}
+                      onPress={() => {
+                        handleWorkerWorkComplete();
+                      }}
+                    />
+                  </View>
+                ) : null}
               </View>
             </View>
           ) : null}
 
           <ScrollablePillTabs
-            items={availableTabs as any}
+            items={JOB_DETAILS_TABS as any}
             value={activeTab}
             onChange={setActiveTab}
           />

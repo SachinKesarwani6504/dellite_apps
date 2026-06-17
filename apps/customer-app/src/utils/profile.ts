@@ -1,4 +1,5 @@
 import { APP_TEXT } from '@/utils/appText';
+import { formatDisplayDate } from '@/utils/date-display';
 
 export function getUserCreatedAt(value: unknown): string | number | Date | null {
   if (!value || typeof value !== 'object') {
@@ -20,20 +21,7 @@ export function getUserCreatedAt(value: unknown): string | number | Date | null 
 }
 
 export function formatDateToDdMmmYyyy(value: unknown, fallback = 'N/A'): string {
-  if (value === null || value === undefined) {
-    return fallback;
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    return fallback;
-  }
-
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDisplayDate(value as string | number | Date | null | undefined, { fallback });
 }
 
 export function toDisplayGender(value?: unknown, fallback?: string): string {

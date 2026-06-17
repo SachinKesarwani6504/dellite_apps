@@ -21,6 +21,9 @@ type Props = {
 
 export function OtpVerificationScreen({ navigation }: Props) {
   const isDark = useColorScheme() === 'dark';
+  const heroGradient = isDark
+    ? ([palette.dark.background, uiColors.surface.cardDefaultDark] as const)
+    : theme.gradients.hero;
   const { authState, verifyOtpAndSignIn, resendOtpCode, loading } = useAuthContext();
   const phoneNumber = authState.phone;
 
@@ -80,6 +83,10 @@ export function OtpVerificationScreen({ navigation }: Props) {
 
   return (
     <GradientScreen
+      useGradient
+      gradientColors={heroGradient}
+      gradientStart={{ x: 0, y: 0 }}
+      gradientEnd={{ x: 0, y: 1 }}
       contentContainerStyle={{ flexGrow: 1, padding: 0, paddingBottom: 24 }}
     >
       <View className="flex-1">

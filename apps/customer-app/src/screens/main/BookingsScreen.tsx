@@ -15,13 +15,11 @@ import { LoadMoreButton } from '@/components/common/LoadMoreButton';
 import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import type { Booking } from '@/types/api';
-import type { CustomerBookingsSummary } from '@/types/api';
+import type { Booking, CustomerBookingListTab, CustomerBookingsSummary } from '@/types/api';
 import { BOOKINGS_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { buildCustomerBookingsListPath, getErrorMessage } from '@/utils';
 
-type TabType = 'ALL' | 'ONGOING' | 'COMPLETED';
 const LIMIT = 10;
 const DEFAULT_BOOKINGS_SUMMARY: CustomerBookingsSummary = {
   allBookings: 0,
@@ -40,7 +38,7 @@ export function BookingsScreen() {
   } = locationState;
   const isLocationGranted = permissionStatus === 'granted';
 
-  const [activeTab, setActiveTab] = useState<TabType>('ALL');
+  const [activeTab, setActiveTab] = useState<CustomerBookingListTab>('ALL');
   const [items, setItems] = useState<Booking[]>([]);
   const [summary, setSummary] = useState<CustomerBookingsSummary>(DEFAULT_BOOKINGS_SUMMARY);
   const [page, setPage] = useState(1);
@@ -58,7 +56,7 @@ export function BookingsScreen() {
     }
   }, [initializeLocation, requestLocationPermission]);
 
-  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: TabType }) => {
+  const runFetch = useCallback(async (options: { nextPage: number; append: boolean; tab: CustomerBookingListTab }) => {
     const { nextPage, append, tab } = options;
     let requestId = 0;
 
@@ -180,8 +178,8 @@ export function BookingsScreen() {
     </View>
   ) : listEmpty ? (
     <ListEmptyState
-      title="No bookings found"
-      description="You don't have any bookings in this category yet."
+      title={activeTab === 'COMPLETED' ? APP_TEXT.main.bookings.completedEmptyTitle : APP_TEXT.main.bookings.emptyTitle}
+      description={activeTab === 'COMPLETED' ? APP_TEXT.main.bookings.completedEmptyDescription : APP_TEXT.main.bookings.emptyDescription}
       icon="calendar-outline"
     />
   ) : null;
@@ -199,7 +197,7 @@ export function BookingsScreen() {
       )}
     >
       <Text className="text-2xl font-extrabold text-baseDark dark:text-white">
-        {APP_TEXT.main.bookingsTitle}
+        {APP_TEXT.main.bookings.allTitle}
       </Text>
 
       {!isLocationGranted ? (
@@ -221,10 +219,9 @@ export function BookingsScreen() {
         <>
           <AnimatedSegmentTabs
             value={activeTab}
-            onChange={setActiveTab}
+            onChange={(value) => setActiveTab(value as CustomerBookingListTab)}
             items={[
               { label: APP_TEXT.main.bookings.tabs.all || 'All', count: summary.allBookings, value: 'ALL' },
-              { label: APP_TEXT.main.bookings.tabs.ongoing || 'Ongoing', count: summary.ongoingBookings, value: 'ONGOING' },
               { label: APP_TEXT.main.bookings.tabs.completed || 'Completed', count: summary.completedBookings, value: 'COMPLETED' },
             ]}
           />

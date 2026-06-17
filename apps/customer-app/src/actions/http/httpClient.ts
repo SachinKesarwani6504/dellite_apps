@@ -16,10 +16,11 @@ import {
   clearFirebaseAuthSession,
 } from '@/utils/firebase-session';
 import { parseApiError, sanitizeApiMessage } from '@/utils/api-error';
-import { getStableDeviceId } from '@/utils/device-session';
+import { clearStableDeviceId, getStableDeviceId } from '@/utils/device-session';
 import { stripBearerPrefix, toBearerToken } from '@/utils/token';
 import { showApiErrorToast, showApiSuccessToast } from '@/utils/toast';
 import { ENV } from '@/utils/env';
+import { keyChainValues } from '@/utils/key-chain-storage/key-chain-values';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type TokenType = NonNullable<RequestOptions['tokenType']>;
@@ -73,6 +74,12 @@ function extractErrorCode(payload: unknown): string | null {
   return null;
 }
 
+function logAuthDebug(payload: Record<string, unknown>) {
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.log('[AUTH_DEBUG]', payload);
+}
+
 function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenType) {
   const isProfileCreate = method === 'POST' && PROFILE_CREATE_PATHS.has(normalizePath(path));
   if (isProfileCreate && tokenType !== 'phone') {
@@ -83,7 +90,7 @@ function enforceTokenPolicy(method: HttpMethod, path: string, tokenType: TokenTy
   }
 }
 
-async function resolveToken(tokenType: TokenType): Promise<string | null> {
+async function resolveToken(tokenType: TokenType, requestContext: { method: HttpMethod; path: string; usesAuthOption: boolean }): Promise<string | null> {
   if (tokenType === 'none') return null;
 
   if (tokenType === 'phone') {
@@ -92,7 +99,20 @@ async function resolveToken(tokenType: TokenType): Promise<string | null> {
   }
 
   const tokens = await getAuthTokens();
-  return normalizeBearerToken(tokens?.accessToken);
+  const token = normalizeBearerToken(tokens?.accessToken);
+  logAuthDebug({
+    appRole: 'CUSTOMER',
+    method: requestContext.method,
+    url: requestContext.path,
+    tokenType,
+    usesAuthOption: requestContext.usesAuthOption,
+    authService: keyChainValues.authService,
+    authUsername: keyChainValues.authUsername,
+    hasAccessToken: Boolean(token),
+    hasRefreshToken: Boolean(tokens?.refreshToken),
+    hasFirebaseCustomToken: Boolean(tokens?.firebaseCustomToken),
+  });
+  return token;
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -130,6 +150,7 @@ async function refreshAccessToken(): Promise<string | null> {
 async function clearAuthSessionTokens() {
   await clearAuthTokens();
   await clearOnboardingPhoneToken();
+  await clearStableDeviceId();
   await clearFirebaseAuthSession();
 }
 
@@ -180,7 +201,14 @@ async function request<TResponse, TBody = unknown>(
   const hasExplicitAuthorization = Boolean(options.headers?.Authorization?.trim());
   enforceTokenPolicy(method, path, tokenType);
 
-  const token = hasExplicitAuthorization ? null : await resolveToken(tokenType);
+  let token = hasExplicitAuthorization ? null : await resolveToken(tokenType, { method, path, usesAuthOption: Boolean(options.auth) });
+  if (tokenType === 'access' && !hasExplicitAuthorization && !token) {
+    token = await refreshAccessToken();
+    if (!token) {
+      await clearAuthSessionTokens();
+      throw new ApiError('Session expired. Please login again.', 401);
+    }
+  }
   const headers: Record<string, string> = {
     ...(options.headers ?? {}),
     ...(token ? { Authorization: toBearerToken(token) } : {}),

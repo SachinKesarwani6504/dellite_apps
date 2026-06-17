@@ -17,6 +17,7 @@ import { ImageOverlayBannerCarousel } from '@/components/common/ImageOverlayBann
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { LoadingState } from '@/components/common/LoadingState';
+import { CustomerOngoingBookingsRow } from '@/components/common/CustomerOngoingBookingsRow';
 import { PermissionPromptCard } from '@/components/common/PermissionPromptCard';
 import { SectionHeaderRow } from '@/components/common/SectionHeaderRow';
 import { ServiceHeroCard } from '@/components/common/ServiceHeroCard';
@@ -24,6 +25,8 @@ import { WorkerSkillCategoryGrid } from '@/components/worker-skills/WorkerSkillC
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookingFlowContext } from '@/contexts/BookingFlowContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useHomeLocationPermissionPrompt } from '@/hooks/useHomeLocationPermissionPrompt';
+import { useCustomerOngoingBookings } from '@/hooks/useCustomerOngoingBookings';
 import { resolveProductLocation } from '@/modules/location-intelligence';
 import { ApiError } from '@/types/api';
 import type { HomeScreenProps } from '@/types/main-screens';
@@ -33,7 +36,7 @@ import type {
   CustomerHomePayload,
   CustomerHomeService,
 } from '@/types/customer';
-import { HOME_SCREEN, ROOT_SCREEN } from '@/types/screen-names';
+import { HOME_SCREEN, ROOT_SCREEN, BOOKINGS_SCREEN } from '@/types/screen-names';
 import { APP_BANNER_PLACEMENT_KEY, type AppBannerItem } from '@/types/app-banner';
 import { APP_TEXT } from '@/utils/appText';
 import { handleBannerAction } from '@/utils/banner-navigation';
@@ -110,6 +113,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       || locationLoading
       || locationRefreshing
     );
+  const {
+    items: ongoingBookings,
+    refresh: refreshOngoingBookings,
+  } = useCustomerOngoingBookings(isLocationGranted);
 
   const contentSections = useMemo(
     () => (Array.isArray(homeData?.content) ? homeData.content : []),
@@ -168,6 +175,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
   }, [initializeLocation, requestLocationPermission]);
 
+  useHomeLocationPermissionPrompt({
+    permissionStatus,
+    requestLocationPermission,
+    initializeLocation,
+  });
+
   useEffect(() => {
     if (isLocationPermissionPending) {
       setLoading(false);
@@ -212,8 +225,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   }, [fetchHome, homeQueryCity, isLocationGranted, isLocationPending, isLocationPermissionPending, isLocationReadyForHome]);
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
-    await fetchHome({ showFullScreenLoader: false });
+    await Promise.all([
+      fetchHome({ showFullScreenLoader: false }),
+      refreshOngoingBookings(),
+    ]);
   });
+
+  const onOpenOngoingBooking = useCallback((bookingId: string) => {
+    navigation.navigate(ROOT_SCREEN.BOOKING_DETAILS_NAVIGATOR, {
+      screen: BOOKINGS_SCREEN.DETAILS,
+      params: { bookingId },
+    });
+  }, [navigation]);
 
   const onOpenService = useCallback((service: CustomerHomeService) => {
     beginFlow({
@@ -354,24 +377,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     : titleCase(cityLabel);
   const shouldShowContent = !cityUnavailable && contentSections.length > 0;
 
-  useEffect(() => {
-    if (!__DEV__) return;
-    // eslint-disable-next-line no-console
-    console.log('[home][customer] city state', {
-      city,
-      locality,
-      state,
-      formattedAddress,
-      resolvedLocation,
-      selectedCity,
-      initialized,
-      locationLoading,
-      locationRefreshing,
-    });
-  }, [city, formattedAddress, initialized, locality, locationLoading, locationRefreshing, resolvedLocation, selectedCity, state]);
-
   const isHomePayloadEmpty = !homeData || (!shouldShowContent && !homeData.footer);
-  const locationPermissionPrompt = (isLocationPermissionPending || !isLocationGranted) ? (
+  const showLocationDeniedCard = !isLocationGranted && permissionStatus !== 'undetermined';
+  const locationPermissionPrompt = showLocationDeniedCard ? (
     <View className="mb-4 mt-4">
       <PermissionPromptCard
         tone="location"
@@ -410,8 +418,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     )
   );
 
-  if ((loading || isLocationPending) && isHomePayloadEmpty) {
-    const loadingMessage = isLocationPending ? APP_TEXT.main.loadingLocation : APP_TEXT.main.loadingHome;
+  if (
+    (isLocationPermissionPending || (isLocationGranted && (loading || isLocationPending)))
+    && isHomePayloadEmpty
+  ) {
+    const loadingMessage = isLocationPermissionPending || isLocationPending
+      ? APP_TEXT.main.loadingLocation
+      : APP_TEXT.main.loadingHome;
     return (
       <GradientScreen>
         <View className="px-4 pt-6">
@@ -468,20 +481,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
         {homeFallbackContent}
 
-        {error && homeData ? (
-          <View
-            className="mb-3 rounded-xl border px-3 py-2"
-            style={{
-              borderColor: theme.colors.caution,
-              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
-            }}
-          >
-            <Text className="text-xs font-semibold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-              Showing cached data. Pull to refresh.
-            </Text>
-          </View>
-        ) : null}
-
         {homeData ? (
           <>
             {homeBanners.length > 0 ? (
@@ -495,6 +494,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     city: selectedCity,
                   });
                 }}
+              />
+            ) : null}
+
+            {isLocationGranted && ongoingBookings.length > 0 ? (
+              <CustomerOngoingBookingsRow
+                items={ongoingBookings}
+                onPressBooking={onOpenOngoingBooking}
               />
             ) : null}
 

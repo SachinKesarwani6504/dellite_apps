@@ -8,7 +8,16 @@ const Stack = createNativeStackNavigator<JobStackParamList>();
 export function JobsNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name={JOB_STACK_SCREENS.home} component={JobsScreen} />
+      <Stack.Screen
+        name={JOB_STACK_SCREENS.home}
+        component={JobsScreen}
+        initialParams={{ listMode: 'ALL' }}
+      />
+      <Stack.Screen
+        name={JOB_STACK_SCREENS.availableJobs}
+        component={JobsScreen}
+        initialParams={{ listMode: 'NEW_JOBS' }}
+      />
     </Stack.Navigator>
   );
 }

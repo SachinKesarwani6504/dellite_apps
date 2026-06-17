@@ -28,9 +28,24 @@ export function ServicePricingHeaderCard({
   onDecreaseQuantity,
   onIncreaseQuantity,
   onRemoveService,
+  hideRemoveAction,
+  hideDecreaseQuantityAction,
+  minSelectableDurationMinutes,
+  hideFlexiblePriceOptionChoices,
+  readOnly,
 }: ServicePricingHeaderCardProps) {
-  const selectablePriceOptions = getRequiredPriceOptions(priceOptions);
-  const selectableDurations = getSelectableDurations(selectedPriceOption);
+  const minimumDuration = typeof minSelectableDurationMinutes === 'number' && Number.isFinite(minSelectableDurationMinutes)
+    ? minSelectableDurationMinutes
+    : null;
+  const isReadOnly = Boolean(readOnly);
+  const selectablePriceOptions = getRequiredPriceOptions(priceOptions).filter((option) => {
+    if (minimumDuration == null) return true;
+    const fixedDurationMinutes = getFixedDurationMinutes(option);
+    return fixedDurationMinutes == null || fixedDurationMinutes >= minimumDuration || option.id === selectedPriceOptionId;
+  });
+  const selectableDurations = getSelectableDurations(selectedPriceOption).filter((minutes) => {
+    return minimumDuration == null || minutes >= minimumDuration;
+  });
   const selectedPriceType = selectedPriceOption?.priceType;
   const isFixedDurationService = areAllPrimaryPriceOptionsFixedDuration(priceOptions);
   const canSelectDuration = !isFixedDurationService && selectableDurations.length > 0;
@@ -65,16 +80,19 @@ export function ServicePricingHeaderCard({
             </Text>
           </View>
         </View>
-        <Pressable
-          onPress={onRemoveService}
-          className="h-8 w-8 items-center justify-center rounded-full border"
-          style={{
-            backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmSubtleLight,
-            borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-          }}
-        >
-          <Ionicons name="close" size={15} color={theme.colors.primary} />
-        </Pressable>
+        {hideRemoveAction ? null : (
+          <Pressable
+            disabled={isReadOnly}
+            onPress={onRemoveService}
+            className="h-8 w-8 items-center justify-center rounded-full border"
+            style={{
+              backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.warmSubtleLight,
+              borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+            }}
+          >
+            <Ionicons name="close" size={15} color={theme.colors.primary} />
+          </Pressable>
+        )}
       </View>
 
       {isFixedDurationService ? (
@@ -94,6 +112,7 @@ export function ServicePricingHeaderCard({
               return (
                 <Pressable
                   key={option.id}
+                  disabled={isReadOnly}
                   onPress={() => onSelectPriceOption(option.id)}
                   className="min-w-[136px] rounded-2xl border px-4 py-3"
                   android_ripple={{ color: uiColors.surface.accentSoft40 }}
@@ -105,6 +124,7 @@ export function ServicePricingHeaderCard({
                     shadowRadius: isSelected ? 10 : 0,
                     shadowOffset: { width: 0, height: 5 },
                     elevation: isSelected ? 3 : 0,
+                    opacity: isReadOnly ? 0.72 : 1,
                   }}
                 >
                   <Text className={`text-sm font-extrabold ${isSelected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
@@ -125,7 +145,7 @@ export function ServicePricingHeaderCard({
         </View>
       ) : null}
 
-      {!isFixedDurationService && selectablePriceOptions.length > 1 ? (
+      {!isFixedDurationService && !hideFlexiblePriceOptionChoices && selectablePriceOptions.length > 1 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -136,11 +156,13 @@ export function ServicePricingHeaderCard({
             return (
               <Pressable
                 key={option.id}
+                disabled={isReadOnly}
                 onPress={() => onSelectPriceOption(option.id)}
                 className="rounded-full border px-4 py-2"
                 style={{
                   borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
                   backgroundColor: isSelected ? uiColors.surface.accentSoft20 : (isDark ? uiColors.surface.cardMutedDark : palette.light.card),
+                  opacity: isReadOnly ? 0.72 : 1,
                 }}
               >
                 <Text className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-baseDark dark:text-white'}`}>
@@ -165,11 +187,13 @@ export function ServicePricingHeaderCard({
               return (
                 <Pressable
                   key={`${selectedPriceOption.id}-${minutes}`}
+                  disabled={isReadOnly}
                   onPress={() => onSelectDurationMinutes(minutes)}
                   className="rounded-full border px-4 py-2"
                   style={{
                     borderColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
                     backgroundColor: isSelected ? theme.colors.primary : (isDark ? uiColors.surface.overlayDark10 : palette.light.card),
+                    opacity: isReadOnly ? 0.72 : 1,
                   }}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-baseDark dark:text-white'}`}>
@@ -197,14 +221,17 @@ export function ServicePricingHeaderCard({
               backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight95,
             }}
           >
-            <Pressable onPress={onDecreaseQuantity} className="h-9 w-9 items-center justify-center rounded-full">
-              <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-            </Pressable>
+            {hideDecreaseQuantityAction ? null : (
+              <Pressable disabled={isReadOnly} onPress={onDecreaseQuantity} className="h-9 w-9 items-center justify-center rounded-full">
+                <Ionicons name="remove" size={20} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+              </Pressable>
+            )}
             <Text className="mx-5 text-lg font-extrabold text-baseDark dark:text-white">{quantity}</Text>
             <Pressable
+              disabled={isReadOnly}
               onPress={onIncreaseQuantity}
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.colors.primary }}
+              style={{ backgroundColor: theme.colors.primary, opacity: isReadOnly ? 0.55 : 1 }}
             >
               <Ionicons name="add" size={20} color={theme.colors.onPrimary} />
             </Pressable>

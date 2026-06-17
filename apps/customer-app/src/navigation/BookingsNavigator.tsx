@@ -8,7 +8,11 @@ const Stack = createNativeStackNavigator();
 export function BookingsNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name={BOOKINGS_SCREEN.HOME} component={BookingsScreen} />
+      <Stack.Screen
+        name={BOOKINGS_SCREEN.HOME}
+        component={BookingsScreen}
+        initialParams={{ listMode: 'ALL' }}
+      />
     </Stack.Navigator>
   );
 }

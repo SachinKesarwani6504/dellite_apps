@@ -1,4 +1,5 @@
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
 
@@ -109,34 +110,57 @@ function BottomSheetActionButton({
   onPress: () => void;
 }) {
   const tone = action.tone ?? 'default';
+  const isPrimary = tone === 'primary';
 
   return (
     <Pressable
       onPress={onPress}
       disabled={action.disabled || isLoading}
       className={(action.disabled || isLoading) ? 'opacity-60' : ''}
-      style={{
-        borderRadius: 12,
-        borderWidth: 1,
-        minHeight: 44,
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        flex: 1,
-        ...getActionContainerStyle(tone, isDark),
+        style={{
+          borderRadius: 12,
+          borderWidth: 1,
+          minHeight: 44,
+          flex: 1,
+          ...getActionContainerStyle(tone, isDark),
+          paddingVertical: isPrimary ? 0 : 10,
+        paddingHorizontal: isPrimary ? 0 : 14,
+        overflow: 'hidden',
       }}
     >
-      <View className="min-h-[24px] items-center justify-center">
-        {isLoading ? (
-          <ActivityIndicator size="small" color={getActionTextColor(tone, isDark)} />
-        ) : (
-          <Text
-            className="text-center text-sm font-semibold"
-            style={{ color: getActionTextColor(tone, isDark) }}
-          >
-            {action.label}
-          </Text>
-        )}
-      </View>
+      {isPrimary ? (
+        <LinearGradient
+          colors={theme.gradients.cta}
+          locations={[0, 0.25, 0.62, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ minHeight: 44, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={getActionTextColor(tone, isDark)} />
+          ) : (
+            <Text
+              className="text-center text-sm font-semibold"
+              style={{ color: getActionTextColor(tone, isDark) }}
+            >
+              {action.label}
+            </Text>
+          )}
+        </LinearGradient>
+      ) : (
+        <View className="min-h-[24px] items-center justify-center">
+          {isLoading ? (
+            <ActivityIndicator size="small" color={getActionTextColor(tone, isDark)} />
+          ) : (
+            <Text
+              className="text-center text-sm font-semibold"
+              style={{ color: getActionTextColor(tone, isDark) }}
+            >
+              {action.label}
+            </Text>
+          )}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -208,7 +232,6 @@ export function AppBottomSheet() {
   };
   const headerTextColor = isDark ? palette.dark.text : theme.colors.baseDark;
   const subtextColor = isDark ? palette.dark.mutedText : theme.colors.textMuted;
-  const accentLineColor = isDark ? uiColors.surface.overlayDark14 : theme.colors.stroke;
   const footerIsInline = activeSheet?.variant === 'confirm' && footerActions.length === 2;
 
   if (!activeSheet) {
@@ -235,11 +258,6 @@ export function AppBottomSheet() {
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
         >
-          <View
-            className="mb-4 h-1 w-12 rounded-full"
-            style={{ backgroundColor: accentLineColor }}
-          />
-
           {activeSheet?.title ? (
             <Text className="text-xl font-extrabold" style={{ color: headerTextColor }}>
               {activeSheet.title}
