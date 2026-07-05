@@ -238,6 +238,28 @@ export function ProfileScreen() {
         />
 
         <ProfileActionRow
+          title={APP_TEXT.profile.settingsTitle}
+          subtitle={APP_TEXT.profile.settingsSubtitle}
+          icon="settings-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREEN.SETTINGS)}
+          showDivider
+        />
+
+        <ProfileActionRow
+          title={APP_TEXT.profile.bookingsTitle}
+          subtitle={APP_TEXT.profile.bookingsSubtitle}
+          icon="calendar-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREEN.BOOKINGS)}
+          showDivider
+        />
+
+        <ProfileActionRow
           title={APP_TEXT.profile.referral.menuTitle}
           subtitle={APP_TEXT.profile.referral.menuSubtitle}
           icon="gift-outline"
@@ -258,7 +280,6 @@ export function ProfileScreen() {
           isDark={isDark}
           loading={loading}
           disabled={loading}
-          showChevron={false}
           onPress={() => {
             showConfirmSheet({
               title: APP_TEXT.profile.logoutConfirmTitle,

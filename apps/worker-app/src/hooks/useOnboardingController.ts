@@ -119,13 +119,16 @@ export function useOnboardingController(): OnboardingContextType {
       const next = applyWorkerFlags(flags);
       return next.route;
     } catch {
-      setOnboardingRoute(ONBOARDING_SCREENS.identity);
-      setIsOnboardingActive(true);
-      return ONBOARDING_SCREENS.identity;
+      if (me?.onboarding) {
+        const flags = extractWorkerOnboardingFlags(me.onboarding);
+        const next = applyWorkerFlags(flags);
+        return next.route;
+      }
+      return onboardingRoute;
     } finally {
       setLoading(false);
     }
-  }, [applyWorkerFlags, me?.onboarding, refreshMe, status]);
+  }, [applyWorkerFlags, me?.onboarding, onboardingRoute, refreshMe, status]);
 
   useEffect(() => {
     if (status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED) {

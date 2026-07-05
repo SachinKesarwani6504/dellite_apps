@@ -90,8 +90,15 @@ export function useOnboardingController(): OnboardingContextType {
       }
       return applyUserSnapshot(localWelcomeSeen);
     } catch {
+      if (authState.user) {
+        return applyUserSnapshot(localWelcomeSeen);
+      }
+      if (authState.tokens?.accessToken) {
+        setIsOnboardingActive(false);
+        return onboardingRoute;
+      }
       setOnboardingRoute(ONBOARDING_SCREEN.CUSTOMER_IDENTITY);
-      setIsOnboardingActive(true);
+      setIsOnboardingActive(authState.status === AUTH_STATUS.ONBOARDING);
       return ONBOARDING_SCREEN.CUSTOMER_IDENTITY;
     } finally {
       setLoading(false);
@@ -102,6 +109,7 @@ export function useOnboardingController(): OnboardingContextType {
     authState.user,
     applyUserSnapshot,
     localWelcomeSeen,
+    onboardingRoute,
     refreshMe,
     resolveRouteFromStatus,
   ]);

@@ -36,6 +36,8 @@ Welcome to the Dellite Docs wiki! This is the single source of truth for underst
 
 ### AI Coding Standards
 - **[Prompts & Standards](/docs/prompts/index.md)** - Reusable prompts, templates, checklists
+- **[Cursor agent config](/.cursor/README.md)** - Rules, skills, commands (token-efficient wiki map)
+- **[Agent wiki map](/.cursor/docs/WIKI_MAP.md)** - Route tasks to `docs/` without full repo scans
 
 ## 🚀 Quick Start
 
@@ -63,9 +65,12 @@ Welcome to the Dellite Docs wiki! This is the single source of truth for underst
 
 ### For AI Coding Assistants
 
-- Reference specific doc paths when prompting
+- **Start**: [Agent wiki map](/.cursor/docs/WIKI_MAP.md) (compact) → load only needed `docs/` files
+- **Rules/skills**: [.cursor/README.md](/.cursor/README.md)
+- **Slash commands**: `/review-wiki`, `/verify-all`, `/parity-check` in Agent chat
+- **Full wiki**: [docs/index.md](/docs/index.md)
+- **Contract**: [AGENTS.md](/AGENTS.md)
 - Example: "Follow /docs/architecture/screen-purity.md for structure"
-- Use [Prompts & Standards](/docs/prompts/index.md) for reusable templates
 
 ### For Developers
 

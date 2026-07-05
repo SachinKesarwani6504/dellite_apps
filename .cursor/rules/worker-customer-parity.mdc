@@ -1,0 +1,16 @@
+---
+description: Worker and customer app parity for foundational files
+globs: apps/worker-app/**/*,apps/customer-app/**/*
+alwaysApply: false
+---
+
+# Worker ↔ customer parity
+
+When editing matched paths under `apps/worker-app/` and `apps/customer-app/`:
+
+- Keep parallel file names (`httpClient.ts`, `appText.ts`, `screen-names.ts`, context/hook pairs).
+- Mirror foundational changes in both apps in the same PR unless the task is role-specific UI only.
+- After API type changes: update types → mappers/actions → UI; remove dead fields and mappers.
+
+Checklist: `docs/architecture/parity-rules.md`  
+Sync tracker: `docs/mono-sync-plan.md`

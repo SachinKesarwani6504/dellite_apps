@@ -6,6 +6,13 @@ import {
   saveSecureValue,
 } from '@/utils/key-chain-storage/key-chain-service';
 
+const legacyAuthKeyChainValues = [
+  { service: 'dellite.worker.tokens', username: 'auth' },
+  { service: 'dellite.tokens', username: 'auth' },
+] as const;
+
+let cachedAuthTokens: AuthTokens | null | undefined;
+
 function logAuthStorage(step: string, payload?: unknown) {
   if (!__DEV__) return;
   // eslint-disable-next-line no-console
@@ -49,10 +56,13 @@ function normalizeAuthTokens(raw: unknown): AuthTokens | null {
 }
 
 export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
+  cachedAuthTokens = tokens;
   logAuthStorage('save:start', {
     service: keyChainValues.authService,
     username: keyChainValues.authUsername,
-    tokens,
+    hasAccessToken: Boolean(tokens.accessToken),
+    hasRefreshToken: Boolean(tokens.refreshToken),
+    hasFirebaseCustomToken: Boolean(tokens.firebaseCustomToken),
   });
   await saveSecureValue(
     keyChainValues.authService,
@@ -60,29 +70,58 @@ export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
     JSON.stringify(tokens),
   );
   const readBack = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
-  logAuthStorage('save:done', { readBack });
+  logAuthStorage('save:done', { hasReadBack: Boolean(readBack) });
 }
 
 export async function getAuthTokens(): Promise<AuthTokens | null> {
-  const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value);
-    const normalized = normalizeAuthTokens(parsed);
-    return normalized;
-  } catch {
-    logAuthStorage('get:parse-failed');
-    return null;
+  if (typeof cachedAuthTokens !== 'undefined') {
+    return cachedAuthTokens;
   }
+
+  const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  if (value) {
+    try {
+      const parsed = JSON.parse(value);
+      const normalized = normalizeAuthTokens(parsed);
+      cachedAuthTokens = normalized;
+      return normalized;
+    } catch {
+      logAuthStorage('get:parse-failed');
+      cachedAuthTokens = null;
+      return null;
+    }
+  }
+
+  for (const legacyKey of legacyAuthKeyChainValues) {
+    const legacyValue = await getSecureValue(legacyKey.service, legacyKey.username);
+    if (!legacyValue) continue;
+
+    try {
+      const parsed = JSON.parse(legacyValue);
+      const tokens = normalizeAuthTokens(parsed);
+      if (!tokens) continue;
+
+      await saveAuthTokens(tokens);
+      await removeSecureValue(legacyKey.service, legacyKey.username);
+      logAuthStorage('get:migrated-legacy', { service: legacyKey.service, username: legacyKey.username });
+      return tokens;
+    } catch {
+      logAuthStorage('get:legacy-parse-failed', { service: legacyKey.service, username: legacyKey.username });
+      continue;
+    }
+  }
+
+  cachedAuthTokens = null;
+  return null;
 }
 
 export async function clearAuthTokens(): Promise<void> {
+  cachedAuthTokens = null;
   logAuthStorage('clear:start', {
     service: keyChainValues.authService,
     username: keyChainValues.authUsername,
   });
   await removeSecureValue(keyChainValues.authService, keyChainValues.authUsername);
   const readBack = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
-  logAuthStorage('clear:done', { readBack });
+  logAuthStorage('clear:done', { hasReadBack: Boolean(readBack) });
 }

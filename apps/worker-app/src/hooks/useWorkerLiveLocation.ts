@@ -46,6 +46,7 @@ type LastSentLocationSnapshot = LocationPoint & {
 };
 
 type WorkerLiveRuntimeContext = {
+  workerUserId: string | null;
   workerId: string | null;
   isOnline: boolean;
   isAvailable: boolean;
@@ -54,6 +55,7 @@ type WorkerLiveRuntimeContext = {
 };
 
 type UseWorkerLiveLocationArgs = {
+  workerUserId?: string | null;
   workerId?: string | null;
 };
 
@@ -89,6 +91,7 @@ function toExpoLocationPermissionStatus(status: LocationPermissionStatus) {
 }
 
 const backgroundRuntimeContext: WorkerLiveRuntimeContext = {
+  workerUserId: null,
   workerId: null,
   isOnline: false,
   isAvailable: false,
@@ -179,6 +182,7 @@ function resolveHeadingDegrees(
 }
 
 function buildWorkerLivePayload(
+  workerUserId: string,
   workerId: string,
   location: Location.LocationObject,
   headingDegrees: number | null,
@@ -192,6 +196,7 @@ function buildWorkerLivePayload(
   const movementStatus = resolveMovementStatus(accuracy, speedMetersPerSecond);
 
   return {
+    userId: workerUserId,
     workerId,
     lat: location.coords.latitude,
     lng: location.coords.longitude,
@@ -235,8 +240,9 @@ function toLocationPoint(location: Location.LocationObject): LocationPoint {
 
 async function writeBackgroundLocationUpdate(location: Location.LocationObject, force: boolean) {
   void force;
+  const workerUserId = backgroundRuntimeContext.workerUserId;
   const workerId = backgroundRuntimeContext.workerId;
-  if (!workerId) return;
+  if (!workerUserId || !workerId) return;
 
   const newLoc = toLocationPoint(location);
   const previousSnapshot = backgroundLastSentByWorker.get(workerId) ?? null;
@@ -257,6 +263,7 @@ async function writeBackgroundLocationUpdate(location: Location.LocationObject, 
   const nextVehicleMode = backgroundRuntimeContext.vehicleMode;
   const headingDegrees = resolveHeadingDegrees(location, previousSnapshot, nextSnapshot);
   const payload = buildWorkerLivePayload(
+    workerUserId,
     workerId,
     location,
     headingDegrees,
@@ -266,7 +273,7 @@ async function writeBackgroundLocationUpdate(location: Location.LocationObject, 
     nextVehicleMode,
   );
 
-  await updateWorkerLive(workerId, {
+  await updateWorkerLive(workerUserId, workerId, {
     ...payload,
   });
   backgroundLastSentByWorker.set(workerId, nextSnapshot);
@@ -289,6 +296,7 @@ if (!TaskManager.isTaskDefined(WORKER_BACKGROUND_LOCATION_TASK_NAME)) {
 }
 
 export function useWorkerLiveLocation({
+  workerUserId,
   workerId,
 }: UseWorkerLiveLocationArgs = {}) {
   const [state, setState] = useState<WorkerLiveLocationState>({
@@ -310,6 +318,7 @@ export function useWorkerLiveLocation({
   const isTrackingRef = useRef(false);
   const isAvailableRef = useRef(false);
   const vehicleModeRef = useRef<WorkerVehicleMode>('UNKNOWN');
+  const workerUserIdRef = useRef<string | null>(workerUserId ?? null);
   const workerIdRef = useRef<string | null>(workerId ?? null);
   const appStateRef = useRef<WorkerLiveAppState>(toWorkerLiveAppState(AppState.currentState));
   const lastSentLocationRef = useRef<LastSentLocationSnapshot | null>(null);
@@ -409,11 +418,14 @@ export function useWorkerLiveLocation({
 
   const writeLiveLocation = useCallback(
     async (location: Location.LocationObject, options: UpdateLocationOptions) => {
+      const workerUserIdValue = workerUserIdRef.current;
       const workerIdValue = workerIdRef.current;
       trace('WL-07', 'writeLiveLocation:start', {
+        workerUserId: workerUserIdValue,
         workerId: workerIdValue,
       });
       log('writeLiveLocation:start', {
+        workerUserId: workerUserIdValue,
         workerId: workerIdValue,
         force: options.force,
         lat: location.coords.latitude,
@@ -424,6 +436,12 @@ export function useWorkerLiveLocation({
         setError('Cannot write worker location without workerId.');
         trace('WL-07E', 'writeLiveLocation:missing-user-id');
         log('writeLiveLocation:skip-missing-worker-id');
+        return false;
+      }
+      if (!workerUserIdValue) {
+        setError('Cannot write worker location without worker userId.');
+        trace('WL-07E', 'writeLiveLocation:missing-worker-user-id');
+        log('writeLiveLocation:skip-missing-worker-user-id');
         return false;
       }
 
@@ -486,6 +504,7 @@ export function useWorkerLiveLocation({
         nextSnapshot,
       );
       const payload = buildWorkerLivePayload(
+        workerUserIdValue,
         workerIdValue,
         location,
         headingDegrees,
@@ -513,12 +532,12 @@ export function useWorkerLiveLocation({
 
       try {
         trace('WL-08', 'writeLiveLocation:rtdb-set-attempt', {
-          path: getWorkerLivePath(workerIdValue),
+          path: getWorkerLivePath(workerUserIdValue, workerIdValue),
         });
         const debugSnapshot = await getFirebaseSessionDebugSnapshot();
         log('writeLiveLocation:before-rtdb-session-debug', debugSnapshot);
         log('writeLiveLocation:rtdb-set-attempt', {
-          path: getWorkerLivePath(workerIdValue),
+          path: getWorkerLivePath(workerUserIdValue, workerIdValue),
           isOnline: payload.isOnline,
           isAvailable: payload.isAvailable,
           vehicleMode: payload.vehicleMode,
@@ -526,7 +545,7 @@ export function useWorkerLiveLocation({
           speed: payload.speed,
           accuracy: payload.accuracy,
         });
-      await updateWorkerLive(workerIdValue, {
+      await updateWorkerLive(workerUserIdValue, workerIdValue, {
         ...payload,
       });
       } catch (error) {
@@ -547,7 +566,7 @@ export function useWorkerLiveLocation({
 
       lastSentLocationRef.current = nextSnapshot;
       trace('WL-09', 'writeLiveLocation:success', {
-        path: getWorkerLivePath(workerIdValue),
+        path: getWorkerLivePath(workerUserIdValue, workerIdValue),
       });
       log('live-location:written', {
         workerId: workerIdValue,
@@ -629,11 +648,12 @@ export function useWorkerLiveLocation({
   const startHeartbeat = useCallback(() => {
     clearHeartbeat();
     heartbeatIntervalRef.current = setInterval(() => {
+      const workerUserIdValue = workerUserIdRef.current;
       const workerIdValue = workerIdRef.current;
-      if (!workerIdValue || !isOnlineRef.current) return;
+      if (!workerUserIdValue || !workerIdValue || !isOnlineRef.current) return;
       if (!canWriteRealtimeData()) return;
 
-      void updateWorkerLive(workerIdValue, {
+      void updateWorkerLive(workerUserIdValue, workerIdValue, {
         isOnline: true,
         isAvailable: isAvailableRef.current,
         heartbeatAt: Date.now(),
@@ -708,6 +728,7 @@ export function useWorkerLiveLocation({
   const startTracking = useCallback(async () => {
     log('startTracking:start', {
       isOnline: isOnlineRef.current,
+      workerUserId: workerUserIdRef.current,
       workerId: workerIdRef.current,
       enableBackground: ENABLE_BACKGROUND_LOCATION_TRACKING,
     });
@@ -760,11 +781,12 @@ export function useWorkerLiveLocation({
   const goOnline = useCallback(async () => {
     trace('WL-01', 'goOnline:start');
     let workerIdValue = workerIdRef.current;
-    if (!workerIdValue) {
+    let workerUserIdValue = workerUserIdRef.current;
+    if (!workerUserIdValue) {
       const userIdFromClaim = await getFirebaseLiveLocationUserIdClaim();
       if (userIdFromClaim) {
-        workerIdRef.current = userIdFromClaim;
-        workerIdValue = userIdFromClaim;
+        workerUserIdRef.current = userIdFromClaim;
+        workerUserIdValue = userIdFromClaim;
         trace('WL-01A', 'goOnline:resolved-user-id-from-claim', {
           userIdFromClaim,
         });
@@ -773,7 +795,11 @@ export function useWorkerLiveLocation({
         });
       }
     }
+    if (!workerIdValue) {
+      workerIdValue = workerUserIdValue;
+    }
     log('goOnline:start', {
+      workerUserId: workerUserIdValue,
       workerId: workerIdValue,
       currentAppState: appStateRef.current,
     });
@@ -781,6 +807,12 @@ export function useWorkerLiveLocation({
       setError('workerId is required before Go Online.');
       trace('WL-01E', 'goOnline:blocked-missing-user-id');
       log('goOnline:blocked-missing-worker-id');
+      return false;
+    }
+    if (!workerUserIdValue) {
+      setError('userId is required before Go Online.');
+      trace('WL-01E', 'goOnline:blocked-missing-worker-user-id');
+      log('goOnline:blocked-missing-worker-user-id');
       return false;
     }
 
@@ -833,7 +865,8 @@ export function useWorkerLiveLocation({
       }
       trace('WL-06', 'goOnline:refresh-current-location-done');
 
-      await registerWorkerLiveOnDisconnect(workerIdValue).update({
+      await registerWorkerLiveOnDisconnect(workerUserIdValue, workerIdValue).update({
+        userId: workerUserIdValue,
         workerId: workerIdValue,
         isOnline: false,
         isAvailable: false,
@@ -843,9 +876,10 @@ export function useWorkerLiveLocation({
         updatedAt: getRealtimeServerTimestamp(),
       });
       trace('WL-05', 'goOnline:onDisconnect-registered', {
-        path: getWorkerLivePath(workerIdValue),
+        path: getWorkerLivePath(workerUserIdValue, workerIdValue),
       });
       log('goOnline:onDisconnect-registered', {
+        workerUserId: workerUserIdValue,
         workerId: workerIdValue,
       });
 
@@ -857,6 +891,7 @@ export function useWorkerLiveLocation({
         isAvailable: nextIsAvailable,
       }));
 
+      backgroundRuntimeContext.workerUserId = workerUserIdValue;
       backgroundRuntimeContext.workerId = workerIdValue;
       backgroundRuntimeContext.isOnline = true;
       backgroundRuntimeContext.isAvailable = nextIsAvailable;
@@ -876,6 +911,7 @@ export function useWorkerLiveLocation({
       });
       isOnlineRef.current = false;
       isAvailableRef.current = false;
+      backgroundRuntimeContext.workerUserId = null;
       backgroundRuntimeContext.workerId = null;
       backgroundRuntimeContext.isOnline = false;
       backgroundRuntimeContext.isAvailable = false;
@@ -892,8 +928,10 @@ export function useWorkerLiveLocation({
   }, [canWriteRealtimeData, log, recoverFirebaseSessionForRealtime, refreshCurrentLocation, setError, startTracking, trace]);
 
   const goOffline = useCallback(async () => {
+    const workerUserIdValue = workerUserIdRef.current;
     const workerIdValue = workerIdRef.current;
     log('goOffline:start', {
+      workerUserId: workerUserIdValue,
       workerId: workerIdValue,
       wasOnline: isOnlineRef.current,
     });
@@ -902,6 +940,7 @@ export function useWorkerLiveLocation({
     isOnlineRef.current = false;
     isAvailableRef.current = false;
     vehicleModeRef.current = 'UNKNOWN';
+    backgroundRuntimeContext.workerUserId = null;
     backgroundRuntimeContext.workerId = null;
     backgroundRuntimeContext.isOnline = false;
     backgroundRuntimeContext.isAvailable = false;
@@ -916,7 +955,7 @@ export function useWorkerLiveLocation({
       vehicleMode: 'UNKNOWN',
     }));
 
-    if (!workerIdValue) return;
+    if (!workerUserIdValue || !workerIdValue) return;
 
     try {
       if (!canWriteRealtimeData()) {
@@ -924,11 +963,11 @@ export function useWorkerLiveLocation({
         return;
       }
 
-      await registerWorkerLiveOnDisconnect(workerIdValue).cancel();
+      await registerWorkerLiveOnDisconnect(workerUserIdValue, workerIdValue).cancel();
       if (REMOVE_WORKER_LIVE_NODE_ON_OFFLINE) {
-        await removeWorkerLive(workerIdValue);
+        await removeWorkerLive(workerUserIdValue, workerIdValue);
       } else {
-        await updateWorkerLive(workerIdValue, {
+        await updateWorkerLive(workerUserIdValue, workerIdValue, {
           isOnline: false,
           isAvailable: false,
           vehicleMode: 'UNKNOWN',
@@ -949,6 +988,7 @@ export function useWorkerLiveLocation({
   const updateVehicleMode = useCallback(async (vehicleMode: WorkerVehicleMode) => {
     log('updateVehicleMode:start', {
       vehicleMode,
+      workerUserId: workerUserIdRef.current,
       workerId: workerIdRef.current,
       isOnline: isOnlineRef.current,
     });
@@ -960,7 +1000,12 @@ export function useWorkerLiveLocation({
       vehicleMode,
     }));
 
+    const workerUserIdValue = workerUserIdRef.current;
     const workerIdValue = workerIdRef.current;
+    if (!workerUserIdValue) {
+      log('updateVehicleMode:skip-no-worker-user-id');
+      return;
+    }
     if (!workerIdValue) {
       log('updateVehicleMode:skip-no-worker-id');
       return;
@@ -972,7 +1017,7 @@ export function useWorkerLiveLocation({
     }
 
     try {
-      await updateWorkerLive(workerIdValue, {
+      await updateWorkerLive(workerUserIdValue, workerIdValue, {
         vehicleMode,
         movementStatus: 'UNKNOWN',
         heartbeatAt: Date.now(),
@@ -987,6 +1032,10 @@ export function useWorkerLiveLocation({
   }, [canWriteRealtimeData, log, refreshCurrentLocation, setError]);
 
   useEffect(() => {
+    workerUserIdRef.current = workerUserId ?? null;
+  }, [workerUserId]);
+
+  useEffect(() => {
     workerIdRef.current = workerId ?? null;
   }, [workerId]);
 
@@ -997,14 +1046,15 @@ export function useWorkerLiveLocation({
       backgroundRuntimeContext.appState = nextWorkerState;
       setState(current => ({ ...current, appState: nextWorkerState }));
 
+      const workerUserIdValue = workerUserIdRef.current;
       const workerIdValue = workerIdRef.current;
-      if (!workerIdValue || !isOnlineRef.current) return;
+      if (!workerUserIdValue || !workerIdValue || !isOnlineRef.current) return;
 
       if (!canWriteRealtimeData()) {
         return;
       }
 
-      void updateWorkerLive(workerIdValue, {
+      void updateWorkerLive(workerUserIdValue, workerIdValue, {
         isOnline: true,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),
@@ -1044,13 +1094,14 @@ export function useWorkerLiveLocation({
         : current.lastLocation,
     }));
 
+    const workerUserIdValue = workerUserIdRef.current;
     const workerIdValue = workerIdRef.current;
-    if (!workerIdValue || !canWriteRealtimeData()) {
+    if (!workerUserIdValue || !workerIdValue || !canWriteRealtimeData()) {
       return;
     }
 
     try {
-      await updateWorkerLive(workerIdValue, {
+      await updateWorkerLive(workerUserIdValue, workerIdValue, {
         isAvailable,
         heartbeatAt: Date.now(),
         updatedAt: Date.now(),

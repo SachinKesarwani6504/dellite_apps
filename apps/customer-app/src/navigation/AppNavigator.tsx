@@ -19,7 +19,7 @@ import { ProfileDetailsNavigator } from '@/navigation/ProfileDetailsNavigator';
 import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AUTH_STATUS } from '@/types/auth';
 import type { AuthStatus } from '@/types/auth';
-import { palette, ROOT_SCREEN, theme, uiColors } from '@/utils';
+import { palette, resolveCustomerIdFromAuthUser, ROOT_SCREEN, theme, uiColors } from '@/utils';
 import { useBadgeSync } from '@/hooks/useBadgeSync';
 import { useLiveNotifications } from '@/hooks/useLiveNotifications';
 import { useUserPresence } from '@/hooks/useUserPresence';
@@ -82,6 +82,7 @@ export function AppNavigator() {
   const hasInitializedLocationRef = useRef(false);
   const isDark = useColorScheme() === 'dark';
   const userId = authState.user?.id ?? null;
+  const customerId = resolveCustomerIdFromAuthUser(authState.user);
   const hasAccessToken = Boolean(authState.tokens?.accessToken);
   const shouldTrackUserSession = hasAccessToken && Boolean(userId);
   const needsOnboardingSnapshot =
@@ -98,11 +99,13 @@ export function AppNavigator() {
 
   useUserPresence({
     userId,
+    roleEntityId: customerId,
     enabled: shouldTrackUserSession,
   });
 
   useLiveNotifications({
     userId,
+    roleEntityId: customerId,
     enabled: shouldTrackUserSession,
   });
 

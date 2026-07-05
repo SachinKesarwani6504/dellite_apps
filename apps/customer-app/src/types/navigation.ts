@@ -42,7 +42,6 @@ export type OnboardingStackParamList = {
 export type MainTabsParamList = {
   [MAIN_TAB_SCREEN.HOME]: undefined;
   [MAIN_TAB_SCREEN.ALL_SERVICES]: undefined;
-  [MAIN_TAB_SCREEN.BOOKINGS]: undefined;
   [MAIN_TAB_SCREEN.PROFILE]: undefined;
 };
 
@@ -70,10 +69,13 @@ export type ProfileStackParamList = {
   [PROFILE_SCREEN.EDIT_PROFILE]: undefined;
   [PROFILE_SCREEN.REFERRAL]: undefined;
   [PROFILE_SCREEN.NOTIFICATIONS]: undefined;
+  [PROFILE_SCREEN.SETTINGS]: undefined;
+  [PROFILE_SCREEN.BOOKINGS]: { listMode?: 'ALL' } | undefined;
 };
 
 export type BookingsStackParamList = {
-  [BOOKINGS_SCREEN.HOME]: undefined;
+  [BOOKINGS_SCREEN.HOME]: { listMode?: 'ONGOING' | 'ALL' } | undefined;
   [BOOKINGS_SCREEN.DETAILS]: { bookingId: string };
+  [BOOKINGS_SCREEN.EDIT]: { bookingId: string };
 };
 

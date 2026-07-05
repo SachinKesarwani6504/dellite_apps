@@ -27,6 +27,7 @@ export const MAIN_TAB_SCREEN = {
 export const BOOKINGS_SCREEN = {
   HOME: 'BookingsHome',
   DETAILS: 'BookingsDetails',
+  EDIT: 'BookingEdit',
 } as const;
 
 export const HOME_SCREEN = {
@@ -43,4 +44,6 @@ export const PROFILE_SCREEN = {
   EDIT_PROFILE: 'EditProfile',
   REFERRAL: 'Referral',
   NOTIFICATIONS: 'Notifications',
+  SETTINGS: 'Settings',
+  BOOKINGS: 'ProfileBookings',
 } as const;

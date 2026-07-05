@@ -52,8 +52,7 @@ export function WorkerNearbyGoldenJobCard({ item, isDark, onPress }: WorkerNearb
   const scheduledStartAt = formatSchedule(item.booking?.scheduledStartAt);
   const addressLine = item.address?.addressLine1?.trim() || null;
   const totalAmount = toNumber(item.booking?.totalAmount);
-  const commissionAmount = toNumber(item.booking?.bookingCommissionAmount) ?? 0;
-  const payoutAmount = totalAmount == null ? null : Math.max(0, totalAmount - commissionAmount);
+  const payoutAmount = toNumber(item.booking?.workerPayoutAmount);
   const totalAmountLabel = formatInr(totalAmount);
   const payoutAmountLabel = formatInr(payoutAmount);
 
@@ -115,7 +114,7 @@ export function WorkerNearbyGoldenJobCard({ item, isDark, onPress }: WorkerNearb
               {payoutAmountLabel ? (
                 <View className="flex-row items-center gap-1">
                   <Ionicons name="cash-outline" size={13} color={theme.colors.positive} />
-                  <Text className="text-base font-extrabold" style={{ color: theme.colors.positive }}>
+                  <Text className="text-sm font-extrabold" style={{ color: theme.colors.positive }}>
                     {payoutAmountLabel}
                   </Text>
                 </View>

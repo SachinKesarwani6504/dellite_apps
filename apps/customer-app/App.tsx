@@ -17,8 +17,11 @@ import { InAppNotificationProvider } from '@/components/common/InAppNotification
 import { StartupSplashGate } from '@/components/common/StartupSplashGate';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { applyGlobalAppFont } from '@/utils/app-fonts';
-import { setupNotificationChannels } from '@/utils';
+import { setupNotificationHandler } from '@/utils/notification-handler';
+import { preloadInAppNotificationSound, setupNotificationChannels } from '@/utils';
 import { toastConfig } from '@/utils/toast';
+
+setupNotificationHandler();
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignore if already prevented or unavailable in development edge-cases.
@@ -45,6 +48,7 @@ export default function App() {
         console.log('[customer-notifications] channel-setup-failed', error);
       }
     });
+    void preloadInAppNotificationSound();
   }, []);
 
   if (!fontsLoaded) {

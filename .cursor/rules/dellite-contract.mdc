@@ -1,0 +1,26 @@
+---
+description: Dellite monorepo coding contract — core rules and wiki entry point
+alwaysApply: true
+---
+
+# Dellite contract
+
+Source of truth: root `AGENTS.md`. Wiki index for agents: `.cursor/docs/WIKI_MAP.md`.
+
+## Non-negotiables
+
+- Shared fundamentals → `packages/app-core`. No duplicate primitives across apps.
+- Types only in `src/types/*` — never in screens, components, hooks, contexts, navigation.
+- Thin `src/contexts/*`; logic in `src/hooks/use*Controller.ts`. Screens use context hooks only.
+- No hardcoded UI copy or colors — use `appText.ts` and theme tokens.
+- User-facing dates — use `formatDisplayDate` / `formatDisplayDateTime` from `src/utils/date-display.ts` (`05 Jul 2026` format).
+- HTTP: `apiGet` / `apiPost` / `apiPatch` / `apiDelete`; `Authorization: Bearer <accessToken>`.
+- Tokens in `src/utils/key-chain-storage/` only — never plain AsyncStorage for auth.
+
+## Before finishing
+
+Run `npm run verify:all` (or scoped verify) when touching app code.
+
+## Parity
+
+Foundational changes (http, auth, storage, types, toast) must land in **both** apps in the same change set unless explicitly scoped.

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Dellite Partner",
     "slug": "dellite-partner",
+    "scheme": "dellite-partner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
@@ -35,12 +36,18 @@
     "web": {
       "favicon": "./src/assets/icon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "065cbb17-5fe4-418c-bd9f-1a4a2a13ae30"
-      }
-    },
+    "owner": "sachin_kesarwani",
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./src/assets/sounds/notifictaion.mp3"
+          ],
+          "defaultChannel": "default-notifications-v3",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -57,7 +64,27 @@
         {
           "cameraPermission": "Allow Dellite Partner to use your camera for Aadhaar QR verification."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "extraMavenRepos": [
+              "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android"
+            ],
+            "extraProguardRules": "-keepattributes *Annotation*\n-dontwarn com.razorpay.**\n-keep class com.razorpay.** {*;}\n-optimizations !method/inlining/*\n-keepclasseswithmembers class * {\n  public void onPayment*(...);\n}"
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "de181f71-fa4d-4267-b3b0-58987874327f"
+      }
+    }
   }
 }

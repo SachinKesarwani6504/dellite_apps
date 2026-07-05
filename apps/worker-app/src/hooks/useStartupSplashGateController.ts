@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AuthStatus } from '@/types/auth-status';
 import type {
@@ -14,7 +14,6 @@ export function useStartupSplashGateController({
 }: StartupSplashGateControllerParams): StartupSplashGateControllerValue {
   const [isInitialStartupComplete, setIsInitialStartupComplete] = useState(false);
   const [hasLocationSplashTimedOut, setHasLocationSplashTimedOut] = useState(false);
-  const hasRequestedInitialLocationRef = useRef(false);
   const {
     city,
     error,
@@ -26,7 +25,6 @@ export function useStartupSplashGateController({
     permissionStatus,
     refreshing,
     initializeLocation,
-    requestLocationPermission,
   } = locationState;
   const isAuthenticated = status === AuthStatus.AUTHENTICATED;
   const isAuthBootstrapping = status === AuthStatus.BOOTSTRAPPING;
@@ -36,6 +34,7 @@ export function useStartupSplashGateController({
   const isLocationSettled =
     !isAuthenticated
     || permissionStatus === 'denied'
+    || permissionStatus === 'undetermined'
     || (
       permissionStatus === 'granted'
       && initialized
@@ -65,35 +64,6 @@ export function useStartupSplashGateController({
 
     setIsInitialStartupComplete(true);
   }, [isInitialStartupComplete, shouldShowSplash]);
-
-  useEffect(() => {
-    if (
-      isInitialStartupComplete
-      || !isAuthenticated
-      || hasRequestedInitialLocationRef.current
-      || permissionStatus !== 'undetermined'
-    ) {
-      return;
-    }
-
-    hasRequestedInitialLocationRef.current = true;
-    void (async () => {
-      try {
-        const nextStatus = await requestLocationPermission();
-        if (nextStatus === 'granted') {
-          await initializeLocation({ forceRefresh: true });
-        }
-      } catch {
-        // Location startup failures are surfaced through location state; avoid unhandled rejections.
-      }
-    })();
-  }, [
-    initializeLocation,
-    isInitialStartupComplete,
-    isAuthenticated,
-    permissionStatus,
-    requestLocationPermission,
-  ]);
 
   useEffect(() => {
     if (isInitialStartupComplete || !isAuthenticated || permissionStatus !== 'granted' || initialized || isLocationBusy) {

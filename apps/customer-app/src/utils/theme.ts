@@ -42,17 +42,6 @@ export const statusToneColors = {
   neutral: { light: uiColors.status.neutralLight, dark: uiColors.status.neutralDark, text: uiColors.status.neutralText },
 } as const;
 
-export const customerStatusBadgeToneMap = {
-  ONGOING: 'success',
-  COMPLETED: 'success',
-  CANCELLED: 'danger',
-  CREATED: 'warning',
-  SEARCHING: 'warning',
-  CONFIRMED: 'info',
-  IN_PROGRESS: 'info',
-  EXPIRED: 'danger',
-} as const;
-
 export const liveTrackingToneMap = {
   success: 'success',
   warning: 'warning',
@@ -67,11 +56,6 @@ export function getStatusToneColors(tone: keyof typeof statusToneColors, isDark:
     text: colors.text,
     icon: colors.text,
   };
-}
-
-export function getCustomerStatusBadgeColors(status: string, isDark: boolean) {
-  const tone = customerStatusBadgeToneMap[status as keyof typeof customerStatusBadgeToneMap] ?? 'neutral';
-  return getStatusToneColors(tone, isDark);
 }
 
 export function getLiveTrackingToneColors(tone: keyof typeof liveTrackingToneMap, isDark: boolean) {

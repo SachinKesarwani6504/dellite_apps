@@ -252,8 +252,8 @@ export function WorkerBookingRouteMap({
             tracksViewChanges={true}
           >
             <View
+              collapsable={false}
               style={{
-                position: 'absolute',
                 width: 24,
                 height: 24,
                 borderRadius: 15,
@@ -261,16 +261,20 @@ export function WorkerBookingRouteMap({
                 alignItems: 'center',
                 justifyContent: 'center',
                 transform: [{ rotate: `${workerHeadingDegrees}deg` }],
-                zIndex: 10,
-                elevation: 10,
               }}
             >
               <MaterialIcons name="navigation" size={17} color={theme.colors.onPrimary} />
             </View>
           </Marker>
 
-          <Marker coordinate={destinationCoordinates} title={APP_TEXT.jobs.liveLocation.destinationMarkerTitle}>
-            <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
+          <Marker
+            coordinate={destinationCoordinates}
+            title={APP_TEXT.jobs.liveLocation.destinationMarkerTitle}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            <View collapsable={false}>
+              <Ionicons name="location-sharp" size={34} color={theme.colors.primary} />
+            </View>
           </Marker>
         </MapView>
         ) : (

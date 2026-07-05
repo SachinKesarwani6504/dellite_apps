@@ -1,3 +1,5 @@
+import type { BookingPaymentStatus } from '@/types/booking';
+
 export type WorkerJobBookingStatus =
   | 'CREATED'
   | 'SEARCHING'
@@ -28,6 +30,8 @@ export type WorkerJobAssignmentStatus =
 
 export type WorkerJobListTab = 'ALL' | 'NEW_JOBS' | 'ONGOING' | 'COMPLETED';
 
+export type WorkerJobsListMode = 'ALL' | 'NEW_JOBS';
+
 export type WorkerJobsSummary = {
   allJobs: number;
   newJobs: number;
@@ -41,10 +45,12 @@ export type WorkerJobListItem = {
     bookingCode?: string | null;
     bookingType?: 'INSTANT' | 'SCHEDULED' | null;
     bookingStatus?: WorkerJobBookingStatus | null;
-    paymentStatus?: string | null;
+    paymentStatus?: BookingPaymentStatus | null;
     scheduledStartAt?: string | null;
+    payableAmount?: string | number | null;
     totalAmount?: string | number | null;
     bookingCommissionAmount?: string | number | null;
+    workerPayoutAmount?: string | number | null;
   };
   services?: Array<{
     id?: string;
@@ -57,10 +63,25 @@ export type WorkerJobListItem = {
       firstName?: string | null;
       lastName?: string | null;
       phone?: string | null;
+      profileImageUrl?: string | null;
+      profileImage?: {
+        id?: string | null;
+        url?: string | null;
+      } | null;
     } | null;
   } | null;
   workerInfo?: {
     userId?: string | null;
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      phone?: string | null;
+      profileImageUrl?: string | null;
+      profileImage?: {
+        id?: string | null;
+        url?: string | null;
+      } | null;
+    } | null;
   } | null;
   address?: {
     addressLine1?: string | null;

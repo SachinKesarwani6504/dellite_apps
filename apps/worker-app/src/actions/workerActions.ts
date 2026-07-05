@@ -29,6 +29,14 @@ import {
   WorkerStatusResponse,
 } from '@/types/auth';
 import type { BookingDetailsResponse } from '@/types/booking-details';
+import type {
+  BookingInviteUpdateType,
+  WorkerAssignmentStatusUpdate,
+  WorkerBookingContactEventPayload,
+  WorkerBookingContactEventType,
+  WorkerBookingMutationResponse,
+  WorkerPaymentReceivedPayload,
+} from '@/types/booking-actions';
 import type { WorkerJobsSummary } from '@/types/jobs';
 import type { WorkerStartBookingWithOtpResponse } from '@/types/worker-booking';
 import { normalizeCertificatePayload, validateCertificatePayloadItems } from '@/utils/certificate-payload';
@@ -163,7 +171,6 @@ type RawServiceCategory = Omit<ServiceCategory, 'subcategories'> & {
 };
 
 type WorkerStatusEnvelopeOrData = WorkerStatusResponse | WorkerStatusData;
-export type BookingInviteUpdateType = 'ACCEPTED' | 'REJECTED';
 type WorkerStatusSortDirection = 'asc' | 'desc';
 type WorkerStatusQuery = {
   sortBy?: 'status';
@@ -246,7 +253,6 @@ function normalizeWorkerHomeNearbyJob(value: unknown): WorkerHomeNearbyJob | nul
     title: toOptionalString(raw.title ?? raw.name ?? raw.serviceName ?? raw.service_name) ?? inferredTitle,
     distanceKm: toOptionalNumber(raw.distanceKm ?? raw.distance_km),
     city: toOptionalString(raw.city) ?? toOptionalString(rawBooking?.city && typeof rawBooking.city === 'object' ? (rawBooking.city as Record<string, unknown>).name : undefined),
-    payout: toOptionalNumber(raw.payout) ?? toOptionalNumber(rawBooking?.totalAmount),
     imageUrl: imageFromSubcategory ?? toOptionalString(raw.imageUrl ?? raw.image_url),
     booking: rawBooking ? {
       id: toOptionalString(rawBooking.id),
@@ -257,6 +263,9 @@ function normalizeWorkerHomeNearbyJob(value: unknown): WorkerHomeNearbyJob | nul
       totalAmount: (typeof rawBooking.totalAmount === 'string' || typeof rawBooking.totalAmount === 'number') ? rawBooking.totalAmount : null,
       bookingCommissionAmount: (typeof rawBooking.bookingCommissionAmount === 'string' || typeof rawBooking.bookingCommissionAmount === 'number')
         ? rawBooking.bookingCommissionAmount
+        : null,
+      workerPayoutAmount: (typeof rawBooking.workerPayoutAmount === 'string' || typeof rawBooking.workerPayoutAmount === 'number')
+        ? rawBooking.workerPayoutAmount
         : null,
     } : undefined,
     services: normalizedServices,
@@ -912,7 +921,7 @@ export async function updateBookingInvite(inviteId: string, inviteType: BookingI
   }
 
   const response = await apiPatch<ApiEnvelope<BookingDetailsResponse>>(
-    `/booking/invite/${encodeURIComponent(normalizedInviteId)}?inviteType=${inviteType}`,
+    `/booking/invite/${encodeURIComponent(normalizedInviteId)}?inviteStatus=${encodeURIComponent(inviteType)}`,
     undefined,
     {
       auth: true,
@@ -922,6 +931,90 @@ export async function updateBookingInvite(inviteId: string, inviteType: BookingI
           ? 'Booking invite accepted successfully.'
           : 'Booking invite rejected successfully.',
         errorTitle: 'Invite Update Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function updateWorkerAssignmentStatus(
+  bookingId: string,
+  assignmentStatus: WorkerAssignmentStatusUpdate,
+  options?: {
+    showSuccessToast?: boolean;
+    showErrorToast?: boolean;
+  },
+): Promise<WorkerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPatch<ApiEnvelope<WorkerBookingMutationResponse> | WorkerBookingMutationResponse>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/assignment-status?assignmentStatus=${encodeURIComponent(assignmentStatus)}`,
+    undefined,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: options?.showSuccessToast ?? true,
+        showError: options?.showErrorToast ?? true,
+        successTitle: 'Job Updated',
+        successMessage: 'Job progress was updated.',
+        errorTitle: 'Job Update Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function createWorkerBookingContactEvent(
+  bookingId: string,
+  eventType: WorkerBookingContactEventType,
+  payload?: WorkerBookingContactEventPayload,
+): Promise<WorkerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<WorkerBookingMutationResponse> | WorkerBookingMutationResponse, WorkerBookingContactEventPayload | undefined>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/contact-event?eventType=${encodeURIComponent(eventType)}`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: false,
+        errorTitle: 'Contact Event Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function recordWorkerPaymentReceived(
+  bookingId: string,
+  payload: WorkerPaymentReceivedPayload,
+): Promise<WorkerBookingMutationResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<WorkerBookingMutationResponse> | WorkerBookingMutationResponse, WorkerPaymentReceivedPayload>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/payment-received`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        successTitle: 'Payment Confirmed',
+        successMessage: 'Payment received was recorded successfully.',
+        errorTitle: 'Payment Confirmation Failed',
       },
     },
   );

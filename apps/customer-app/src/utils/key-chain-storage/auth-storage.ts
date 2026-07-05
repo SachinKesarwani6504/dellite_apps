@@ -6,6 +6,13 @@ import {
   saveSecureValue,
 } from '@/utils/key-chain-storage/key-chain-service';
 
+const legacyAuthKeyChainValues = [
+  { service: 'dellite.customer.tokens', username: 'auth' },
+  { service: 'dellite.tokens', username: 'auth' },
+] as const;
+
+let cachedAuthTokens: AuthTokens | null | undefined;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
@@ -43,6 +50,7 @@ function normalizeAuthTokens(raw: unknown): AuthTokens | null {
 }
 
 export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
+  cachedAuthTokens = tokens;
   await saveSecureValue(
     keyChainValues.authService,
     keyChainValues.authUsername,
@@ -51,17 +59,45 @@ export async function saveAuthTokens(tokens: AuthTokens): Promise<void> {
 }
 
 export async function getAuthTokens(): Promise<AuthTokens | null> {
-  const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value);
-    return normalizeAuthTokens(parsed);
-  } catch {
-    return null;
+  if (typeof cachedAuthTokens !== 'undefined') {
+    return cachedAuthTokens;
   }
+
+  const value = await getSecureValue(keyChainValues.authService, keyChainValues.authUsername);
+  if (value) {
+    try {
+      const parsed = JSON.parse(value);
+      const normalized = normalizeAuthTokens(parsed);
+      cachedAuthTokens = normalized;
+      return normalized;
+    } catch {
+      cachedAuthTokens = null;
+      return null;
+    }
+  }
+
+  for (const legacyKey of legacyAuthKeyChainValues) {
+    const legacyValue = await getSecureValue(legacyKey.service, legacyKey.username);
+    if (!legacyValue) continue;
+
+    try {
+      const parsed = JSON.parse(legacyValue);
+      const tokens = normalizeAuthTokens(parsed);
+      if (!tokens) continue;
+
+      await saveAuthTokens(tokens);
+      await removeSecureValue(legacyKey.service, legacyKey.username);
+      return tokens;
+    } catch {
+      continue;
+    }
+  }
+
+  cachedAuthTokens = null;
+  return null;
 }
 
 export async function clearAuthTokens(): Promise<void> {
+  cachedAuthTokens = null;
   await removeSecureValue(keyChainValues.authService, keyChainValues.authUsername);
 }

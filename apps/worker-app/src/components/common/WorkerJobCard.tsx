@@ -1,17 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
+import { AppImage } from '@/components/common/AppImage';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { StatusInfoTile } from '@/components/common/StatusInfoTile';
 import type { WorkerJobListItem } from '@/types/jobs';
 import {
   getWorkerJobAddressLabel,
   getWorkerJobBookingAmountLabel,
   getWorkerJobCustomerInitial,
+  getWorkerJobCustomerImageUrl,
   getWorkerJobCustomerName,
   getWorkerJobPayoutAmountLabel,
   getWorkerJobReferenceLabel,
   getWorkerJobScheduleLabel,
 } from '@/utils/worker-jobs';
+import { APP_TEXT } from '@/utils/appText';
 import { formatTitle } from '@/utils';
+import { getBookingPaymentStatusLabel } from '@/utils/booking-details';
+import { getStatusTileIconName } from '@/utils/status-badge';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 type WorkerJobCardProps = {
@@ -29,15 +35,18 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
   const addressLabel = getWorkerJobAddressLabel(item);
   const customerName = getWorkerJobCustomerName(item);
   const customerInitial = getWorkerJobCustomerInitial(item);
+  const customerImageUrl = getWorkerJobCustomerImageUrl(item);
   const bookingAmountLabel = getWorkerJobBookingAmountLabel(item);
   const payoutAmountLabel = getWorkerJobPayoutAmountLabel(item);
+  const paymentStatus = item.booking.paymentStatus ?? null;
   const jobId = item.booking.id;
+  const bookingStatus = item.booking.bookingStatus ?? 'CREATED';
   const inviteStatus = item.invite?.inviteStatus ?? 'NEW_JOB_REQUEST';
-  const inviteStatusLabel = formatTitle(inviteStatus);
+  const paymentStatusLabel = paymentStatus ? getBookingPaymentStatusLabel(paymentStatus) : null;
 
   return (
     <View
-      className="mb-4 overflow-hidden rounded-3xl border"
+      className="mb-4 overflow-hidden rounded-2xl border"
       style={{
         backgroundColor: isDark ? palette.dark.card : palette.light.card,
         borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight,
@@ -46,16 +55,16 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
       }}
     >
       <View className="p-4">
-        <View className="flex-row items-start justify-between">
-          <View className="mr-3 flex-1">
-            <Text className="text-lg font-bold text-baseDark dark:text-white">{subCategoryName}</Text>
-            <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
-              {(item.services || []).map((service) => (
-                <StatusBadge key={service.id} status="COMPLETED" label={formatTitle(service.serviceName ?? undefined)} showDot={false} />
-              ))}
-            </View>
+        <View>
+          <Text className="text-xl font-extrabold text-baseDark dark:text-white" numberOfLines={1}>{subCategoryName}</Text>
+          <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+            {(item.services || []).slice(0, 2).map((service) => (
+              <StatusBadge key={service.id ?? service.serviceName ?? 'service'} status="COMPLETED" label={formatTitle(service.serviceName ?? undefined)} showDot={false} />
+            ))}
+            {(item.services?.length ?? 0) > 2 ? (
+              <StatusBadge status="COMPLETED" label={`+${(item.services?.length ?? 0) - 2}`} showDot={false} />
+            ) : null}
           </View>
-          <StatusBadge status={inviteStatus} label={inviteStatusLabel} showDot={false} />
         </View>
 
         <View className="mt-3 gap-2">
@@ -97,9 +106,14 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
           style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.warmCardLight }}
         >
           <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={16} color={theme.colors.primary} />
-            <Text className="ml-2 flex-1 text-sm font-medium text-baseDark dark:text-white">{addressLabel}</Text>
+            <Ionicons name="location-outline" size={26} color={theme.colors.primary} />
+            <Text className="ml-3 flex-1 text-sm font-medium leading-5 text-baseDark dark:text-white" numberOfLines={3}>{addressLabel}</Text>
           </View>
+        </View>
+
+        <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
+          <StatusInfoTile status={bookingStatus} type="booking" subtitle={APP_TEXT.jobs.cardBookingStatusLabel} />
+          <StatusInfoTile status={inviteStatus} type="invite" subtitle={APP_TEXT.jobs.cardInviteStatusLabel} />
         </View>
 
         <View className="my-4 h-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.borderNeutralLight }} />
@@ -107,13 +121,17 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
         <View className="flex-row items-center justify-between">
           <View className="mr-3 flex-1 flex-row items-center">
             <View
-              className="h-9 w-9 items-center justify-center rounded-full"
+              className="h-12 w-12 overflow-hidden items-center justify-center rounded-full"
               style={{ backgroundColor: isDark ? uiColors.surface.overlayDark95 : uiColors.surface.warmPanelLight }}
             >
-              <Text className="text-sm font-bold text-primary">{customerInitial}</Text>
+              {customerImageUrl ? (
+                <AppImage source={{ uri: customerImageUrl }} className="h-full w-full" resizeMode="cover" />
+              ) : (
+                <Text className="text-base font-bold text-primary">{customerInitial}</Text>
+              )}
             </View>
-            <View className="ml-2.5 flex-1">
-              <Text className="text-base font-semibold text-baseDark dark:text-white" numberOfLines={1}>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
                 {customerName}
               </Text>
               <Text className="text-xs text-baseDark/55 dark:text-white/70" numberOfLines={1}>
@@ -123,25 +141,57 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
           </View>
         </View>
 
-        <View className="mt-3 gap-2">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Ionicons name="wallet-outline" size={14} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
-              <Text className="ml-1.5 text-sm font-extrabold text-baseDark dark:text-white">{bookingAmountLabel}</Text>
+          <View
+            className="mt-4 rounded-xl border"
+            style={{
+              borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
+              backgroundColor: isDark ? uiColors.surface.overlayDark08 : palette.light.card,
+              borderStyle: 'dotted',
+            }}
+          >
+          <View className="flex-row items-center px-4 py-3">
+            <View className="flex-1 flex-row items-center">
+              <Ionicons name="wallet-outline" size={25} color={isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight} />
+              <View className="ml-3">
+                <Text className="text-[11px] text-baseDark/50 dark:text-white/60">{APP_TEXT.jobs.cardTotalBillLabel}</Text>
+                <Text className="text-lg font-extrabold text-baseDark dark:text-white">{bookingAmountLabel}</Text>
+              </View>
             </View>
-            <View className="flex-row items-center">
-              <Ionicons name="cash-outline" size={14} color={theme.colors.positive} />
-              <Text className="ml-1.5 text-lg font-extrabold" style={{ color: theme.colors.positive }}>{payoutAmountLabel}</Text>
+            <View className="mx-3 h-9 w-px" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }} />
+            <View className="flex-1 flex-row items-center">
+              <Ionicons name="cash-outline" size={24} color={theme.colors.positive} />
+              <View className="ml-3">
+                <Text className="text-[11px] text-baseDark/50 dark:text-white/60">{APP_TEXT.jobs.cardWorkerEarningLabel}</Text>
+                <Text className="text-lg font-extrabold" style={{ color: theme.colors.positive }}>
+                  {payoutAmountLabel === '--' ? APP_TEXT.jobs.payoutShownAfterRefresh : payoutAmountLabel}
+                </Text>
+              </View>
             </View>
           </View>
+          {paymentStatus ? (
+            <View className="border-t border-dashed px-4 py-3" style={{ borderTopColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight }}>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Ionicons name="card-outline" size={20} color={theme.colors.primary} />
+                  <Text className="ml-2 text-xs text-baseDark/60 dark:text-white/65">{APP_TEXT.jobs.cardPaymentStatusLabel}</Text>
+                </View>
+                <StatusBadge
+                  status={paymentStatus}
+                  type="payment"
+                  label={paymentStatusLabel ?? undefined}
+                  iconName={getStatusTileIconName(paymentStatus)}
+                />
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <Pressable
           onPress={() => onPress(jobId)}
-          className="mt-4 items-center justify-center rounded-2xl py-3.5"
+          className="mt-4 items-center justify-center rounded-xl py-3.5"
           style={{ backgroundColor: theme.colors.primary }}
         >
-          <Text className="text-base font-bold text-white">View Job</Text>
+          <Text className="text-base font-bold text-white">{APP_TEXT.jobs.cardViewAction}</Text>
         </Pressable>
       </View>
     </View>

@@ -25,7 +25,8 @@ dellite-apps/
 │   ├── config-eslint/              # ESLint config
 │   └── config-prettier/            # Prettier config
 ├── docs/                           # This documentation
-├── skills/                         # Reusable Codex skills
+├── .cursor/                        # Cursor rules, skills, commands, agent wiki map
+├── skills/                         # Deprecated — see .cursor/skills/
 ├── scripts/                        # Build/quality scripts
 ├── package.json                    # Root workspace config
 └── AGENTS.md                       # Coding contract (source of truth)

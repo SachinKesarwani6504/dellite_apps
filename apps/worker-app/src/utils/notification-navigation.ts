@@ -143,11 +143,8 @@ function openWorkerProfileDetails(screen: string) {
 
 function openWorkerJobsHome() {
   openWorkerMainTabs({
-    screen: MAIN_TAB_SCREENS.jobs,
+    screen: MAIN_TAB_SCREENS.home,
     initial: false,
-    params: {
-      screen: JOB_STACK_SCREENS.home,
-    },
   });
 }
 

@@ -10,6 +10,7 @@ export type WorkerLive = {
   movementStatus: 'STATIONARY' | 'MOVING' | 'GPS_WEAK' | 'UNKNOWN';
   speed: number | null;
   updatedAt: number;
+  userId: string;
   vehicleMode: 'WALK' | 'TWO_WHEELER' | 'CAR' | 'UNKNOWN';
   workerId: string;
 };
@@ -17,7 +18,10 @@ export type WorkerLive = {
 export type UserPresence = {
   appState: 'FOREGROUND' | 'BACKGROUND' | 'OFFLINE';
   isConnected: boolean;
+  role: 'CUSTOMER' | 'WORKER';
   userId: string;
+  customerId?: string | null;
+  workerId?: string | null;
   lastSeenAt: number;
   disconnectedAt: number | null;
   updatedAt: number;

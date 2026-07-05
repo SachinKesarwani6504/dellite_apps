@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { getServiceLaunchedCities } from '@/actions';
@@ -7,6 +7,7 @@ import { AadhaarUploadInput } from '@/components/common/AadhaarUploadInput';
 import { AppInput } from '@/components/common/AppInput';
 import { Button } from '@/components/common/Button';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ProfilePhotoUploadPlaceholder } from '@/components/common/ProfilePhotoUploadPlaceholder';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
@@ -78,6 +79,20 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     refreshOnboardingRoute,
   } = useOnboardingContext();
   const formDisabled = loading || isSubmitting;
+
+  const loadCities = useCallback(async () => {
+    setCityLoading(true);
+    setCityLoadError(null);
+    try {
+      const cities = await getServiceLaunchedCities();
+      setCityOptions(cities);
+    } catch {
+      setCityOptions([]);
+      setCityLoadError('Could not load operating cities. Please retry.');
+    } finally {
+      setCityLoading(false);
+    }
+  }, []);
 
   const refreshPrefill = async () => {
     const token = await getOnboardingPhoneToken();
@@ -161,29 +176,8 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   }, [getOnboardingRedirect, navigation]);
 
   useEffect(() => {
-    let mounted = true;
-    const loadCities = async () => {
-      if (!mounted) return;
-      setCityLoading(true);
-      setCityLoadError(null);
-      try {
-        const cities = await getServiceLaunchedCities();
-        if (!mounted) return;
-        setCityOptions(cities);
-      } catch {
-        if (!mounted) return;
-        setCityOptions([]);
-        setCityLoadError('Could not load operating cities. Please retry.');
-      } finally {
-        if (!mounted) return;
-        setCityLoading(false);
-      }
-    };
     void loadCities();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [loadCities]);
 
   const isValid = isValidFirstName(firstName)
     && isValidLastName(lastName)
@@ -191,6 +185,7 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
     && Boolean(aadhaarFront)
     && Boolean(aadhaarBack)
     && selectedCities.length > 0;
+  const showCityEmptyState = !cityLoading && !cityLoadError && cityOptions.length === 0;
 
   const onContinue = async () => {
     logOnboardingIdentityScreen('next-clicked', {
@@ -455,41 +450,33 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
             Select at least one city where you can work.
           </Text>
           {cityLoadError ? (
-            <View className="mt-2 rounded-xl border px-3 py-2" style={{
-              borderColor: theme.colors.negative,
-              backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.overlayLight95,
-            }}>
-              <Text className="text-xs font-semibold" style={{ color: theme.colors.negative }}>
-                {cityLoadError}
-              </Text>
-              <Pressable
-                className="mt-2 self-start rounded-full border px-3 py-1.5"
-                style={{
-                  borderColor: isDark ? uiColors.surface.overlayDark14 : uiColors.surface.overlayStrokeLight,
-                  backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20,
-                }}
-                onPress={async () => {
-                  setCityLoading(true);
-                  setCityLoadError(null);
-                  try {
-                    const cities = await getServiceLaunchedCities();
-                    setCityOptions(cities);
-                  } catch {
-                    setCityOptions([]);
-                    setCityLoadError('Could not load operating cities. Please retry.');
-                  } finally {
-                    setCityLoading(false);
-                  }
-                }}
-              >
-                <Text className="text-xs font-semibold text-primary">Retry cities</Text>
-              </Pressable>
-            </View>
+            <ListEmptyState
+              containerClassName="mt-3 py-4"
+              icon="cloud-offline-outline"
+              title="Could not load cities"
+              description={cityLoadError}
+              actionLabel="Refresh cities"
+              onAction={() => {
+                void loadCities();
+              }}
+            />
           ) : null}
           {cityLoading ? (
             <Text className="mt-2 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
               Loading cities...
             </Text>
+          ) : null}
+          {showCityEmptyState ? (
+            <ListEmptyState
+              containerClassName="mt-3 py-4"
+              icon="location-outline"
+              title="No cities available"
+              description="We could not find operating cities right now. Refresh to check again."
+              actionLabel="Refresh cities"
+              onAction={() => {
+                void loadCities();
+              }}
+            />
           ) : null}
           <View className="mt-2 flex-row flex-wrap gap-2">
             {cityOptions.map(city => {
@@ -522,10 +509,15 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
               );
             })}
           </View>
-        </View>
+      </View>
 
       <View className="mt-5">
-        <Button label={APP_TEXT.onboarding.identity.nextButton} onPress={onContinue} loading={isSubmitting} disabled={formDisabled} />
+        <Button
+          label={APP_TEXT.onboarding.identity.nextButton}
+          onPress={onContinue}
+          loading={isSubmitting}
+          disabled={formDisabled || !isValid}
+        />
       </View>
     </GradientScreen>
   );

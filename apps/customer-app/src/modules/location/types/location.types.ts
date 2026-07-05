@@ -46,3 +46,9 @@ export type LocationContextValue = LocationSnapshot & {
   getCurrentCoordinates: () => Promise<LocationCoordinates>;
   clearLocationError: () => void;
 };
+
+export type HomeLocationPermissionPromptParams = {
+  permissionStatus: LocationPermissionStatus;
+  requestLocationPermission: () => Promise<LocationPermissionStatus>;
+  initializeLocation: (options?: { forceRefresh?: boolean }) => Promise<NormalizedLocation | null>;
+};

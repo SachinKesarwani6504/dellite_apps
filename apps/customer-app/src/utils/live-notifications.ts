@@ -1,12 +1,14 @@
 import type {
   NotificationAction,
   NotificationEvent,
+  NotificationRole,
   NotificationType,
   UserLiveEvent,
 } from '@/types/live-notifications';
 
 const DEFAULT_LIVE_EVENT_TITLE = 'Dellite';
 const DEFAULT_LIVE_EVENT_MESSAGE = 'You have a new update.';
+const WORKER_ONLY_EVENTS: ReadonlySet<NotificationEvent> = new Set(['JOB_INVITE']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -42,6 +44,23 @@ function normalizeAction(value: unknown): NotificationAction | undefined {
   return value === 'NONE' || value === 'OPEN_SCREEN' || value === 'OPEN_LINK' ? value : undefined;
 }
 
+function normalizeRole(value: unknown): NotificationRole | null {
+  return value === 'CUSTOMER' || value === 'WORKER' ? value : null;
+}
+
+export function isLiveEventForAppRole(event: UserLiveEvent, appRole: NotificationRole) {
+  const explicitRole = normalizeRole(readStringFromData(event, 'role'));
+  if (explicitRole) {
+    return explicitRole === appRole;
+  }
+
+  if (event.type === 'JOB' || WORKER_ONLY_EVENTS.has(event.event)) {
+    return appRole === 'WORKER';
+  }
+
+  return true;
+}
+
 export function normalizeLiveEventId(event: UserLiveEvent | null | undefined, fallbackId?: string | null) {
   const candidate =
     event?.eventId
@@ -62,6 +81,12 @@ export function resolveLiveEventMessage(event: UserLiveEvent) {
   return readStringFromData(event, 'message', 'body', 'description')
     ?? normalizeText(event.message)
     ?? DEFAULT_LIVE_EVENT_MESSAGE;
+}
+
+export function hasDisplayableLiveEventContent(event: UserLiveEvent) {
+  const title = resolveLiveEventTitle(event);
+  const message = resolveLiveEventMessage(event);
+  return title !== DEFAULT_LIVE_EVENT_TITLE || message !== DEFAULT_LIVE_EVENT_MESSAGE;
 }
 
 export function resolveLiveEventImageUrl(event: UserLiveEvent) {

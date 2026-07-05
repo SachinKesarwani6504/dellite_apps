@@ -8,6 +8,7 @@ import {
   canTrackBookingWorker,
   getBookingMapDestinationCoordinates,
   getBookingWorkerId,
+  getBookingWorkerUserId,
   getTrackableWorkerCoordinates,
 } from '@/utils/booking-details';
 
@@ -15,9 +16,10 @@ export function BookingDetailsLiveLocationTab() {
   const isDark = useColorScheme() === 'dark';
   const { details } = useBookingDetailsContext();
   const workerId = getBookingWorkerId(details);
+  const workerUserId = getBookingWorkerUserId(details);
   const destinationCoordinates = getBookingMapDestinationCoordinates(details?.address);
   const canTrackWorker = canTrackBookingWorker(details);
-  const workerLiveState = useWorkerLiveLocationReader(workerId, canTrackWorker);
+  const workerLiveState = useWorkerLiveLocationReader(workerUserId, workerId, canTrackWorker);
   const workerCoordinates = getTrackableWorkerCoordinates(workerLiveState.location);
   const routeState = useBookingLiveRoute({
     origin: workerCoordinates,

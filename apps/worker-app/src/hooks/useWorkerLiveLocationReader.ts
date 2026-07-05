@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { subscribeWorkerLiveLocation } from '@/lib/firebase';
-import type { WorkerLiveLocationRecord } from '@/lib/firebase';
+import { isFirebaseConfigured, subscribeWorkerLiveLocation, type WorkerLiveLocationRecord } from '@/lib/firebase';
+import { APP_TEXT } from '@/utils/appText';
 
 type WorkerLiveLocationReaderState = {
   location: WorkerLiveLocationRecord | null;
@@ -8,16 +8,29 @@ type WorkerLiveLocationReaderState = {
   error: string | null;
 };
 
-export function useWorkerLiveLocationReader(workerId: string | null | undefined, enabled: boolean) {
+export function useWorkerLiveLocationReader(
+  workerUserId: string | null | undefined,
+  workerId: string | null | undefined,
+  enabled: boolean,
+) {
   const [state, setState] = useState<WorkerLiveLocationReaderState>({
     location: null,
-    loading: Boolean(workerId && enabled),
+    loading: Boolean(workerUserId && workerId && enabled),
     error: null,
   });
 
   useEffect(() => {
-    if (!enabled || !workerId) {
+    if (!enabled || !workerUserId || !workerId) {
       setState({ location: null, loading: false, error: null });
+      return undefined;
+    }
+
+    if (!isFirebaseConfigured) {
+      setState({
+        location: null,
+        loading: false,
+        error: APP_TEXT.jobs.liveLocation.readerUnavailable,
+      });
       return undefined;
     }
 
@@ -28,6 +41,7 @@ export function useWorkerLiveLocationReader(workerId: string | null | undefined,
     }));
 
     const unsubscribe = subscribeWorkerLiveLocation(
+      workerUserId,
       workerId,
       location => {
         setState({
@@ -46,7 +60,7 @@ export function useWorkerLiveLocationReader(workerId: string | null | undefined,
     );
 
     return unsubscribe;
-  }, [enabled, workerId]);
+  }, [enabled, workerId, workerUserId]);
 
   return state;
 }

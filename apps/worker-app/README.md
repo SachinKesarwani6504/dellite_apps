@@ -6,7 +6,7 @@ Cross-platform worker app (Android + iOS) built with Expo + React Native.
 
 - Phone OTP authentication flow
 - Worker onboarding flow
-- Main tabs: `Home`, `Ongoing`, `Earnings`, `Profile`
+- Main tabs: `Home`, `Earnings`, `Profile`
 - Profile sub-pages scaffold
 - Centralized API action layer
 - Secure token storage (`react-native-keychain` with `expo-secure-store` fallback)
@@ -45,7 +45,8 @@ src/
 
 - Node.js 18+ (recommended: Node 20 LTS)
 - npm
-- Expo Go app on mobile (or emulator)
+- Expo Go app on mobile (or emulator) for non-payment flows
+- Dev client or EAS build for Razorpay / PhonePe native modules
 
 ## Environment Setup
 
@@ -60,6 +61,18 @@ Current expected backend: `localhost:3000`.
 Note:
 - `localhost` works for emulator/same machine.
 - For physical phone testing, update to your PC LAN IP (example: `http://192.168.1.20:3000`).
+- Payment keys come from backend intent APIs only — no Razorpay or PhonePe secrets in `.env`.
+
+## Payment SDKs
+
+Packages: `react-native-razorpay`, `react-native-phonepe-pg`. Config in `app.json` (`scheme`, `expo-build-properties`). PhonePe `appSchema` must match `scheme` (`dellite-partner` for this app). Online pay uses backend intent APIs only — no payment secrets in `.env`.
+
+```bash
+npx expo prebuild --clean
+npx expo run:android
+npx expo start --dev-client
+npm run test:payments
+```
 
 ## Install & Run
 
@@ -82,7 +95,7 @@ npm run web
 2. Confirm `.env` is set.
 3. Start backend on port `3000`.
 4. Start app with Expo.
-5. Scan QR from Expo terminal using Expo Go.
+5. Scan QR from Expo terminal using Expo Go (or use dev client for payment SDK testing).
 6. Test auth flow:
    - Send OTP
    - Verify OTP

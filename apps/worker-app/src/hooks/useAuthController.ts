@@ -24,7 +24,7 @@ import {
 } from '@/types/auth';
 import { useLocationController } from '@/hooks/useLocationController';
 import { clearFirebaseAuthSession, ensureFirebaseSessionWithCustomToken } from '@/utils/firebase-session';
-import { buildDeviceSessionPayload } from '@/utils/device-session';
+import { buildDeviceSessionPayload, clearStableDeviceId } from '@/utils/device-session';
 import {
   clearAuthTokens,
   clearOnboardingPhoneToken,
@@ -82,6 +82,7 @@ function getAuthTokenLogMetadata(tokens: AuthTokens | null) {
 async function clearAllStoredTokens() {
   await clearAuthTokens();
   await clearOnboardingPhoneToken();
+  await clearStableDeviceId();
   await clearFirebaseAuthSession();
 }
 
@@ -248,8 +249,15 @@ export function useAuthController(): AuthContextType {
           }
           await clearOnboardingPhoneToken();
           setStatus(AuthStatus.AUTHENTICATED);
-        } catch {
-          await logout();
+        } catch (error) {
+          if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+            await logout();
+            return;
+          }
+          if (!mounted) {
+            return;
+          }
+          setStatus(AuthStatus.AUTHENTICATED);
         }
       } catch {
         if (mounted) {

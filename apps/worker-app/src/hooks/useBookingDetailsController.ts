@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
-import { startWorkerBookingWithOtp, updateBookingInvite } from '@/actions/workerActions';
+import {
+  recordWorkerPaymentReceived,
+  startWorkerBookingWithOtp,
+  updateBookingInvite,
+  updateWorkerAssignmentStatus,
+} from '@/actions/workerActions';
 import { apiPatch } from '@/actions/http/httpClient';
 import { useApiGet } from '@/hooks/useApiGet';
 import type { ApiEnvelope } from '@/types/api';
@@ -11,6 +16,7 @@ import type {
   BookingDetailsServiceLine,
   UpdateBookingPayload,
 } from '@/types/booking-details';
+import type { WorkerAssignmentStatusUpdate, WorkerPaymentReceivedMode } from '@/types/booking-actions';
 import {
   BOOKING_DURATION_STEP_MINUTES,
   buildBookingDurationPatch,
@@ -39,6 +45,7 @@ export function useBookingDetailsController(
     data,
     loading,
     error,
+    isNotFound,
     refetch,
   } = useApiGet<BookingDetailsResponse>(detailsPath);
   const [updatingLineKey, setUpdatingLineKey] = useState<string | null>(null);
@@ -47,6 +54,7 @@ export function useBookingDetailsController(
   const [startOtpError, setStartOtpError] = useState<string | null>(null);
   const [startingJob, setStartingJob] = useState(false);
   const [inviteActionLoading, setInviteActionLoading] = useState<InviteActionLoading>(null);
+  const [jobActionLoading, setJobActionLoading] = useState<string | null>(null);
 
   const normalizedDetails = useMemo(() => {
     if (!data) return null;
@@ -117,12 +125,20 @@ export function useBookingDetailsController(
       if (options?.onInviteAccepted) {
         await options.onInviteAccepted();
       }
+      try {
+        await updateWorkerAssignmentStatus(bookingId, 'EN_ROUTE', {
+          showSuccessToast: false,
+          showErrorToast: false,
+        });
+      } catch (progressError) {
+        showToast('info', getErrorMessage(progressError, APP_TEXT.jobs.acceptEnRouteSyncInfo));
+      }
       void syncAppBadgeCountFromBackend(true);
       await refetch();
     } finally {
       setInviteActionLoading(null);
     }
-  }, [inviteId, options, refetch]);
+  }, [bookingId, inviteId, options, refetch]);
 
   const rejectInvite = useCallback(async () => {
     if (!inviteId) {
@@ -171,6 +187,40 @@ export function useBookingDetailsController(
     }
   }, [normalizedDetails?.booking.id, refetch, startOtp]);
 
+  const updateProgress = useCallback(async (assignmentStatus: WorkerAssignmentStatusUpdate) => {
+    const normalizedBookingId = normalizedDetails?.booking.id ?? null;
+    if (!normalizedBookingId || jobActionLoading) return;
+
+    setJobActionLoading(assignmentStatus);
+    try {
+      await updateWorkerAssignmentStatus(normalizedBookingId, assignmentStatus);
+      await refetch();
+    } catch (progressError) {
+      showToast('error', getErrorMessage(progressError, APP_TEXT.auth.errors.tryAgain));
+    } finally {
+      setJobActionLoading(null);
+    }
+  }, [jobActionLoading, normalizedDetails?.booking.id, refetch]);
+
+  const confirmPaymentReceived = useCallback(async (mode: WorkerPaymentReceivedMode) => {
+    const normalizedBookingId = normalizedDetails?.booking.id ?? null;
+    if (!normalizedBookingId || jobActionLoading) return false;
+
+    setJobActionLoading(mode);
+    try {
+      await recordWorkerPaymentReceived(normalizedBookingId, {
+        mode,
+      });
+      await refetch();
+      return true;
+    } catch (paymentError) {
+      showToast('error', getErrorMessage(paymentError, APP_TEXT.auth.errors.tryAgain));
+      return false;
+    } finally {
+      setJobActionLoading(null);
+    }
+  }, [jobActionLoading, normalizedDetails?.booking.id, refetch]);
+
   const updateQuantity = useCallback(async (line: BookingDetailsServiceLine, nextQuantity: number) => {
     const quantity = Math.max(1, nextQuantity);
     await patchBooking(line, buildBookingQuantityPatch(line, quantity));
@@ -203,17 +253,21 @@ export function useBookingDetailsController(
     details: normalizedDetails,
     loading,
     error: error ?? updateError,
+    isNotFound,
     updatingLineKey,
     inviteId,
     startOtp,
     startOtpError,
     startingJob,
     inviteActionLoading,
+    jobActionLoading,
     refetch,
     setStartOtp,
     acceptInvite,
     rejectInvite,
     startBookingWithOtp,
+    updateProgress,
+    confirmPaymentReceived,
     increaseQuantity,
     decreaseQuantity,
     increaseDuration,

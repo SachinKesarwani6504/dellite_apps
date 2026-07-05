@@ -78,8 +78,10 @@ const screenRouteConfig: Record<AppBannerTargetScreen, (params: BannerActionHand
   [APP_BANNER_TARGET_SCREEN.BOOKING_REVIEW]: (params) => {
     params.navigation.navigate(ROOT_SCREEN.BOOKING_FLOW_NAVIGATOR, { screen: HOME_SCREEN.BOOKING_DRAFT_DETAILS });
   },
-  [APP_BANNER_TARGET_SCREEN.MY_BOOKINGS]: (params) => {
-    params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, { screen: MAIN_TAB_SCREEN.BOOKINGS });
+  [APP_BANNER_TARGET_SCREEN.MY_BOOKINGS]: () => {
+    openCustomerProtectedRoot(ROOT_SCREEN.PROFILE_DETAILS_NAVIGATOR, {
+      screen: PROFILE_SCREEN.BOOKINGS,
+    });
   },
   [APP_BANNER_TARGET_SCREEN.PROFILE]: (params) => {
     params.navigation.navigate(ROOT_SCREEN.MAIN_TABS_NAVIGATOR, { screen: MAIN_TAB_SCREEN.PROFILE });

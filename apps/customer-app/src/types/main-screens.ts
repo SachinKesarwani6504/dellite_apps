@@ -47,6 +47,15 @@ export type BookingDetailsScreenProps = {
   };
 };
 
+export type BookingEditScreenProps = {
+  navigation: BackNavigation;
+  route: {
+    params: {
+      bookingId: string;
+    };
+  };
+};
+
 export type BookingLocationPickerScreenProps = {
   navigation: BackNavigation;
 };

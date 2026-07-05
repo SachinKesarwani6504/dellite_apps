@@ -20,6 +20,7 @@ import {
 } from '@/utils/key-chain-storage';
 import {
   buildDeviceSessionPayload,
+  clearStableDeviceId,
   registerFcmTokenRefreshListener,
   syncPendingFcmTokenFromDevice,
 } from '@/utils/device-session';
@@ -147,6 +148,7 @@ function normalizeUserFromMeResponse(me: AuthMeResponse): NonNullable<AuthState[
     ...me.user,
     referral: me.user.referral ?? me.referral,
     roles: me.user.roles ?? me.roles,
+    roleLink: me.user.roleLink ?? me.roleLink,
     bookingCounts: resolveCustomerBookingCountsFromMeResponse(me),
     referralCode: resolvedReferralCode,
     onboarding: mergedOnboarding,
@@ -359,6 +361,7 @@ export function useAuthController(): AuthContextType {
       skipNextAuthenticatedDeviceSyncRef.current = false;
       await clearAuthTokens();
       await clearOnboardingPhoneToken();
+      await clearStableDeviceId();
       setAuthState({
         status: AUTH_STATUS.LOGGED_OUT,
         tokens: null,

@@ -1,0 +1,14 @@
+---
+description: Presentational screens and components — no business logic inline
+globs: apps/**/src/screens/**/*,apps/**/src/components/**/*
+alwaysApply: false
+---
+
+# Screen & component purity
+
+- No `type` / `interface` / `enum` in screens or components — use `src/types/*`.
+- No reusable helpers in screens/components — put in `src/utils/*` and export via `src/utils/index.ts`.
+- No API calls, effects, or orchestration in screens — use `use*Controller` hooks + contexts.
+- Booking flow math/payloads → `useBookingFlowController` + `src/utils/booking-flow.ts`.
+
+Full guide: `docs/architecture/screen-purity.md`

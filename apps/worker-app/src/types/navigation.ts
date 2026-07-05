@@ -1,11 +1,16 @@
-import { AUTH_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
+import { AUTH_SCREENS, EARNINGS_STACK_SCREENS, JOB_STACK_SCREENS, MAIN_TAB_SCREENS, ONBOARDING_SCREENS, PROFILE_SCREENS, ROOT_SCREENS } from '@/types/screen-names';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
-import type { WorkerJobListTab } from '@/types/jobs';
+import type { WorkerJobListTab, WorkerJobsListMode } from '@/types/jobs';
 
 export type RootStackParamList = {
   [ROOT_SCREENS.authNavigator]: undefined;
   [ROOT_SCREENS.onboardingNavigator]: undefined;
   [ROOT_SCREENS.mainTabsNavigator]: undefined;
+  [ROOT_SCREENS.jobsNavigator]: {
+    screen?: typeof JOB_STACK_SCREENS.home | typeof JOB_STACK_SCREENS.availableJobs;
+    params?: JobStackParamList[typeof JOB_STACK_SCREENS.home]
+      | JobStackParamList[typeof JOB_STACK_SCREENS.availableJobs];
+  } | undefined;
   [ROOT_SCREENS.jobDetailsNavigator]: {
     screen: string;
     params?: unknown;
@@ -45,8 +50,10 @@ export type ProfileStackParamList = {
   [PROFILE_SCREENS.payoutDetails]: undefined;
   [PROFILE_SCREENS.helpSupport]: undefined;
   [PROFILE_SCREENS.notifications]: undefined;
+  [PROFILE_SCREENS.settings]: undefined;
   [PROFILE_SCREENS.identityVerification]: undefined;
   [PROFILE_SCREENS.referral]: undefined;
+  [PROFILE_SCREENS.allJobs]: { listMode?: 'ALL' } | undefined;
   [PROFILE_SCREENS.allSkills]: undefined;
   [PROFILE_SCREENS.certificateManager]: undefined;
   [PROFILE_SCREENS.skillManager]: undefined;
@@ -54,19 +61,23 @@ export type ProfileStackParamList = {
 
 export type MainTabParamList = {
   [MAIN_TAB_SCREENS.home]: undefined;
-  [MAIN_TAB_SCREENS.jobs]: {
-    screen?: typeof JOB_STACK_SCREENS.home;
-    params?: {
-      initialTab?: WorkerJobListTab;
-      initialTabRequestKey?: number;
-    };
+  [MAIN_TAB_SCREENS.earnings]: {
+    screen?: typeof EARNINGS_STACK_SCREENS.home | typeof EARNINGS_STACK_SCREENS.settlementDetail;
+    params?: EarningsStackParamList[typeof EARNINGS_STACK_SCREENS.settlementDetail];
   } | undefined;
-  [MAIN_TAB_SCREENS.earnings]: undefined;
   [MAIN_TAB_SCREENS.profile]: undefined;
 };
 
+export type EarningsStackParamList = {
+  [EARNINGS_STACK_SCREENS.home]: undefined;
+  [EARNINGS_STACK_SCREENS.settlementDetail]: {
+    settlementId: string;
+  };
+};
+
 export type JobStackParamList = {
-  [JOB_STACK_SCREENS.home]: { initialTab?: WorkerJobListTab; initialTabRequestKey?: number } | undefined;
+  [JOB_STACK_SCREENS.home]: { initialTab?: WorkerJobListTab; initialTabRequestKey?: number; listMode?: WorkerJobsListMode } | undefined;
+  [JOB_STACK_SCREENS.availableJobs]: { listMode?: 'NEW_JOBS' } | undefined;
   [JOB_STACK_SCREENS.details]: { jobId: string; inviteStatus?: WorkerJobInviteStatus | null };
 };
 

@@ -1,4 +1,5 @@
 import type { DateTimeFieldMode } from '@/types/component-types';
+import { formatDisplayDate } from '@/utils/date-display';
 
 export function parseDateTimeFieldValue(value: string, mode: DateTimeFieldMode) {
   if (mode === 'date') {
@@ -28,7 +29,7 @@ export function formatDateTimeFieldDisplayValue(value: string, mode: DateTimeFie
   if (mode === 'date') {
     const parsed = new Date(`${value}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(parsed);
+    return formatDisplayDate(parsed);
   }
 
   const parsed = parseDateTimeFieldValue(value, 'time');

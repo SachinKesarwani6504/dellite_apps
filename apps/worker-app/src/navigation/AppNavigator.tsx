@@ -10,6 +10,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { flushPendingNavigation, navigationRef } from '@/navigation/navigationRef';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { JobDetailsNavigator } from '@/navigation/JobDetailsNavigator';
+import { JobsNavigator } from '@/navigation/JobsNavigator';
 import { MainTabsNavigator } from '@/navigation/MainTabsNavigator';
 import { OnboardingNavigator } from '@/navigation/OnboardingNavigator';
 import { ProfileDetailsNavigator } from '@/navigation/ProfileDetailsNavigator';
@@ -17,6 +18,7 @@ import { OfflineScreen } from '@/screens/OfflineScreen';
 import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
 import { ROOT_SCREENS } from '@/types/screen-names';
+import { resolveWorkerIdFromAuthUser } from '@/utils';
 import { palette, theme } from '@/utils/theme';
 import { useBadgeSync } from '@/hooks/useBadgeSync';
 import { useLiveNotifications } from '@/hooks/useLiveNotifications';
@@ -75,7 +77,7 @@ function resolveRootNavigatorBranch(
 }
 
 export function AppNavigator() {
-  const { status, user, locationState } = useAuthContext();
+  const { status, user, me, locationState } = useAuthContext();
   const { initializeLocation } = locationState;
   const { isOnboardingActive, loading: onboardingLoading } = useOnboardingContext();
   const { isOffline, initialized, refresh } = useNetworkStatus();
@@ -84,6 +86,7 @@ export function AppNavigator() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const userId = user?.id ?? null;
+  const workerId = resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null);
   const shouldTrackUserSession = status === AuthStatus.AUTHENTICATED && Boolean(userId);
   const rootBranch = resolveRootNavigatorBranch(
     status,
@@ -95,11 +98,13 @@ export function AppNavigator() {
 
   useUserPresence({
     userId,
+    roleEntityId: workerId,
     enabled: shouldTrackUserSession,
   });
 
   useLiveNotifications({
     userId,
+    roleEntityId: workerId,
     enabled: shouldTrackUserSession,
   });
 
@@ -171,6 +176,7 @@ export function AppNavigator() {
         ) : (
           <>
             <RootStack.Screen name={ROOT_SCREENS.mainTabsNavigator} component={MainTabsNavigator} />
+            <RootStack.Screen name={ROOT_SCREENS.jobsNavigator} component={JobsNavigator} />
             <RootStack.Screen name={ROOT_SCREENS.jobDetailsNavigator} component={JobDetailsNavigator} />
             <RootStack.Screen name={ROOT_SCREENS.profileDetailsNavigator} component={ProfileDetailsNavigator} />
           </>

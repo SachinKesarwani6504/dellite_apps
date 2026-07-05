@@ -4,6 +4,7 @@ import {
   BOOKING_SERVICE_SUMMARY_CARD_MODE,
   type BookingServiceSummaryCardProps,
 } from '@/types/component-types';
+import { APP_TEXT } from '@/utils/appText';
 import { palette, theme, uiColors } from '@/utils/theme';
 
 export function BookingServiceSummaryCard({
@@ -83,7 +84,11 @@ export function BookingServiceSummaryCard({
         <View className="flex-row items-center justify-between px-3 py-2.5">
           <View className="mr-3 flex-row items-center">
             <View className="h-7 w-7 items-center justify-center rounded-full" style={{ backgroundColor: isDark ? uiColors.surface.overlayDark10 : palette.light.card }}>
-              <Ionicons name="layers-outline" size={14} color={theme.colors.primary} />
+              <Ionicons
+                name={selectedValueLabel.toLowerCase() === APP_TEXT.jobs.serviceTabDurationLabel.toLowerCase() ? 'time-outline' : 'layers-outline'}
+                size={14}
+                color={theme.colors.primary}
+              />
             </View>
             <Text className="ml-2 text-[11px] font-extrabold" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
               {selectedValueLabel}

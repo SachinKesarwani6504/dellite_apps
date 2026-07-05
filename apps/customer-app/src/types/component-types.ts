@@ -80,6 +80,11 @@ export type ServicePricingHeaderCardProps = {
   onDecreaseQuantity: () => void;
   onIncreaseQuantity: () => void;
   onRemoveService: () => void;
+  hideRemoveAction?: boolean;
+  hideDecreaseQuantityAction?: boolean;
+  minSelectableDurationMinutes?: number | null;
+  hideFlexiblePriceOptionChoices?: boolean;
+  readOnly?: boolean;
 };
 
 export type BookingTypeChipProps = {
@@ -102,11 +107,40 @@ export type BookingServiceDetailCardProps = {
   onDecreaseQuantity: () => void;
   onIncreaseQuantity: () => void;
   onRemoveService: () => void;
+  hideRemoveAction?: boolean;
+  hideDecreaseQuantityAction?: boolean;
+  minSelectableDurationMinutes?: number | null;
+  hideFlexiblePriceOptionChoices?: boolean;
+  readOnly?: boolean;
+  readOnlyReason?: string | null;
 };
 
 export type CustomerBookingCardProps = {
   item: Booking;
   onPress: (bookingId: string) => void;
+};
+
+export type CustomerOngoingBookingCardProps = {
+  item: Booking;
+  onPress: (bookingId: string) => void;
+};
+
+export type CustomerOngoingBookingsRowProps = {
+  items: Booking[];
+  onPressBooking: (bookingId: string) => void;
+};
+
+export type LivePulseIndicatorSize = 'default' | 'compact';
+
+export type LivePulseIndicatorProps = {
+  size?: LivePulseIndicatorSize;
+};
+
+export type SectionHeaderRowProps = {
+  title: string;
+  onPressAction?: () => void;
+  actionIconName?: 'chevron-forward' | 'arrow-forward' | 'ellipsis-horizontal';
+  showLiveIndicator?: boolean;
 };
 
 export type ServiceTasksCarouselProps = {
