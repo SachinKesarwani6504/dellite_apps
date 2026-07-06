@@ -178,3 +178,34 @@ export type SectionHeaderRowProps = {
   actionIconName?: 'chevron-forward' | 'arrow-forward' | 'ellipsis-horizontal';
   showLiveIndicator?: boolean;
 };
+
+export type FloatingTabRouteIcon = {
+  active: ComponentProps<typeof Ionicons>['name'];
+  inactive: ComponentProps<typeof Ionicons>['name'];
+};
+
+export type FloatingTabRoute = {
+  key: string;
+  name: string;
+  params?: object;
+};
+
+export type FloatingTabDescriptorOptions = {
+  title?: string;
+  tabBarAccessibilityLabel?: string;
+};
+
+export type FloatingTabBarProps = {
+  state: {
+    index: number;
+    routes: FloatingTabRoute[];
+  };
+  descriptors: Record<string, { options: FloatingTabDescriptorOptions }>;
+  navigation: {
+    emit: (event: { type: string; target: string; canPreventDefault?: boolean }) => { defaultPrevented: boolean };
+    navigate: (name: string, params?: object) => void;
+  };
+  routeIconMap: Record<string, FloatingTabRouteIcon>;
+};
+
+export type FloatingTabBarRenderProps = Omit<FloatingTabBarProps, 'routeIconMap'>;

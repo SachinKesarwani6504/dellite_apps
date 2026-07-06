@@ -51,7 +51,7 @@ export function GradientScreen({
   const insets = useSafeAreaInsets();
   const resolvedUseGradient = variant ? true : useGradient;
   const resolvedGradientColors = variant ? theme.gradients[variant] : gradientColors;
-  const bottomSafeSpacerHeight = stickyFooter ? 0 : Math.max(insets.bottom + 36, 56);
+  const bottomSafeSpacerHeight = 0;
   const setKeyboardAwareScrollRef = (ref: { scrollToEnd: (animated?: boolean) => void } | null) => {
     scrollRef?.(ref ? { scrollToEnd: (animated = true) => ref.scrollToEnd(animated) } : null);
   };

@@ -1,36 +1,47 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useColorScheme } from 'react-native';
-import { AppIcon } from '@/icons';
+import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { FloatingTabBar } from '@/components/common/FloatingTabBar';
 import { ProfileNavigator } from '@/navigation/ProfileNavigator';
 import { EarningsNavigator } from '@/navigation/EarningsNavigator';
 import { HomeScreen } from '@/screens/tabs/HomeScreen';
+import type { FloatingTabBarProps, FloatingTabRouteIcon } from '@/types/component-types';
 import { MainTabParamList } from '@/types/navigation';
 import { MAIN_TAB_SCREENS } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
-import { palette, theme } from '@/utils/theme';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-export function MainTabsNavigator() {
-  const isDark = useColorScheme() === 'dark';
+const WORKER_TAB_ICON_MAP: Record<keyof MainTabParamList, FloatingTabRouteIcon> = {
+  [MAIN_TAB_SCREENS.home]: { active: 'home', inactive: 'home-outline' },
+  [MAIN_TAB_SCREENS.earnings]: { active: 'wallet', inactive: 'wallet-outline' },
+  [MAIN_TAB_SCREENS.profile]: { active: 'person', inactive: 'person-outline' },
+};
 
+export function MainTabsNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: isDark ? palette.dark.mutedText : palette.light.mutedText,
-        tabBarStyle: { backgroundColor: isDark ? palette.dark.card : palette.light.card },
-        tabBarIcon: ({ color, size }) => {
-          const tabIconMap: Record<keyof MainTabParamList, 'home' | 'earnings' | 'profile'> = {
-            [MAIN_TAB_SCREENS.home]: 'home',
-            [MAIN_TAB_SCREENS.earnings]: 'earnings',
-            [MAIN_TAB_SCREENS.profile]: 'profile',
-          };
-          const iconName = tabIconMap[route.name as keyof MainTabParamList];
-          return <AppIcon name={iconName} size={size} color={color} />;
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          position: 'absolute',
+          height: 0,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-      })}
+        sceneStyle: {
+          backgroundColor: 'transparent',
+        },
+      }}
+      tabBar={(props: BottomTabBarProps) => (
+        <FloatingTabBar
+          state={props.state}
+          descriptors={props.descriptors}
+          navigation={props.navigation as FloatingTabBarProps['navigation']}
+          routeIconMap={WORKER_TAB_ICON_MAP}
+        />
+      )}
     >
       <Tab.Screen name={MAIN_TAB_SCREENS.home} component={HomeScreen} options={{ title: APP_TEXT.tabs.homeLabel }} />
       <Tab.Screen
