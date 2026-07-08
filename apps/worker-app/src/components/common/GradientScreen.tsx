@@ -29,6 +29,8 @@ type GradientScreenProps = PropsWithChildren<{
   keyboardExtraScrollHeight?: number;
 }>;
 
+const FLOATING_TAB_BAR_SCROLL_SPACER = 112;
+
 export function GradientScreen({
   children,
   contentContainerStyle,
@@ -51,7 +53,7 @@ export function GradientScreen({
   const insets = useSafeAreaInsets();
   const resolvedUseGradient = variant ? true : useGradient;
   const resolvedGradientColors = variant ? theme.gradients[variant] : gradientColors;
-  const bottomSafeSpacerHeight = 0;
+  const bottomSafeSpacerHeight = stickyFooter ? 0 : FLOATING_TAB_BAR_SCROLL_SPACER + insets.bottom;
   const setKeyboardAwareScrollRef = (ref: { scrollToEnd: (animated?: boolean) => void } | null) => {
     scrollRef?.(ref ? { scrollToEnd: (animated = true) => ref.scrollToEnd(animated) } : null);
   };
@@ -65,7 +67,7 @@ export function GradientScreen({
     keyboardShouldPersistTaps: 'handled' as const,
     keyboardDismissMode: Platform.OS === 'ios' ? 'interactive' as const : 'on-drag' as const,
     contentContainerStyle: [
-      { padding: 16, paddingBottom: stickyFooter ? 132 : 96 },
+      { padding: 16, paddingBottom: stickyFooter ? 132 : 16 },
       contentContainerStyle,
     ],
   };

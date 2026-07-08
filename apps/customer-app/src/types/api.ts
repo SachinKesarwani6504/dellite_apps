@@ -104,12 +104,25 @@ export type BookingListAddressSummary = {
 
 export type BookingListPersonInfo = {
   id?: string | null;
+  userId?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
+  averageRating?: number | null;
   profileImageUrl?: string | null;
   profileImage?: {
     id?: string | null;
     url?: string | null;
+  } | null;
+  user?: {
+    id?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    profileImageUrl?: string | null;
+    profileImage?: {
+      id?: string | null;
+      url?: string | null;
+    } | null;
   } | null;
 };

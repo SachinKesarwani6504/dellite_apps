@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 
 import { AppImage } from '@/components/common/AppImage';
+import { RatingBadge } from '@/components/common/RatingBadge';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusInfoTile } from '@/components/common/StatusInfoTile';
 import type { CustomerOngoingBookingCardProps } from '@/types/component-types';
@@ -11,6 +12,7 @@ import {
   getCustomerBookingReferenceLabel,
   getCustomerBookingScheduledDateTimeLabel,
   getCustomerBookingTypeChipLabel,
+  getCustomerBookingWorkerAverageRating,
   getCustomerBookingWorkerImageUrl,
   getCustomerBookingWorkerInitial,
   getCustomerBookingWorkerName,
@@ -37,6 +39,7 @@ export function CustomerOngoingBookingCard({
   const workerName = getCustomerBookingWorkerName(item);
   const workerInitial = getCustomerBookingWorkerInitial(item);
   const workerImageUrl = getCustomerBookingWorkerImageUrl(item);
+  const workerAverageRating = getCustomerBookingWorkerAverageRating(item);
   const workerSubtitle = getCustomerBookingWorkerSubtitle(item);
   const amountLabel = getCustomerBookingAmountLabel(item);
   const inviteStatus = item.invite?.inviteStatus ?? null;
@@ -180,9 +183,12 @@ export function CustomerOngoingBookingCard({
             )}
           </View>
           <View className="ml-3 flex-1">
-            <Text className="text-sm font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
-              {workerName}
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="shrink text-sm font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
+                {workerName}
+              </Text>
+              <RatingBadge averageRating={workerAverageRating} />
+            </View>
             <Text className="mt-0.5 text-[11px] text-baseDark/55 dark:text-white/70" numberOfLines={1}>
               {workerSubtitle}
             </Text>

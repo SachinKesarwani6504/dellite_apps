@@ -15,6 +15,7 @@ export type BottomSheetAction = {
 export type BottomSheetRenderContext = {
   closeSheet: () => void;
   pendingActionId: string | null;
+  scrollToEnd?: (animated?: boolean) => void;
 };
 
 export type BottomSheetBaseConfig = {

@@ -1,4 +1,4 @@
-import { titleCase } from '@/utils';
+import { titleCase } from '@/utils/text';
 
 const PRICE_TYPE = {
   VISIT: 'VISIT',

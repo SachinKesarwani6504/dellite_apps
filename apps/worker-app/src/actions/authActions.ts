@@ -123,6 +123,11 @@ function normalizeCount(value: unknown): number | undefined {
   return undefined;
 }
 
+function normalizeNullableNumber(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return normalizeCount(value);
+}
+
 function normalizeOptionalBoolean(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') {
@@ -153,6 +158,7 @@ function normalizeWorkerLink(value: unknown): AuthUser['workerLink'] | undefined
 
   return {
     ...source,
+    averageRating: normalizeNullableNumber(source.averageRating ?? source.average_rating),
     currentStatus: currentStatus as NonNullable<AuthUser['workerLink']>['currentStatus'],
     skillCount: normalizeCount(source.skillCount),
     completedJobCount: normalizeCount(source.completedJobCount),
@@ -182,7 +188,8 @@ function normalizeAuthUser(rawUser: unknown, fallbackSource?: AnyRecord): AuthUs
   }
 
   const linksRecord = isRecord(fallbackSource?.links) ? (fallbackSource?.links as AnyRecord) : undefined;
-  const workerLink = normalizeWorkerLink(source.workerLink) ?? normalizeWorkerLink(linksRecord?.worker);
+  const roleLink = normalizeWorkerLink(fallbackSource?.roleLink ?? fallbackSource?.role_link);
+  const workerLink = normalizeWorkerLink(source.workerLink) ?? normalizeWorkerLink(linksRecord?.worker) ?? roleLink;
   if (workerLink) {
     normalizedUser.workerLink = workerLink;
   }
@@ -227,24 +234,52 @@ function normalizeAuthMePayload(payload: unknown): AuthMeResponse {
   const root = isRecord(payload.data) ? (payload.data as AnyRecord) : payload;
   if (isRecord(root.user)) {
     const linksRecord = isRecord(root.links) ? (root.links as AnyRecord) : undefined;
+    const roleLink = normalizeWorkerLink(root.roleLink ?? root.role_link);
+    const workerLink = normalizeWorkerLink(linksRecord?.worker) ?? roleLink;
     const normalizedLinks: AuthMeResponse['links'] | undefined = linksRecord
       ? {
         ...(linksRecord as AuthMeResponse['links']),
-        worker: normalizeWorkerLink(linksRecord.worker),
+        ...(workerLink ? { worker: workerLink } : {}),
       }
-      : undefined;
+      : (workerLink ? { worker: workerLink } : undefined);
+    const normalizedUser = normalizeAuthUser(root.user, {
+      ...root,
+      roleLink,
+      links: {
+        ...(linksRecord ?? {}),
+        ...(workerLink ? { worker: workerLink } : {}),
+      },
+    });
+    if (roleLink && !normalizedUser.workerLink) {
+      normalizedUser.workerLink = roleLink;
+    }
+    if (typeof normalizedUser.averageRating === 'undefined' && normalizedUser.workerLink) {
+      normalizedUser.averageRating = normalizedUser.workerLink.averageRating;
+    }
+    const normalizedRoleLink = roleLink ?? normalizedUser.workerLink;
+    const normalizedOnboarding = (isRecord(root.onboarding) ? root.onboarding : undefined) as AuthMeResponse['onboarding'];
+    const normalizedReferral = (isRecord(root.referral) ? root.referral : undefined) as AuthMeResponse['referral'];
+    const normalizedRoles = (isRecord(root.roles) ? root.roles : undefined) as AuthMeResponse['roles'];
     return {
       ...(root as AuthMeResponse),
+      roleLink: normalizedRoleLink,
       links: normalizedLinks,
-      referral: (isRecord(root.referral) ? root.referral : undefined) as AuthMeResponse['referral'],
-      roles: (isRecord(root.roles) ? root.roles : undefined) as AuthMeResponse['roles'],
-      user: normalizeAuthUser(root.user, root),
+      referral: normalizedReferral,
+      roles: normalizedRoles,
+      onboarding: normalizedOnboarding,
+      user: normalizedUser,
     };
   }
 
+  const normalizedUser = normalizeAuthUser(root, root);
+  if (typeof normalizedUser.averageRating === 'undefined' && normalizedUser.workerLink) {
+    normalizedUser.averageRating = normalizedUser.workerLink.averageRating;
+  }
   return {
     ...(root as AuthMeResponse),
-    user: normalizeAuthUser(root, root),
+    roleLink: normalizedUser.workerLink,
+    links: normalizedUser.workerLink ? { worker: normalizedUser.workerLink } : undefined,
+    user: normalizedUser,
   };
 }
 

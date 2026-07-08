@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { BookingPaymentStatus } from '@/types/booking';
+import type { BookingRatingsInfo } from '@/types/booking-rating';
 import type { OnlinePaymentBlock, OnlinePaymentFlowResult, OnlinePaymentFlowState, OnlinePaymentOffer } from '@/payments/types';
 
 export type BookingDetailsRole = 'CUSTOMER' | 'WORKER';
@@ -44,6 +45,7 @@ export type BookingDetailsUser = {
 export type BookingDetailsCustomerInfo = {
   id?: string | null;
   userId?: string | null;
+  averageRating?: number | null;
   user?: BookingDetailsUser | null;
 };
 
@@ -51,6 +53,7 @@ export type BookingDetailsWorkerInfo = {
   id?: string | null;
   userId?: string | null;
   currentCityId?: string | null;
+  averageRating?: number | null;
   user?: BookingDetailsUser | null;
 };
 
@@ -239,6 +242,7 @@ export type BookingDetailsResponse = {
   paymentReview?: BookingPaymentReview | null;
   payment?: BookingDetailsPayment | null;
   paymentInfo?: BookingPaymentInfo | null;
+  ratings?: BookingRatingsInfo | null;
 };
 
 export type BookingServiceLineUpdateInput = {

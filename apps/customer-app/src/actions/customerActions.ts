@@ -49,6 +49,7 @@ import type {
   UpdateCustomerProfilePayload,
 } from '@/types/customer';
 import type { BookingStartOtp } from '@/types/booking-details';
+import type { BookingRatingPayload, BookingRatingResponse } from '@/types/booking-rating';
 import {
   PRICE_COMPUTATION_MODE,
   PRICE_TYPE,
@@ -1113,6 +1114,31 @@ export async function markCustomerWorkCompleted(
         successTitle: 'Work Completed',
         successMessage: 'Waiting for partner to confirm payment received.',
         errorTitle: 'Work Completion Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function submitCustomerBookingRating(
+  bookingId: string,
+  payload: BookingRatingPayload,
+): Promise<BookingRatingResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<BookingRatingResponse> | BookingRatingResponse, BookingRatingPayload>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/rating`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: false,
+        showError: false,
       },
     },
   );

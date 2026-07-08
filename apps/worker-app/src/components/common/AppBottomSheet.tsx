@@ -1,7 +1,8 @@
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, Text, View, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import type {
@@ -18,6 +19,7 @@ const SHEET_SNAP_POINT_BY_VARIANT: Record<AppBottomSheetConfig['variant'], strin
   'action-list': '52%',
   custom: '68%',
 };
+const BOTTOM_SHEET_SAFE_BOTTOM_PADDING = 36;
 
 function getSheetSnapPoints(activeSheet: AppBottomSheetConfig | null) {
   if (!activeSheet) {
@@ -167,7 +169,9 @@ function BottomSheetActionButton({
 
 export function AppBottomSheet() {
   const isDark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
   const modalRef = useRef<BottomSheetModal>(null);
+  const scrollRef = useRef<any>(null);
   const {
     activeSheet,
     closeSheet,
@@ -233,6 +237,7 @@ export function AppBottomSheet() {
   const headerTextColor = isDark ? palette.dark.text : theme.colors.baseDark;
   const subtextColor = isDark ? palette.dark.mutedText : theme.colors.textMuted;
   const footerIsInline = activeSheet?.variant === 'confirm' && footerActions.length === 2;
+  const contentBottomPadding = Math.max(48, insets.bottom + BOTTOM_SHEET_SAFE_BOTTOM_PADDING);
 
   if (!activeSheet) {
     return null;
@@ -243,6 +248,9 @@ export function AppBottomSheet() {
       ref={modalRef}
       snapPoints={snapPoints}
       enablePanDownToClose={activeSheet?.dismissible !== false}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       backgroundStyle={surfaceStyle}
@@ -253,10 +261,13 @@ export function AppBottomSheet() {
       }}
     >
       <BottomSheetView style={surfaceStyle} className="flex-1">
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 }}
+        <BottomSheetScrollView
+          ref={scrollRef}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: contentBottomPadding }}
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
           {activeSheet?.title ? (
             <Text className="text-xl font-extrabold" style={{ color: headerTextColor }}>
@@ -317,7 +328,17 @@ export function AppBottomSheet() {
 
           {activeSheet?.variant === 'custom' ? (
             <View className="mt-5">
-              {activeSheet.renderContent({ closeSheet, pendingActionId })}
+              {activeSheet.renderContent({
+                closeSheet,
+                pendingActionId,
+                scrollToEnd: (animated = true) => {
+                  const scroll = () => scrollRef.current?.scrollToEnd({ animated });
+                  requestAnimationFrame(scroll);
+                  setTimeout(scroll, 120);
+                  setTimeout(scroll, 320);
+                  setTimeout(scroll, 520);
+                },
+              })}
             </View>
           ) : null}
 
@@ -334,7 +355,7 @@ export function AppBottomSheet() {
               ))}
             </View>
           ) : null}
-        </ScrollView>
+        </BottomSheetScrollView>
       </BottomSheetView>
     </BottomSheetModal>
   );

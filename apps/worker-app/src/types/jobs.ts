@@ -59,6 +59,9 @@ export type WorkerJobListItem = {
     subCategory?: string | null;
   }>;
   customerInfo?: {
+    id?: string | null;
+    userId?: string | null;
+    averageRating?: number | null;
     user?: {
       firstName?: string | null;
       lastName?: string | null;
@@ -71,7 +74,9 @@ export type WorkerJobListItem = {
     } | null;
   } | null;
   workerInfo?: {
+    id?: string | null;
     userId?: string | null;
+    averageRating?: number | null;
     user?: {
       firstName?: string | null;
       lastName?: string | null;

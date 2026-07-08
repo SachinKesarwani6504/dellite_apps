@@ -75,6 +75,11 @@ export type CustomerBookingCounts = {
   completedBookingsCount: number;
 };
 
+export type RatedProfileSnippet = {
+  id?: string;
+  averageRating?: number | null;
+};
+
 export type OnboardingFlags = {
   identityCompleted?: boolean;
   profileCompleted?: boolean;
@@ -87,6 +92,7 @@ export type OnboardingFlags = {
 export type AuthUser = {
   id: string;
   phone: string;
+  averageRating?: number | null;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -112,7 +118,9 @@ export type AuthUser = {
   isOnboardingDone?: boolean;
   isOnboardingCompleted?: boolean;
   bookingCounts?: CustomerBookingCounts;
-  roleLink?: {
+  customerLink?: RatedProfileSnippet & Record<string, unknown>;
+  workerLink?: RatedProfileSnippet & Record<string, unknown>;
+  roleLink?: RatedProfileSnippet & {
     id?: string;
     customerId?: string;
     customer_id?: string;
@@ -202,10 +210,15 @@ export type AuthMeResponse = {
   user: AuthUser;
   referral?: ReferralInfo;
   bookingCounts?: CustomerBookingCounts;
-  roleLink?: {
+  roleLink?: RatedProfileSnippet & {
     id?: string;
     hasSeenOnboardingWelcomeScreen?: boolean;
     bookingCounts?: CustomerBookingCounts;
+    [key: string]: unknown;
+  };
+  links?: {
+    customer?: RatedProfileSnippet & Record<string, unknown>;
+    worker?: RatedProfileSnippet & Record<string, unknown>;
     [key: string]: unknown;
   };
   roles?: Record<UserRole, boolean> & Record<string, boolean>;

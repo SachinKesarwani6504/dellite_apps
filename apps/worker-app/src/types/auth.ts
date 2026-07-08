@@ -69,6 +69,7 @@ export interface WorkerCurrentStatus {
 export interface WorkerProfileLink {
   id?: string;
   userId?: string;
+  averageRating?: number | null;
   currentStatus?: WorkerCurrentStatus;
   skillCount?: number;
   completedJobCount?: number;
@@ -108,6 +109,7 @@ export interface AuthTokens {
 export interface AuthUser {
   id: string;
   phone: string;
+  averageRating?: number | null;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -168,6 +170,7 @@ export interface AuthMeResponse {
   user: AuthUser;
   referral?: ReferralInfo;
   roles?: Record<UserRole, boolean> & Record<string, boolean>;
+  roleLink?: WorkerProfileLink;
   links?: {
     worker?: WorkerProfileLink;
     [key: string]: unknown;
@@ -429,8 +432,7 @@ export type WorkerHomeCurrentStatus = WorkerCurrentStatus;
 export interface WorkerHomeHeaderBanner {
   imageUrl?: string;
   name?: string;
-  averageRating?: number;
-  reviewsCount?: number;
+  averageRating?: number | null;
 }
 
 export interface WorkerHomeTodayStats {

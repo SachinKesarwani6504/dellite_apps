@@ -8,6 +8,7 @@ import { getWorkerJobsSummary } from '@/actions';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { AppImage } from '@/components/common/AppImage';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { RatingBadge } from '@/components/common/RatingBadge';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { WorkerCurrentStatusBanner } from '@/components/common/WorkerCurrentStatusBanner';
@@ -80,6 +81,11 @@ export function ProfileHomeScreen({ navigation }: Props) {
   const roleLabel = APP_TEXT.profile.roleLabel;
   const memberSinceDate = formatDateToDdMmmYyyy(getUserCreatedAt(user));
   const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${memberSinceDate}`;
+  const ownAverageRating = (user?.averageRating
+    ?? user?.workerLink?.averageRating
+    ?? me?.links?.worker?.averageRating
+    ?? ((me as Record<string, unknown> | null | undefined)?.roleLink as { averageRating?: number | null } | undefined)?.averageRating
+    ?? null);
   const contactPhone = (user?.phone ?? phone) || APP_TEXT.profile.phoneFallback;
   const contactEmail = typeof user?.email === 'string' && user.email.trim() ? user.email : APP_TEXT.profile.notProvided;
   const verificationValue = user?.userIdentityVerification?.isVerified;
@@ -251,7 +257,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
             {displayName}
           </Text>
 
-          <View className="mt-2 flex-row items-center gap-2">
+          <View className="mt-2 flex-row flex-wrap items-center justify-center gap-2">
             <View className="flex-row items-center rounded-full px-3 py-1" style={mutedCardStyle}>
               <Ionicons name="person-circle-outline" size={13} color={theme.colors.primary} />
               <Text className="ml-1 text-xs font-semibold text-primary">{roleLabel}</Text>
@@ -260,6 +266,7 @@ export function ProfileHomeScreen({ navigation }: Props) {
               <Ionicons name="male-female-outline" size={13} color={isDark ? palette.dark.text : theme.colors.baseDark} />
               <Text className="ml-1 text-xs font-semibold text-textPrimary dark:text-white">{genderLabel}</Text>
             </View>
+            <RatingBadge averageRating={ownAverageRating} size="pill" />
           </View>
 
           <Text className="mt-2 text-sm text-textPrimary/70 dark:text-white/70">{memberSince}</Text>
