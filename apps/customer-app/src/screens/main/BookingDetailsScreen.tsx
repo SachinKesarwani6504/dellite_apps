@@ -1,10 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
 import { customerActions } from '@/actions';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
+import { BookingRatingSheetContent } from '@/components/booking-details/BookingRatingSheetContent';
 import { BookingTipSheetContent } from '@/components/booking-details/BookingTipSheetContent';
 import { BookingDetailsHistoryTab } from '@/components/booking-details/BookingDetailsHistoryTab';
 import { BookingDetailsLiveLocationTab } from '@/components/booking-details/BookingDetailsLiveLocationTab';
@@ -18,16 +19,20 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { ScrollablePillTabs } from '@/components/common/ScrollablePillTabs';
 import { AppImage } from '@/components/common/AppImage';
+import { RatingBadge } from '@/components/common/RatingBadge';
 import { StatusInfoTile } from '@/components/common/StatusInfoTile';
 import { useBottomSheetContext } from '@/contexts/BottomSheetContext';
 import { BookingDetailsProvider, useBookingDetailsContext } from '@/contexts/BookingDetailsContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { BOOKING_STATUS } from '@/types/booking';
+import { ApiError } from '@/types/api';
 import type { BookingDetailsTabValue } from '@/types/booking-details';
+import type { BookingRatingPayload } from '@/types/booking-rating';
 import type { BookingDetailsScreenProps } from '@/types/main-screens';
 import { BOOKINGS_SCREEN } from '@/types/screen-names';
 import { APP_TEXT } from '@/utils/appText';
 import { canCustomerAddTip, canCustomerCancelBooking, canCustomerEditBooking } from '@/utils/booking-actions';
+import { shouldAutoOpenBookingRating } from '@/utils/booking-rating';
 import {
   getBookingDetailsHeaderSubtitle,
   getBookingDetailsOverviewChips,
@@ -100,6 +105,46 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
   const canCallWorker = details?.booking.bookingStatus === BOOKING_STATUS.CONFIRMED
     || details?.booking.bookingStatus === BOOKING_STATUS.IN_PROGRESS;
   const workerPhone = details?.workerInfo?.user?.phone?.trim() ?? '';
+
+  const submitBookingRating = useCallback(async (payload: BookingRatingPayload) => {
+    if (!details?.booking.id) return false;
+    try {
+      await customerActions.submitCustomerBookingRating(details.booking.id, payload);
+      await refresh();
+      showToast('success', APP_TEXT.ratings.successToast);
+      return true;
+    } catch (ratingError) {
+      if (ratingError instanceof ApiError && ratingError.statusCode === 409) {
+        await refresh();
+        return true;
+      }
+      showToast('error', ratingError instanceof Error ? ratingError.message : APP_TEXT.ratings.submitError);
+      return false;
+    }
+  }, [details?.booking.id, refresh]);
+
+  useEffect(() => {
+    const bookingId = details?.booking.id ?? null;
+    if (!bookingId) return;
+    if (!shouldAutoOpenBookingRating({ details, target: 'CUSTOMER_TO_WORKER' })) return;
+
+    showCustomSheet({
+      snapPoint: '92%',
+      renderContent: ({ closeSheet, scrollToEnd }) => (
+        <BookingRatingSheetContent
+          title={APP_TEXT.ratings.customerSheetTitle}
+          subtitle={APP_TEXT.ratings.customerSheetSubtitle}
+          submitLabel={APP_TEXT.ratings.submitButton}
+          scrollToEnd={scrollToEnd}
+          onSubmit={async (payload) => {
+            const submitted = await submitBookingRating(payload);
+            if (submitted) closeSheet();
+            return submitted;
+          }}
+        />
+      ),
+    });
+  }, [details, showCustomSheet, submitBookingRating]);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -412,7 +457,8 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
           </View>
 
           {(() => {
-            const workerUser = (details as any).workerInfo?.user ?? (details as any).assignment?.worker;
+            const workerInfo = details.workerInfo;
+            const workerUser = workerInfo?.user ?? (details as any).assignment?.worker;
             
             if (!workerUser) {
               return (
@@ -480,9 +526,12 @@ function BookingDetailsContent({ navigation }: Pick<BookingDetailsScreenProps, '
                 </View>
 
                 <View className="ml-3 flex-1">
-                  <Text className="text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
-                    {workerName}
-                  </Text>
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="shrink text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
+                      {workerName}
+                    </Text>
+                    <RatingBadge averageRating={workerInfo?.averageRating} />
+                  </View>
                   <Text className="mt-0.5 text-xs font-semibold" numberOfLines={1} style={{ color: mutedTextColor }}>
                     {APP_TEXT.main.bookings.detailsWorkerRole}
                   </Text>

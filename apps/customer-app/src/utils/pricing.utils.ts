@@ -1,4 +1,4 @@
-import { titleCase } from '@/utils';
+import { titleCase } from '@/utils/text';
 import { PriceType, PriceComputationMode } from '@/types/pricing.types';
 
 export function getPriceRowTitle(priceType?: string | null, computationMode?: string | null): string {

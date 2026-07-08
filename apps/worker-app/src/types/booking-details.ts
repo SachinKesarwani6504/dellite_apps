@@ -1,4 +1,5 @@
 import type { BookingPaymentStatus } from '@/types/booking';
+import type { BookingRatingsInfo } from '@/types/booking-rating';
 
 export type BookingDetailsRole = 'CUSTOMER' | 'WORKER';
 
@@ -42,6 +43,7 @@ export type BookingDetailsUser = {
 export type BookingDetailsCustomerInfo = {
   id?: string | null;
   userId?: string | null;
+  averageRating?: number | null;
   user?: BookingDetailsUser | null;
 };
 
@@ -49,6 +51,7 @@ export type BookingDetailsWorkerInfo = {
   id?: string | null;
   userId?: string | null;
   currentCityId?: string | null;
+  averageRating?: number | null;
   user?: BookingDetailsUser | null;
 };
 
@@ -243,6 +246,7 @@ export type BookingDetailsResponse = {
   paymentInfo?: BookingPaymentInfo | null;
   workerEarning?: string | number | null;
   commissionDue?: string | number | null;
+  ratings?: BookingRatingsInfo | null;
 };
 
 export type BookingServiceLineUpdateInput = {

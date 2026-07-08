@@ -8,7 +8,7 @@ import type {
   WorkerJobListItem,
   WorkerJobListTab,
 } from '@/types/jobs';
-import { extractImageUrl } from '@/utils';
+import { extractImageUrl } from '@/utils/media';
 import { formatDisplayDateTime } from '@/utils/date-display';
 import { getBookingPaymentStatusLabel } from '@/utils/booking-details';
 
@@ -151,6 +151,10 @@ export function getWorkerJobCustomerInitial(item: WorkerJobListItem) {
 
 export function getWorkerJobCustomerSubtitle(item: WorkerJobListItem) {
   return 'Customer';
+}
+
+export function getWorkerJobCustomerAverageRating(item: WorkerJobListItem) {
+  return item.customerInfo?.averageRating ?? null;
 }
 
 export function getWorkerJobCustomerImageUrl(item: WorkerJobListItem) {

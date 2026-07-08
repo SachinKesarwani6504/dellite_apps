@@ -1,4 +1,6 @@
 export { normalizeCityName } from '@/utils/location';
+export * from '@/utils/text';
+export * from '@/utils/media';
 import { parseApiError } from '@/utils/api-error';
 import { formatDisplayDate } from '@/utils/date-display';
 
@@ -17,15 +19,6 @@ export function maskPhoneNumber(phoneNumber: string): string {
   return `+91${digits.slice(0, 2)}****${digits.slice(-4)}`;
 }
 
-export function titleCase(value: string): string {
-  return value
-    .trim()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, char => char.toUpperCase());
-}
-
 export function formatDateToDdMmmYyyy(value?: string | number | Date | null): string {
   return formatDisplayDate(value, { fallback: '--' });
 }
@@ -35,22 +28,6 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   const parsed = parseApiError({ error });
   if (parsed.friendlyMessage) return parsed.friendlyMessage;
   return fallback;
-}
-
-export function extractImageUrl(value: unknown): string | null {
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value.trim();
-  }
-  if (!value || typeof value !== 'object') return null;
-  const raw = value as Record<string, unknown>;
-  const candidates = [raw.url, raw.fileUrl, raw.file_url, raw.uri];
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index];
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      return candidate.trim();
-    }
-  }
-  return null;
 }
 
 export function formatInrCurrency(value?: number): string {
@@ -76,6 +53,7 @@ export function formatTitle(value?: string, fallback = 'Unknown') {
 
 export * from '@/utils/profile';
 export * from '@/utils/referral';
+export * from '@/utils/rating';
 export * from '@/utils/onboarding';
 export * from '@/utils/date';
 export * from '@/utils/date-display';

@@ -8,6 +8,7 @@ import { getCustomerBookingsSummary } from '@/actions/customerActions';
 import { AppImage } from '@/components/common/AppImage';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { GradientScreen } from '@/components/common/GradientScreen';
+import { RatingBadge } from '@/components/common/RatingBadge';
 import { ProfileActionRow } from '@/components/common/ProfileActionRow';
 import { SectionCard } from '@/components/common/SectionCard';
 import { extractImageUrl, formatDateToDdMmmYyyy, getUserCreatedAt, palette, theme, toDisplayGender, uiColors } from '@/utils';
@@ -76,6 +77,11 @@ export function ProfileScreen() {
   const contactEmail = user?.email || APP_TEXT.profile.notProvided;
   const genderLabel = useMemo(() => toDisplayGender(user?.gender, APP_TEXT.profile.notProvided), [user?.gender]);
   const memberSince = `${APP_TEXT.profile.memberSincePrefix} ${formatDateToDdMmmYyyy(getUserCreatedAt(user))}`;
+  const ownAverageRating = (authState.user?.averageRating
+    ?? authState.user?.roleLink?.averageRating
+    ?? authState.user?.customerLink?.averageRating
+    ?? authState.user?.workerLink?.averageRating
+    ?? null);
 
   const stats = useMemo(() => {
     return {
@@ -96,7 +102,7 @@ export function ProfileScreen() {
 
   return (
     <GradientScreen
-      contentContainerStyle={{ paddingTop: 12, paddingBottom: 20 }}
+      contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
       refreshControl={(
         <RefreshControl
           key={modeKey}
@@ -132,7 +138,7 @@ export function ProfileScreen() {
             {displayName}
           </Text>
 
-          <View className="mt-2 flex-row items-center gap-2">
+          <View className="mt-2 flex-row flex-wrap items-center justify-center gap-2">
             <View className="flex-row items-center rounded-full px-3 py-1" style={mutedCardStyle}>
               <Ionicons name="person-circle-outline" size={13} color={theme.colors.primary} />
               <Text className="ml-1 text-xs font-semibold text-primary">{APP_TEXT.profile.roleLabel}</Text>
@@ -141,6 +147,7 @@ export function ProfileScreen() {
               <Ionicons name="male-female-outline" size={13} color={isDark ? palette.dark.text : theme.colors.baseDark} />
               <Text className="ml-1 text-xs font-semibold text-textPrimary dark:text-white">{genderLabel}</Text>
             </View>
+            <RatingBadge averageRating={ownAverageRating} size="pill" />
           </View>
 
           <Text className="mt-2 text-sm text-textPrimary/70 dark:text-white/70">{memberSince}</Text>

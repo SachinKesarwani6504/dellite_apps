@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View, useColorScheme } from "react-native";
 
 import { AppImage } from "@/components/common/AppImage";
+import { RatingBadge } from "@/components/common/RatingBadge";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { StatusInfoTile } from "@/components/common/StatusInfoTile";
 import type { CustomerBookingCardProps } from "@/types/component-types";
@@ -11,6 +12,7 @@ import {
   getCustomerBookingAddressLabel,
   getCustomerBookingAmountLabel,
   getCustomerBookingWorkerImageUrl,
+  getCustomerBookingWorkerAverageRating,
   getCustomerBookingReferenceLabel,
   getCustomerBookingScheduleLabel,
   getCustomerBookingWorkerInitial,
@@ -32,6 +34,7 @@ export function CustomerBookingCard({
   const workerName = getCustomerBookingWorkerName(item);
   const workerInitial = getCustomerBookingWorkerInitial(item);
   const workerImageUrl = getCustomerBookingWorkerImageUrl(item);
+  const workerAverageRating = getCustomerBookingWorkerAverageRating(item);
   const workerSubtitle = getCustomerBookingWorkerSubtitle(item);
   const amountLabel = getCustomerBookingAmountLabel(item);
   const statusAccentColor = getStatusBadgeTextColor(item.bookingStatus, "booking");
@@ -192,14 +195,17 @@ export function CustomerBookingCard({
               )}
             </View>
             <View className="ml-3 flex-1">
+              <View className="flex-row items-center gap-1.5">
+                <Text
+                  className="shrink text-base font-extrabold text-baseDark dark:text-white"
+                  numberOfLines={1}
+                >
+                  {workerName}
+                </Text>
+                <RatingBadge averageRating={workerAverageRating} />
+              </View>
               <Text
-                className="text-base font-extrabold text-baseDark dark:text-white"
-                numberOfLines={1}
-              >
-                {workerName}
-              </Text>
-              <Text
-                className="text-xs text-baseDark/55 dark:text-white/70"
+                className="mt-0.5 text-xs text-baseDark/55 dark:text-white/70"
                 numberOfLines={1}
               >
                 {workerSubtitle}

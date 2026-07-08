@@ -8,6 +8,7 @@ export type CustomerProfile = {
   lastName?: string;
   email?: string;
   gender?: Gender;
+  averageRating?: number | null;
   onboarding: OnboardingFlags;
 };
 

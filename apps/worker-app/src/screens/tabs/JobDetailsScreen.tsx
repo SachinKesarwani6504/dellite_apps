@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, Text, View, useColorScheme, RefreshControl } from 'react-native';
 import { BookingDetailsBillTab } from '@/components/booking-details/BookingDetailsBillTab';
 import { BookingDetailsHistoryTab } from '@/components/booking-details/BookingDetailsHistoryTab';
 import { BookingDetailsPaymentTab } from '@/components/booking-details/BookingDetailsPaymentTab';
+import { BookingRatingSheetContent } from '@/components/booking-details/BookingRatingSheetContent';
 import { BookingDetailsServicesTab } from '@/components/booking-details/BookingDetailsServicesTab';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
@@ -26,7 +27,10 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useWorkerLiveLocationReader } from '@/hooks/useWorkerLiveLocationReader';
 import { useWorkerLiveLocation } from '@/hooks/useWorkerLiveLocation';
 import { AppImage } from '@/components/common/AppImage';
+import { RatingBadge } from '@/components/common/RatingBadge';
+import { ApiError } from '@/types/api';
 import type { JobStackParamList } from '@/types/navigation';
+import type { BookingRatingPayload } from '@/types/booking-rating';
 import { BOOKING_STATUS, WORKER_JOB_INVITE_STATUS } from '@/types/booking';
 import type { WorkerJobInviteStatus } from '@/types/jobs';
 import { APP_TEXT } from '@/utils/appText';
@@ -45,8 +49,9 @@ import {
   canWorkerUpdateProgress,
   canWorkerRecordPayment,
 } from '@/utils/job-actions';
+import { shouldAutoOpenBookingRating } from '@/utils/booking-rating';
 import { resolveWorkerIdFromAuthUser } from '@/utils';
-import { createWorkerBookingContactEvent } from '@/actions/workerActions';
+import { createWorkerBookingContactEvent, submitWorkerBookingRating } from '@/actions/workerActions';
 import { showToast } from '@/utils/toast';
 import { palette, theme, uiColors } from '@/utils/theme';
 
@@ -71,7 +76,7 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
   const [activeTab, setActiveTab] = useState<(typeof JOB_DETAILS_TABS)[number]['value']>('BILL');
-  const { showConfirmSheet } = useBottomSheetContext();
+  const { showConfirmSheet, showCustomSheet } = useBottomSheetContext();
   const { user, me } = useAuthContext();
   const workerUserId = user?.id ?? null;
   const workerId = useMemo(
@@ -163,6 +168,46 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
     || details?.booking.bookingStatus === BOOKING_STATUS.IN_PROGRESS;
   const customerPhone = details?.customerInfo?.user?.phone?.trim() ?? '';
   const customerCard = useMemo(() => getBookingCustomerCardDisplay(details), [details]);
+
+  const submitBookingRating = useCallback(async (payload: BookingRatingPayload) => {
+    if (!details?.booking.id) return false;
+    try {
+      await submitWorkerBookingRating(details.booking.id, payload);
+      await refetch();
+      showToast('success', APP_TEXT.ratings.successToast);
+      return true;
+    } catch (ratingError) {
+      if (ratingError instanceof ApiError && ratingError.statusCode === 409) {
+        await refetch();
+        return true;
+      }
+      showToast('error', ratingError instanceof Error ? ratingError.message : APP_TEXT.ratings.submitError);
+      return false;
+    }
+  }, [details?.booking.id, refetch]);
+
+  useEffect(() => {
+    const bookingId = details?.booking.id ?? null;
+    if (!bookingId) return;
+    if (!shouldAutoOpenBookingRating({ details, target: 'WORKER_TO_CUSTOMER' })) return;
+
+    showCustomSheet({
+      snapPoint: '92%',
+      renderContent: ({ closeSheet, scrollToEnd }) => (
+        <BookingRatingSheetContent
+          title={APP_TEXT.ratings.workerSheetTitle}
+          subtitle={APP_TEXT.ratings.workerSheetSubtitle}
+          submitLabel={APP_TEXT.ratings.submitButton}
+          scrollToEnd={scrollToEnd}
+          onSubmit={async (payload) => {
+            const submitted = await submitBookingRating(payload);
+            if (submitted) closeSheet();
+            return submitted;
+          }}
+        />
+      ),
+    });
+  }, [details, showCustomSheet, submitBookingRating]);
 
   const refreshDetails = useCallback(async () => {
     await refetch();
@@ -524,9 +569,12 @@ export function JobDetailsScreen({ navigation, route }: NativeStackScreenProps<J
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
-                {customerCard.name ?? getBookingUserName(details.customerInfo?.user)}
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="shrink text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
+                  {customerCard.name ?? getBookingUserName(details.customerInfo?.user)}
+                </Text>
+                <RatingBadge averageRating={details.customerInfo?.averageRating} />
+              </View>
               <Text
                 className="mt-0.5 text-xs font-semibold"
                 numberOfLines={1}

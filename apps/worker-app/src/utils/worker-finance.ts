@@ -25,7 +25,7 @@ import type {
 } from '@/types/worker-finance';
 import { APP_TEXT } from '@/utils/appText';
 import { formatDisplayDate, formatDisplayDateTime } from '@/utils/date-display';
-import { titleCase } from '@/utils/index';
+import { titleCase } from '@/utils/text';
 import { theme, uiColors } from '@/utils/theme';
 
 const IST_TIMEZONE = 'Asia/Kolkata';

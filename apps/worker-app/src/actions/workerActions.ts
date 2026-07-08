@@ -29,6 +29,7 @@ import {
   WorkerStatusResponse,
 } from '@/types/auth';
 import type { BookingDetailsResponse } from '@/types/booking-details';
+import type { BookingRatingPayload, BookingRatingResponse } from '@/types/booking-rating';
 import type {
   BookingInviteUpdateType,
   WorkerAssignmentStatusUpdate,
@@ -186,6 +187,11 @@ function toOptionalNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function toNullableNumber(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return toOptionalNumber(value);
+}
+
 function normalizeCount(value: unknown): number {
   const parsed = toOptionalNumber(value);
   return typeof parsed === 'number' && parsed >= 0 ? parsed : 0;
@@ -201,8 +207,7 @@ function normalizeWorkerHomeHeaderBanner(value: unknown): WorkerHomeHeaderBanner
   return {
     imageUrl: toOptionalString(raw.imageUrl ?? raw.image_url),
     name: toOptionalString(raw.name),
-    averageRating: toOptionalNumber(raw.averageRating ?? raw.average_rating),
-    reviewsCount: toOptionalNumber(raw.reviewsCount ?? raw.reviews_count),
+    averageRating: toNullableNumber(raw.averageRating ?? raw.average_rating),
   };
 }
 
@@ -1015,6 +1020,31 @@ export async function recordWorkerPaymentReceived(
         successTitle: 'Payment Confirmed',
         successMessage: 'Payment received was recorded successfully.',
         errorTitle: 'Payment Confirmation Failed',
+      },
+    },
+  );
+
+  return unwrapData(response);
+}
+
+export async function submitWorkerBookingRating(
+  bookingId: string,
+  payload: BookingRatingPayload,
+): Promise<BookingRatingResponse> {
+  const normalizedBookingId = bookingId.trim();
+  if (!normalizedBookingId) {
+    throw new Error('Booking id is required.');
+  }
+
+  const response = await apiPost<ApiEnvelope<BookingRatingResponse> | BookingRatingResponse, BookingRatingPayload>(
+    `/booking/${encodeURIComponent(normalizedBookingId)}/rating`,
+    payload,
+    {
+      auth: true,
+      tokenType: 'access',
+      toast: {
+        showSuccess: false,
+        showError: false,
       },
     },
   );

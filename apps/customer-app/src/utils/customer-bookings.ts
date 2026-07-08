@@ -3,7 +3,7 @@ import { BOOKING_PAYMENT_STATUS, CUSTOMER_BOOKING_TYPE } from '@/types/booking';
 import { APP_TEXT } from '@/utils/appText';
 import { formatDisplayDateTime } from '@/utils/date-display';
 import { theme, uiColors } from '@/utils/theme';
-import { extractImageUrl } from '@/utils';
+import { extractImageUrl } from '@/utils/media';
 
 export type CustomerBookingStatus = 'ONGOING' | 'COMPLETED';
 
@@ -239,7 +239,8 @@ export function getCustomerBookingAddressLabel(booking: Booking) {
 
 export function getCustomerBookingWorkerName(booking: Booking) {
   const worker = booking.workerInfo;
-  const fullName = [worker?.firstName, worker?.lastName]
+  const user = worker?.user;
+  const fullName = [worker?.firstName ?? user?.firstName, worker?.lastName ?? user?.lastName]
     .map(value => normalizeText(value))
     .filter((value): value is string => Boolean(value))
     .join(' ');
@@ -254,10 +255,17 @@ export function getCustomerBookingWorkerSubtitle(booking: Booking) {
   return 'Worker';
 }
 
+export function getCustomerBookingWorkerAverageRating(booking: Booking) {
+  return booking.workerInfo?.averageRating ?? null;
+}
+
 export function getCustomerBookingWorkerImageUrl(booking: Booking) {
   const worker = booking.workerInfo;
+  const user = worker?.user;
   return extractImageUrl(worker?.profileImage)
-    ?? (typeof worker?.profileImageUrl === 'string' ? worker.profileImageUrl.trim() : null);
+    ?? extractImageUrl(user?.profileImage)
+    ?? (typeof worker?.profileImageUrl === 'string' ? worker.profileImageUrl.trim() : null)
+    ?? (typeof user?.profileImageUrl === 'string' ? user.profileImageUrl.trim() : null);
 }
 
 export function getCustomerBookingAmountLabel(booking: Booking) {

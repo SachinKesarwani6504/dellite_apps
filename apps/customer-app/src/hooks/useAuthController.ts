@@ -143,12 +143,17 @@ function normalizeUserFromMeResponse(me: AuthMeResponse): NonNullable<AuthState[
   const roleLinkHasSeenWelcome = isRecord(me.roleLink)
     ? extractBoolean(me.roleLink.hasSeenOnboardingWelcomeScreen)
     : undefined;
+  const customerLink = me.user.customerLink ?? me.links?.customer;
+  const workerLink = me.user.workerLink ?? me.links?.worker;
+  const roleLink = me.user.roleLink ?? me.roleLink ?? customerLink ?? workerLink;
 
   return {
     ...me.user,
     referral: me.user.referral ?? me.referral,
     roles: me.user.roles ?? me.roles,
-    roleLink: me.user.roleLink ?? me.roleLink,
+    customerLink,
+    workerLink,
+    roleLink,
     bookingCounts: resolveCustomerBookingCountsFromMeResponse(me),
     referralCode: resolvedReferralCode,
     onboarding: mergedOnboarding,

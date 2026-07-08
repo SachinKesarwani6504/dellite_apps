@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
+import { RatingBadge } from '@/components/common/RatingBadge';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { StatusInfoTile } from '@/components/common/StatusInfoTile';
 import type { WorkerJobListItem } from '@/types/jobs';
 import {
   getWorkerJobAddressLabel,
   getWorkerJobBookingAmountLabel,
+  getWorkerJobCustomerAverageRating,
   getWorkerJobCustomerInitial,
   getWorkerJobCustomerImageUrl,
   getWorkerJobCustomerName,
@@ -36,6 +38,7 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
   const customerName = getWorkerJobCustomerName(item);
   const customerInitial = getWorkerJobCustomerInitial(item);
   const customerImageUrl = getWorkerJobCustomerImageUrl(item);
+  const customerAverageRating = getWorkerJobCustomerAverageRating(item);
   const bookingAmountLabel = getWorkerJobBookingAmountLabel(item);
   const payoutAmountLabel = getWorkerJobPayoutAmountLabel(item);
   const paymentStatus = item.booking.paymentStatus ?? null;
@@ -131,10 +134,13 @@ export function WorkerJobCard({ item, onPress }: WorkerJobCardProps) {
               )}
             </View>
             <View className="ml-3 flex-1">
-              <Text className="text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
-                {customerName}
-              </Text>
-              <Text className="text-xs text-baseDark/55 dark:text-white/70" numberOfLines={1}>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="shrink text-base font-extrabold text-baseDark dark:text-white" numberOfLines={1}>
+                  {customerName}
+                </Text>
+                <RatingBadge averageRating={customerAverageRating} />
+              </View>
+              <Text className="mt-0.5 text-xs text-baseDark/55 dark:text-white/70" numberOfLines={1}>
                 Customer
               </Text>
             </View>

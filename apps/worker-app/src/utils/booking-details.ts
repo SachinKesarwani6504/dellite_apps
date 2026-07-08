@@ -16,7 +16,7 @@ import type {
 import { BOOKING_PAYMENT_STATUS } from '@/types/booking';
 import type { BookingPaymentStatus } from '@/types/booking';
 import type { RouteCoordinates } from '@/types/live-route';
-import { extractImageUrl } from '@/utils';
+import { extractImageUrl } from '@/utils/media';
 import { APP_TEXT } from '@/utils/appText';
 import { formatDisplayDateTime } from '@/utils/date-display';
 import { getPriceRowTitle } from '@/utils/pricing.utils';
