@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, Switch, Text, View, useColorScheme } from 'react-native';
 import { getWorkerStatus, updateWorkerServices } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
@@ -12,34 +12,23 @@ import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
 import { SkillCertificateStatusCard } from '@/components/common/SkillCertificateStatusCard';
 import { SplitGradientTitle } from '@/components/common/SplitGradientTitle';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import type { WorkerStatusData } from '@/types/auth';
 import { ProfileStackParamList } from '@/types/navigation';
 import { PROFILE_SCREENS } from '@/types/screen-names';
+import type { WorkerSkillStatusItem } from '@/types/worker-skills';
 import { normalizeWorkerSkillStatus, titleCase } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { theme, uiColors } from '@/utils/theme';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.allSkills>;
-
-type WorkerSkill = {
-  id?: string;
-  workerSkillId?: string;
-  workerServiceId?: string;
-  serviceId?: string;
-  serviceName?: string;
-  status?: string;
-  isCertificateRequired?: boolean;
-  isCertificateAdded?: boolean;
-  isAvailable?: boolean;
-};
-
-export function ProfileSkillsScreen({ navigation }: Props) {
+export function ProfileSkillsScreen({
+  navigation,
+}: NativeStackScreenProps<ProfileStackParamList, typeof PROFILE_SCREENS.allSkills>) {
   const isDark = useColorScheme() === 'dark';
   const { modeKey, refreshProps } = useBrandRefreshControlProps();
-  const { me } = useAuthContext();
   const [loading, setLoading] = useState(true);
-  const [skills, setSkills] = useState<WorkerSkill[]>([]);
+  const [skills, setSkills] = useState<WorkerSkillStatusItem[]>([]);
+  const [skillSummary, setSkillSummary] = useState<WorkerStatusData['summary'] | null>(null);
   const [skillsLoadError, setSkillsLoadError] = useState(false);
   const [activeBySkillId, setActiveBySkillId] = useState<Record<string, boolean>>({});
   const [togglingBySkillId, setTogglingBySkillId] = useState<Record<string, boolean>>({});
@@ -52,8 +41,9 @@ export function ProfileSkillsScreen({ navigation }: Props) {
 
     try {
       const status = await getWorkerStatus({ sortBy: 'status', direction: 'asc' });
-      const nextSkills = Array.isArray(status.skills) ? (status.skills as WorkerSkill[]) : [];
+      const nextSkills = Array.isArray(status.skills) ? (status.skills as WorkerSkillStatusItem[]) : [];
       setSkills(nextSkills);
+      setSkillSummary(status.summary ?? null);
       setSkillsLoadError(false);
       setActiveBySkillId(prev => {
         const next: Record<string, boolean> = { ...prev };
@@ -66,48 +56,29 @@ export function ProfileSkillsScreen({ navigation }: Props) {
       });
     } catch {
       setSkills([]);
+      setSkillSummary(null);
       setSkillsLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    void loadSkills({ showFullScreenLoader: true });
-  }, [loadSkills]);
-
   useFocusEffect(useCallback(() => {
     void loadSkills({ showFullScreenLoader: true });
   }, [loadSkills]));
 
   const totalApproved = useMemo(
-    () => skills.filter(skill => String(skill.status ?? '').toUpperCase() === 'APPROVED').length,
-    [skills],
+    () => skillSummary?.approvedSkills ?? skills.filter(skill => String(skill.status ?? '').toUpperCase() === 'APPROVED').length,
+    [skillSummary?.approvedSkills, skills],
   );
 
-  const totalSkillsFromMe = useMemo(() => {
-    const parseCount = (value: unknown) => {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'string' && value.trim()) {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) return parsed;
-      }
-      return null;
-    };
-    const approvedServices = (me?.links?.worker as Record<string, unknown> | undefined)?.approvedServices;
-    if (Array.isArray(approvedServices)) {
-      return approvedServices.length;
-    }
-    const parsedSkillCount = parseCount(me?.links?.worker?.skillCount as unknown);
-    if (parsedSkillCount !== null) return parsedSkillCount;
-    return skills.length;
-  }, [me?.links?.worker, skills.length]);
+  const totalSkills = skillSummary?.totalSkills ?? skills.length;
 
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await loadSkills({ showFullScreenLoader: false });
   });
 
-  const onToggleSkillAvailability = useCallback(async (skill: WorkerSkill, nextIsAvailable: boolean) => {
+  const onToggleSkillAvailability = useCallback(async (skill: WorkerSkillStatusItem, nextIsAvailable: boolean) => {
     const skillId = skill.workerSkillId ?? skill.id;
     if (!skillId) return;
     if (togglingBySkillId[skillId]) return;
@@ -117,16 +88,16 @@ export function ProfileSkillsScreen({ navigation }: Props) {
     try {
       await updateWorkerServices({
         workerSkillId: skillId,
-        workerServiceId: skill.workerServiceId,
         isAvailable: nextIsAvailable,
       });
+      await loadSkills({ showFullScreenLoader: false });
     } catch {
       setActiveBySkillId(prev => ({ ...prev, [skillId]: !nextIsAvailable }));
       // API layer shows backend reason message directly via toast.
     } finally {
       setTogglingBySkillId(prev => ({ ...prev, [skillId]: false }));
     }
-  }, [togglingBySkillId]);
+  }, [loadSkills, togglingBySkillId]);
 
   return (
     <GradientScreen
@@ -153,7 +124,7 @@ export function ProfileSkillsScreen({ navigation }: Props) {
         <View className="mt-4 flex-row gap-3">
           <View className="flex-1 rounded-xl px-3 py-2" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.trackLight }}>
             <Text className="text-xs uppercase tracking-wide text-textPrimary/70 dark:text-white/70">Total Skills</Text>
-            <Text className="mt-1 text-2xl font-bold text-baseDark dark:text-white">{totalSkillsFromMe}</Text>
+            <Text className="mt-1 text-2xl font-bold text-baseDark dark:text-white">{totalSkills}</Text>
           </View>
           <View className="flex-1 rounded-xl px-3 py-2" style={{ backgroundColor: isDark ? uiColors.surface.cardMutedDark : uiColors.surface.trackLight }}>
             <Text className="text-xs uppercase tracking-wide text-textPrimary/70 dark:text-white/70">Approved</Text>

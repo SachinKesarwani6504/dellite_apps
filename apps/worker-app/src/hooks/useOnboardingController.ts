@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   createWorkerCertificates,
   getWorkerStatus,
@@ -15,13 +15,26 @@ import {
 import { OnboardingCurrentStep, OnboardingRouteName } from '@/types/onboarding';
 import { OnboardingContextType } from '@/types/onboarding-context';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
-import { extractWorkerOnboardingFlags, resolveWorkerOnboarding } from '@/utils/worker-onboarding';
+import {
+  extractWorkerOnboardingFlags,
+  mergeWorkerOnboardingSessionFlags,
+  resolveWorkerOnboarding,
+  WorkerOnboardingSessionState,
+} from '@/utils/worker-onboarding';
 
 function logWorkerOnboardingFlow(step: string, payload?: unknown) {
   if (!__DEV__) return;
   // eslint-disable-next-line no-console
   console.log(`[worker-onboarding][flow] ${step}`, payload);
 }
+
+const EMPTY_SESSION: WorkerOnboardingSessionState = {
+  hasPhoneVerified: false,
+  hasCompletedBasicProfile: false,
+  hasSeenSkillSetup: false,
+  hasSeenCertificateSetup: false,
+  hasSeenOnboardingWelcomeScreen: false,
+};
 
 export function useOnboardingController(): OnboardingContextType {
   const {
@@ -32,43 +45,41 @@ export function useOnboardingController(): OnboardingContextType {
   } = useAuthContext();
   const [onboardingRoute, setOnboardingRoute] = useState<OnboardingRouteName>(ONBOARDING_SCREENS.identity);
   const [loading, setLoading] = useState(true);
+  const [isRouteReady, setIsRouteReady] = useState(false);
   const [isOnboardingActive, setIsOnboardingActive] = useState(false);
-  const localSeenSetupRef = useRef<{
-    hasPhoneVerified: boolean;
-    hasCompletedBasicProfile: boolean;
-    hasSeenSkillSetup: boolean;
-    hasSeenCertificateSetup: boolean;
-    hasSeenOnboardingWelcomeScreen: boolean;
-  }>({
-    hasPhoneVerified: false,
-    hasCompletedBasicProfile: false,
-    hasSeenSkillSetup: false,
-    hasSeenCertificateSetup: false,
-    hasSeenOnboardingWelcomeScreen: false,
-  });
+  const localSeenSetupRef = useRef<WorkerOnboardingSessionState>({ ...EMPTY_SESSION });
+  const holdSkillSetupUntilCompletedRef = useRef(false);
+  const inFlightCertificatesRef = useRef<Promise<WorkerCertificateCard[]> | null>(null);
+
+  const resetOnboardingSession = useCallback(() => {
+    holdSkillSetupUntilCompletedRef.current = false;
+    localSeenSetupRef.current = { ...EMPTY_SESSION };
+    setIsRouteReady(false);
+    setOnboardingRoute(ONBOARDING_SCREENS.identity);
+    setIsOnboardingActive(false);
+  }, []);
 
   const applyWorkerFlags = useCallback((flags?: WorkerOnboardingFlags) => {
     if (flags) {
-      const normalizedFlags: WorkerOnboardingFlags = {
-        ...flags,
-        hasPhoneVerified: flags.hasPhoneVerified === true,
-        hasCompletedBasicProfile: flags.hasCompletedBasicProfile === true,
-        hasSeenSkillSetup: flags.hasSeenSkillSetup === true,
-        hasSeenCertificateSetup: flags.hasSeenCertificateSetup === true,
-        hasSeenOnboardingWelcomeScreen: flags.hasSeenOnboardingWelcomeScreen === true,
-      };
+      const routeFlags = mergeWorkerOnboardingSessionFlags(
+        flags,
+        localSeenSetupRef.current,
+        holdSkillSetupUntilCompletedRef.current,
+      );
+      const mergedHasSeenSkillSetup = routeFlags.hasSeenSkillSetup === true;
 
       localSeenSetupRef.current = {
-        hasPhoneVerified: normalizedFlags.hasPhoneVerified === true,
-        hasCompletedBasicProfile: normalizedFlags.hasCompletedBasicProfile === true,
-        hasSeenSkillSetup: normalizedFlags.hasSeenSkillSetup === true,
-        hasSeenCertificateSetup: normalizedFlags.hasSeenCertificateSetup === true,
-        hasSeenOnboardingWelcomeScreen: normalizedFlags.hasSeenOnboardingWelcomeScreen === true,
+        hasPhoneVerified: routeFlags.hasPhoneVerified === true,
+        hasCompletedBasicProfile: routeFlags.hasCompletedBasicProfile === true,
+        hasSeenSkillSetup: mergedHasSeenSkillSetup,
+        hasSeenCertificateSetup: routeFlags.hasSeenCertificateSetup === true,
+        hasSeenOnboardingWelcomeScreen: routeFlags.hasSeenOnboardingWelcomeScreen === true,
       };
 
-      const next = resolveWorkerOnboarding(normalizedFlags);
+      const next = resolveWorkerOnboarding(routeFlags);
       setOnboardingRoute(next.route);
       setIsOnboardingActive(!next.isComplete);
+      setIsRouteReady(true);
       return next;
     }
 
@@ -78,18 +89,13 @@ export function useOnboardingController(): OnboardingContextType {
         || localSeenSetupRef.current.hasSeenSkillSetup
         || localSeenSetupRef.current.hasSeenCertificateSetup
         || localSeenSetupRef.current.hasSeenOnboardingWelcomeScreen
-        ? {
-          hasPhoneVerified: localSeenSetupRef.current.hasPhoneVerified,
-          hasCompletedBasicProfile: localSeenSetupRef.current.hasCompletedBasicProfile,
-          hasSeenSkillSetup: localSeenSetupRef.current.hasSeenSkillSetup,
-          hasSeenCertificateSetup: localSeenSetupRef.current.hasSeenCertificateSetup,
-          hasSeenOnboardingWelcomeScreen: localSeenSetupRef.current.hasSeenOnboardingWelcomeScreen,
-        }
+        ? { ...localSeenSetupRef.current }
         : undefined);
 
     const next = resolveWorkerOnboarding(mergedFlags);
     setOnboardingRoute(next.route);
     setIsOnboardingActive(!next.isComplete);
+    setIsRouteReady(true);
     return next;
   }, []);
 
@@ -97,12 +103,14 @@ export function useOnboardingController(): OnboardingContextType {
     if (status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED) {
       setOnboardingRoute(ONBOARDING_SCREENS.identity);
       setIsOnboardingActive(true);
+      setIsRouteReady(true);
       return ONBOARDING_SCREENS.identity;
     }
 
     if (status !== AuthStatus.AUTHENTICATED) {
       setOnboardingRoute(ONBOARDING_SCREENS.identity);
       setIsOnboardingActive(false);
+      setIsRouteReady(true);
       return ONBOARDING_SCREENS.identity;
     }
 
@@ -124,35 +132,48 @@ export function useOnboardingController(): OnboardingContextType {
         const next = applyWorkerFlags(flags);
         return next.route;
       }
+      setIsRouteReady(true);
       return onboardingRoute;
     } finally {
       setLoading(false);
     }
   }, [applyWorkerFlags, me?.onboarding, onboardingRoute, refreshMe, status]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (status === AuthStatus.BOOTSTRAPPING) {
+      if (me?.onboarding) {
+        const flags = extractWorkerOnboardingFlags(me.onboarding);
+        applyWorkerFlags(flags);
+      }
+      setLoading(true);
+      return;
+    }
+
     if (status === AuthStatus.ONBOARDING || status === AuthStatus.PHONE_VERIFIED) {
       setOnboardingRoute(ONBOARDING_SCREENS.identity);
       setIsOnboardingActive(true);
+      setIsRouteReady(true);
       setLoading(false);
       return;
     }
 
     if (status !== AuthStatus.AUTHENTICATED) {
-      localSeenSetupRef.current = {
-        hasPhoneVerified: false,
-        hasCompletedBasicProfile: false,
-        hasSeenSkillSetup: false,
-        hasSeenCertificateSetup: false,
-        hasSeenOnboardingWelcomeScreen: false,
-      };
-      setOnboardingRoute(ONBOARDING_SCREENS.identity);
-      setIsOnboardingActive(false);
+      resetOnboardingSession();
+      setIsRouteReady(true);
       setLoading(false);
       return;
     }
 
-    if (me?.onboarding) {
+    setLoading(true);
+    setIsOnboardingActive(true);
+
+    if (!me) {
+      setLoading(false);
+      setIsRouteReady(true);
+      return;
+    }
+
+    if (me.onboarding) {
       const flags = extractWorkerOnboardingFlags(me.onboarding);
       applyWorkerFlags(flags);
       setLoading(false);
@@ -160,10 +181,17 @@ export function useOnboardingController(): OnboardingContextType {
     }
 
     void refreshOnboardingRoute();
-  }, [applyWorkerFlags, me?.onboarding, refreshOnboardingRoute, status]);
+  }, [applyWorkerFlags, me?.onboarding, refreshOnboardingRoute, resetOnboardingSession, status]);
 
   const getOnboardingRedirect = useCallback((currentRoute: OnboardingRouteName) => {
     if (!isOnboardingActive) {
+      return null;
+    }
+    if (
+      currentRoute === ONBOARDING_SCREENS.serviceSelection
+      && holdSkillSetupUntilCompletedRef.current
+      && !localSeenSetupRef.current.hasSeenSkillSetup
+    ) {
       return null;
     }
     return onboardingRoute === currentRoute ? null : onboardingRoute;
@@ -171,6 +199,7 @@ export function useOnboardingController(): OnboardingContextType {
 
   const markOnboardingStepSeen = useCallback((step: OnboardingCurrentStep) => {
     if (step === 'BASIC_PROFILE') {
+      holdSkillSetupUntilCompletedRef.current = true;
       localSeenSetupRef.current = {
         ...localSeenSetupRef.current,
         hasPhoneVerified: true,
@@ -178,16 +207,19 @@ export function useOnboardingController(): OnboardingContextType {
       };
       setOnboardingRoute(ONBOARDING_SCREENS.serviceSelection);
       setIsOnboardingActive(true);
+      setIsRouteReady(true);
       return;
     }
 
     if (step === 'SERVICE_SELECTION') {
+      holdSkillSetupUntilCompletedRef.current = false;
       localSeenSetupRef.current = {
         ...localSeenSetupRef.current,
         hasSeenSkillSetup: true,
       };
       setOnboardingRoute(ONBOARDING_SCREENS.certification);
       setIsOnboardingActive(true);
+      setIsRouteReady(true);
       return;
     }
 
@@ -198,6 +230,7 @@ export function useOnboardingController(): OnboardingContextType {
       };
       setOnboardingRoute(ONBOARDING_SCREENS.welcomeWorker);
       setIsOnboardingActive(true);
+      setIsRouteReady(true);
       return;
     }
 
@@ -231,6 +264,7 @@ export function useOnboardingController(): OnboardingContextType {
       isOnboardingActive,
       me,
     });
+    holdSkillSetupUntilCompletedRef.current = true;
     await completeOnboarding(payload);
     logWorkerOnboardingFlow('completeIdentityProfile:completeOnboarding:success');
     markOnboardingStepSeen('BASIC_PROFILE');
@@ -238,14 +272,22 @@ export function useOnboardingController(): OnboardingContextType {
   }, [completeOnboarding, isOnboardingActive, markOnboardingStepSeen, me, onboardingRoute, status]);
 
   const getRequiredCertificates = useCallback(async (): Promise<WorkerCertificateCard[]> => {
-    const statusData = await getWorkerStatus<{
-      certificates?: WorkerCertificateCard[];
-      requiredCertificates?: WorkerCertificateCard[];
-    }>();
-    if (Array.isArray(statusData.certificates)) {
-      return statusData.certificates;
+    if (!inFlightCertificatesRef.current) {
+      inFlightCertificatesRef.current = (async () => {
+        const statusData = await getWorkerStatus<{
+          certificates?: WorkerCertificateCard[];
+          requiredCertificates?: WorkerCertificateCard[];
+        }>();
+        if (Array.isArray(statusData.certificates)) {
+          return statusData.certificates;
+        }
+        return Array.isArray(statusData.requiredCertificates) ? statusData.requiredCertificates : [];
+      })().finally(() => {
+        inFlightCertificatesRef.current = null;
+      });
     }
-    return Array.isArray(statusData.requiredCertificates) ? statusData.requiredCertificates : [];
+
+    return inFlightCertificatesRef.current;
   }, []);
 
   const completeCertificateUpload = useCallback(async (payload: WorkerCertificateCreatePayload) => {
@@ -265,10 +307,12 @@ export function useOnboardingController(): OnboardingContextType {
     markOnboardingStepSeen('CERTIFICATE_UPLOAD');
   }, [markOnboardingStepSeen]);
 
+  const onboardingLoading = loading || !isRouteReady;
+
   return useMemo<OnboardingContextType>(() => ({
     onboardingRoute,
     isOnboardingActive,
-    loading,
+    loading: onboardingLoading,
     completeIdentityProfile,
     refreshOnboardingRoute,
     getOnboardingRedirect,
@@ -280,7 +324,7 @@ export function useOnboardingController(): OnboardingContextType {
   }), [
     onboardingRoute,
     isOnboardingActive,
-    loading,
+    onboardingLoading,
     completeIdentityProfile,
     refreshOnboardingRoute,
     getOnboardingRedirect,

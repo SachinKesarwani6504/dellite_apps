@@ -30,7 +30,6 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
   const { me } = useAuthContext();
   const {
     completeOnboardingFlow,
-    getOnboardingRedirect,
   } = useOnboardingContext();
   const text = APP_TEXT.onboarding.welcome;
   const [starting, setStarting] = useState(false);
@@ -102,13 +101,6 @@ export function WelcomeWorkerScreen({ navigation }: Props) {
   );
   const benefitLabels = text.benefits;
   const isBusy = starting;
-
-  useEffect(() => {
-    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.welcomeWorker);
-    if (redirect) {
-      navigation.replace(redirect);
-    }
-  }, [getOnboardingRedirect, navigation]);
 
   useEffect(() => {
     const t1 = setTimeout(() => setStep(1), 300);

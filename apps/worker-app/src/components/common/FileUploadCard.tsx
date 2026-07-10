@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 import { AppImage } from '@/components/common/AppImage';
 import type { FileUploadCardProps } from '@/types/component-types';
-import type { UploadPreviewFile } from '@/types/file-upload';
+import { APP_TEXT } from '@/utils/appText';
 import { isImageFile, isPdfFile } from '@/utils/file-upload';
 import { palette, theme, uiColors } from '@/utils/theme';
 
@@ -23,34 +23,49 @@ export function FileUploadCard({
 }: FileUploadCardProps) {
   const visibleFiles = files.slice(0, Math.max(1, maxPreviewItems));
   const extraCount = Math.max(0, files.length - visibleFiles.length);
+  const hasFiles = files.length > 0;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className="mt-3 items-center rounded-2xl border border-dashed px-4 py-6"
+      className="mt-3 items-center rounded-2xl border border-dashed px-4 py-5"
       style={{
-        borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-        backgroundColor: isDark ? uiColors.surface.overlayDark08 : uiColors.surface.trackLight,
+        borderColor: hasFiles
+          ? theme.colors.primary
+          : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
+        backgroundColor: hasFiles
+          ? uiColors.surface.accentSoft20
+          : (isDark ? uiColors.surface.overlayDark08 : uiColors.surface.trackLight),
+        borderWidth: hasFiles ? 1.5 : 1,
       }}
     >
-      <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-        <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={18} color={theme.colors.primary} />
+      <View
+        className="h-12 w-12 items-center justify-center rounded-2xl"
+        style={{ backgroundColor: hasFiles ? theme.colors.primary : uiColors.surface.accentSoft20 }}
+      >
+        <Ionicons
+          name={(hasFiles ? 'checkmark-circle-outline' : iconName) as keyof typeof Ionicons.glyphMap}
+          size={22}
+          color={hasFiles ? theme.colors.onPrimary : theme.colors.primary}
+        />
       </View>
-      <View className="mt-2 flex-row items-center">
-        <Text className="text-base font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
+      <View className="mt-2.5 flex-row items-center">
+        <Text className="text-base font-bold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
           {isPicking ? pickingTitle : idleTitle}
         </Text>
         {isRequired ? (
           <Text className="ml-1 text-xs font-semibold" style={{ color: theme.colors.negative }}>*</Text>
         ) : null}
       </View>
-      <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
+      <Text className="mt-1 text-center text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
         {description}
       </Text>
-      <Text className="mt-2 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-        {helperText}
-      </Text>
+      {!hasFiles ? (
+        <Text className="mt-2 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
+          {helperText}
+        </Text>
+      ) : null}
 
       {visibleFiles.length > 0 ? (
         <View className="mt-3 w-full gap-2">
@@ -60,14 +75,14 @@ export function FileUploadCard({
             return (
               <View
                 key={`${file.name}-${index}`}
-                className="w-full flex-row items-start rounded-xl border px-3 py-2"
+                className="w-full flex-row items-center rounded-xl border px-3 py-2.5"
                 style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
+                  borderColor: theme.colors.primary,
                   backgroundColor: isDark ? uiColors.surface.overlayDark10 : uiColors.surface.overlayLight85,
                 }}
               >
                 <View
-                  className="mr-2 mt-0.5 h-9 w-9 items-center justify-center overflow-hidden rounded-md"
+                  className="mr-2.5 h-11 w-11 items-center justify-center overflow-hidden rounded-lg"
                   style={{ backgroundColor: uiColors.surface.accentSoft20 }}
                 >
                   {canPreviewImage ? (
@@ -75,19 +90,20 @@ export function FileUploadCard({
                   ) : (
                     <Ionicons
                       name={isPdf ? 'document-text-outline' : 'image-outline'}
-                      size={15}
+                      size={18}
                       color={theme.colors.primary}
                     />
                   )}
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs font-semibold" style={{ color: isDark ? palette.dark.text : palette.light.text }}>
+                  <Text className="text-xs font-bold" numberOfLines={1} style={{ color: isDark ? palette.dark.text : palette.light.text }}>
                     {file.name}
                   </Text>
-                  <Text className="mt-0.5 text-[11px]" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                    {isPdf ? 'PDF file selected' : 'Image file selected'}
+                  <Text className="mt-0.5 text-[11px] font-medium" style={{ color: theme.colors.primary }}>
+                    {isPdf ? APP_TEXT.common.fileUpload.pdfSelected : APP_TEXT.common.fileUpload.photoSelected}
                   </Text>
                 </View>
+                <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
               </View>
             );
           })}

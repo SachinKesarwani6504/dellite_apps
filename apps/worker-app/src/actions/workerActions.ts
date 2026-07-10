@@ -842,15 +842,20 @@ export async function createWorkerServices(
 }
 
 export async function updateWorkerServices(payload: WorkerServiceUpdatePayload) {
-  const workerSkillId = payload.workerSkillId ?? payload.workerServiceId;
-  const requestPayload = {
-    workerSkillId,
-    workerServiceId: payload.workerServiceId,
-    cityId: payload.cityId,
-    experienceYears: payload.experienceYears,
-    priceOverride: payload.priceOverride,
-    isAvailable: payload.isAvailable,
-  };
+  const requestPayload = 'workerSkillId' in payload
+    ? {
+      workerSkillId: payload.workerSkillId,
+      isAvailable: payload.isAvailable,
+    }
+    : {
+      city: normalizeCity(payload.city),
+      skills: Array.isArray(payload.skills)
+        ? payload.skills
+        : (Array.isArray(payload.services) ? payload.services : []),
+      services: Array.isArray(payload.services)
+        ? payload.services
+        : (Array.isArray(payload.skills) ? payload.skills : []),
+    };
 
   const response = await apiPatch<ApiEnvelope<unknown>, typeof requestPayload>(
     '/worker/skills',

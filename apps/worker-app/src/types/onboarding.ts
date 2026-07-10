@@ -3,6 +3,14 @@ import { OnboardingStackParamList } from '@/types/navigation';
 
 export type OnboardingRouteName = keyof OnboardingStackParamList;
 
+export type WorkerOnboardingSessionState = {
+  hasPhoneVerified: boolean;
+  hasCompletedBasicProfile: boolean;
+  hasSeenSkillSetup: boolean;
+  hasSeenCertificateSetup: boolean;
+  hasSeenOnboardingWelcomeScreen: boolean;
+};
+
 export type WorkerOnboardingResolution = {
   route: OnboardingRouteName;
   status: AuthStatus;

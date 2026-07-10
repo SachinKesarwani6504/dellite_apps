@@ -1,5 +1,5 @@
 import { AuthMeResponse, WorkerOnboardingFlags } from '@/types/auth';
-import { OnboardingCurrentStep, OnboardingRouteName } from '@/types/onboarding';
+import { OnboardingCurrentStep, OnboardingRouteName, WorkerOnboardingSessionState } from '@/types/onboarding';
 import { ONBOARDING_SCREENS } from '@/types/screen-names';
 
 type OnboardingPayload = AuthMeResponse['onboarding'];
@@ -8,6 +8,8 @@ export type WorkerOnboardingResolution = {
   route: OnboardingRouteName;
   isComplete: boolean;
 };
+
+export type { WorkerOnboardingSessionState };
 
 function toBoolean(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') return value;
@@ -89,6 +91,53 @@ export function extractWorkerOnboardingFlags(onboarding?: OnboardingPayload): Wo
   }
 
   return normalizeFlags(onboarding);
+}
+
+export function normalizeWorkerOnboardingFlags(flags: WorkerOnboardingFlags): WorkerOnboardingFlags {
+  return {
+    ...flags,
+    hasPhoneVerified: typeof flags.hasPhoneVerified === 'boolean' ? flags.hasPhoneVerified : undefined,
+    hasCompletedBasicProfile: typeof flags.hasCompletedBasicProfile === 'boolean' ? flags.hasCompletedBasicProfile : undefined,
+    hasSeenSkillSetup: typeof flags.hasSeenSkillSetup === 'boolean' ? flags.hasSeenSkillSetup : undefined,
+    hasSeenCertificateSetup: typeof flags.hasSeenCertificateSetup === 'boolean' ? flags.hasSeenCertificateSetup : undefined,
+    hasSeenOnboardingWelcomeScreen: typeof flags.hasSeenOnboardingWelcomeScreen === 'boolean'
+      ? flags.hasSeenOnboardingWelcomeScreen
+      : undefined,
+  };
+}
+
+function mergeOptionalFlag(serverValue: boolean | undefined, sessionValue: boolean): boolean | undefined {
+  if (sessionValue) {
+    return true;
+  }
+  if (typeof serverValue === 'boolean') {
+    return serverValue;
+  }
+  return undefined;
+}
+
+export function mergeWorkerOnboardingSessionFlags(
+  serverFlags: WorkerOnboardingFlags,
+  session: WorkerOnboardingSessionState,
+  holdSkillSetupUntilCompleted: boolean,
+): WorkerOnboardingFlags {
+  const normalized = normalizeWorkerOnboardingFlags(serverFlags);
+  const shouldHoldSkillSetup = holdSkillSetupUntilCompleted && !session.hasSeenSkillSetup;
+  const mergedHasSeenSkillSetup = shouldHoldSkillSetup
+    ? false
+    : mergeOptionalFlag(normalized.hasSeenSkillSetup, session.hasSeenSkillSetup);
+
+  return {
+    ...normalized,
+    hasPhoneVerified: mergeOptionalFlag(normalized.hasPhoneVerified, session.hasPhoneVerified),
+    hasCompletedBasicProfile: mergeOptionalFlag(normalized.hasCompletedBasicProfile, session.hasCompletedBasicProfile),
+    hasSeenSkillSetup: mergedHasSeenSkillSetup,
+    hasSeenCertificateSetup: mergeOptionalFlag(normalized.hasSeenCertificateSetup, session.hasSeenCertificateSetup),
+    hasSeenOnboardingWelcomeScreen: mergeOptionalFlag(
+      normalized.hasSeenOnboardingWelcomeScreen,
+      session.hasSeenOnboardingWelcomeScreen,
+    ),
+  };
 }
 
 export function resolveWorkerOnboarding(flags?: WorkerOnboardingFlags): WorkerOnboardingResolution {

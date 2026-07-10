@@ -1,4 +1,7 @@
 export const APP_TEXT = {
+  common: {
+    edit: 'Edit',
+  },
   network: {
     offlineTitle: 'No internet connection',
     offlineSubtitle: 'Turn on mobile data or Wi-Fi to continue.',
@@ -492,9 +495,9 @@ export const APP_TEXT = {
   notifications: {
     title: 'Notifications',
     subtitle: 'Stay updated with bookings, payments, and account activity.',
-    markAllRead: 'Mark all read',
-    allRead: 'All caught up',
-    unreadCountLabel: 'Unread',
+    markAllRead: 'Mark all as read',
+    allRead: 'You are all caught up',
+    unreadCountLabel: 'unread',
     emptyTitle: 'No notifications yet',
     emptyDescription: 'Important booking and account updates will appear here.',
     errorTitle: 'Unable to load notifications',

@@ -427,6 +427,17 @@ export function ProfileHomeScreen({ navigation }: Props) {
         />
 
         <ProfileActionRow
+          title={APP_TEXT.profile.certificates.menuTitle}
+          subtitle={APP_TEXT.profile.certificates.menuSubtitle}
+          icon="ribbon-outline"
+          iconColor={theme.colors.primary}
+          iconBackgroundColor={isDark ? uiColors.surface.overlayDark10 : uiColors.surface.accentSoft20}
+          isDark={isDark}
+          onPress={() => navigateToProfileDetails(PROFILE_SCREENS.certificateManager)}
+          showDivider
+        />
+
+        <ProfileActionRow
           title={APP_TEXT.profile.logoutTitle}
           subtitle={APP_TEXT.profile.logoutSubtitle}
           icon="log-out-outline"

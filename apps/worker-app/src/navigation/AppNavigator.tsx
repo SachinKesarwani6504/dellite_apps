@@ -19,6 +19,7 @@ import { AuthStatus } from '@/types/auth-status';
 import { RootStackParamList } from '@/types/navigation';
 import { ROOT_SCREENS } from '@/types/screen-names';
 import { resolveWorkerIdFromAuthUser } from '@/utils';
+import { extractWorkerOnboardingFlags, resolveWorkerOnboarding } from '@/utils/worker-onboarding';
 import { palette, theme } from '@/utils/theme';
 import { useBadgeSync } from '@/hooks/useBadgeSync';
 import { useLiveNotifications } from '@/hooks/useLiveNotifications';
@@ -47,6 +48,8 @@ function resolveRootNavigatorBranch(
   status: AuthStatus,
   onboardingLoading: boolean,
   isOnboardingActive: boolean,
+  onboardingComplete: boolean,
+  hasMeSnapshot: boolean,
   networkInitialized: boolean,
   isOffline: boolean,
 ) {
@@ -56,6 +59,7 @@ function resolveRootNavigatorBranch(
 
   if (
     status === AuthStatus.BOOTSTRAPPING
+    || (status === AuthStatus.AUTHENTICATED && !hasMeSnapshot)
     || (onboardingLoading && status !== AuthStatus.LOGGED_OUT && status !== AuthStatus.OTP_SENT)
   ) {
     return ROOT_NAVIGATOR_BRANCH.bootstrap;
@@ -68,7 +72,7 @@ function resolveRootNavigatorBranch(
   if (
     status === AuthStatus.ONBOARDING
     || status === AuthStatus.PHONE_VERIFIED
-    || (status === AuthStatus.AUTHENTICATED && isOnboardingActive)
+    || (status === AuthStatus.AUTHENTICATED && (!onboardingComplete || isOnboardingActive))
   ) {
     return ROOT_NAVIGATOR_BRANCH.onboarding;
   }
@@ -87,11 +91,21 @@ export function AppNavigator() {
   const isDark = colorScheme === 'dark';
   const userId = user?.id ?? null;
   const workerId = resolveWorkerIdFromAuthUser(user, (me as Record<string, unknown> | null | undefined) ?? null);
-  const shouldTrackUserSession = status === AuthStatus.AUTHENTICATED && Boolean(userId);
+  const onboardingFlags = useMemo(
+    () => extractWorkerOnboardingFlags(me?.onboarding),
+    [me?.onboarding],
+  );
+  const onboardingComplete = useMemo(
+    () => resolveWorkerOnboarding(onboardingFlags).isComplete,
+    [onboardingFlags],
+  );
+  const shouldTrackUserSession = status === AuthStatus.AUTHENTICATED && Boolean(userId) && onboardingComplete;
   const rootBranch = resolveRootNavigatorBranch(
     status,
     onboardingLoading,
     isOnboardingActive,
+    onboardingComplete,
+    Boolean(me),
     initialized,
     isOffline,
   );
