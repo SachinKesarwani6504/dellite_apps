@@ -70,13 +70,10 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   const [cityLoading, setCityLoading] = useState(false);
   const [cityLoadError, setCityLoadError] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const didRunInitialRouteCheckRef = useRef(false);
   const didRequestPrefillRef = useRef(false);
   const {
     completeIdentityProfile,
     loading,
-    getOnboardingRedirect,
-    refreshOnboardingRoute,
   } = useOnboardingContext();
   const formDisabled = loading || isSubmitting;
 
@@ -130,21 +127,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
   }, [fetchOnboardingPrefill]);
 
   useEffect(() => {
-    if (didRunInitialRouteCheckRef.current) return;
-    didRunInitialRouteCheckRef.current = true;
-
-    void refreshOnboardingRoute(true)
-      .then(route => {
-        if (route !== ONBOARDING_SCREENS.identity) {
-          navigation.replace(route);
-        }
-      })
-      .catch(() => {
-        // Existing onboarding route in context still guards the current screen.
-      });
-  }, [navigation, refreshOnboardingRoute]);
-
-  useEffect(() => {
     if (!onboardingPrefill) return;
 
     if (typeof onboardingPrefill.firstName === 'string' && onboardingPrefill.firstName.trim().length > 0) {
@@ -167,13 +149,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       setExistingProfileImageUrl(onboardingPrefill.profileImage.url.trim());
     }
   }, [onboardingPrefill]);
-
-  useEffect(() => {
-    const redirect = getOnboardingRedirect(ONBOARDING_SCREENS.identity);
-    if (redirect) {
-      navigation.replace(redirect);
-    }
-  }, [getOnboardingRedirect, navigation]);
 
   useEffect(() => {
     void loadCities();
@@ -322,7 +297,6 @@ export function OnboardingIdentityScreen({ navigation }: Props) {
       )}
     >
         <SplitGradientTitle
-          eyebrow={APP_TEXT.onboarding.identity.step}
           prefix={APP_TEXT.onboarding.identity.titlePrefix}
           highlight={APP_TEXT.onboarding.identity.gradientWord}
           subtitle={APP_TEXT.onboarding.identity.subtitle}

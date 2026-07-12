@@ -71,6 +71,7 @@ export * from '@/utils/image-cache';
 export * from '@/utils/otp';
 export * from '@/utils/file-upload';
 export * from '@/utils/worker-status';
+export * from '@/utils/worker-skills';
 export * from '@/utils/status-badge';
 export * from '@/utils/worker-jobs';
 export * from '@/utils/worker-finance';

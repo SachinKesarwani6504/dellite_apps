@@ -311,14 +311,14 @@ export interface WorkerServicePayload {
   services?: string[];
 }
 
-export interface WorkerServiceUpdatePayload {
-  workerSkillId?: string;
-  workerServiceId?: string;
-  cityId?: string;
-  experienceYears?: number;
-  priceOverride?: number;
-  isAvailable?: boolean;
-}
+export type WorkerServiceAddPayload = WorkerServicePayload;
+
+export type WorkerSkillAvailabilityPayload = {
+  workerSkillId: string;
+  isAvailable: boolean;
+};
+
+export type WorkerServiceUpdatePayload = WorkerServiceAddPayload | WorkerSkillAvailabilityPayload;
 
 export interface CreateWorkerCertificateItem {
   certificateId?: string;

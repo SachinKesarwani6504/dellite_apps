@@ -224,3 +224,7 @@ export function parseApiError(params: ParseApiErrorParams): ParsedApiError {
     rawError: params.error ?? params.payload,
   };
 }
+
+export function isAuthSessionInvalidStatusCode(statusCode?: number): boolean {
+  return statusCode === 401 || statusCode === 403;
+}

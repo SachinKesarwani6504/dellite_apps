@@ -6,6 +6,7 @@ import { AUTH_STATUS, type AuthMeResponse, type AuthState, type AuthStatus, type
 import type { AuthContextType } from '@/types/auth-context';
 import type { UpdateCustomerIdentityPayload } from '@/types/customer';
 import { useLocationController } from '@/hooks/useLocationController';
+import { isAuthSessionInvalidStatusCode } from '@/utils/api-error';
 import {
   applyFirebaseCustomToken,
 } from '@/utils/firebase-session';
@@ -649,15 +650,21 @@ export function useAuthController(): AuthContextType {
           });
           await clearOnboardingPhoneToken();
         } catch (error) {
-          if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+          if (error instanceof ApiError && isAuthSessionInvalidStatusCode(error.statusCode)) {
             await logout();
-          } else if (mounted) {
-            setAuthState((prev) => ({
-              ...prev,
-              status: AUTH_STATUS.AUTHENTICATED,
-              tokens: activeTokens,
-            }));
+            return;
           }
+          if (!mounted) {
+            return;
+          }
+          // Keep tokens on network/5xx/429; missing user snapshot stays recoverable.
+          setAuthState({
+            status: AUTH_STATUS.AUTHENTICATED,
+            tokens: activeTokens,
+            phoneToken: null,
+            phone: '',
+            user: null,
+          });
         }
       } catch {
         if (mounted) {

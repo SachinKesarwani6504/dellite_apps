@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { RefreshControl, Text, View, useColorScheme } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { createWorkerCertificates, getWorkerStatus, updateWorkerCertificates } from '@/actions';
 import { AppSpinner } from '@/components/common/AppSpinner';
 import { useBrandRefreshControlProps } from '@/components/common/BrandRefreshControl';
 import { Button } from '@/components/common/Button';
+import { CertificateUploadCard } from '@/components/common/CertificateUploadCard';
 import { DetailsTopBar } from '@/components/common/DetailsTopBar';
-import { FileUploadCard } from '@/components/common/FileUploadCard';
 import { GradientScreen } from '@/components/common/GradientScreen';
 import { ListEmptyState } from '@/components/common/ListEmptyState';
 import { ListErrorState } from '@/components/common/ListErrorState';
@@ -16,19 +16,18 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import type { ProfileCertificateManagerScreenProps } from '@/types/screen-props';
 import { WorkerCertificateCard, WorkerCertificateWriteItem } from '@/types/auth';
 import { SelectedCertificateFile } from '@/types/onboarding';
-import { PROFILE_SCREENS } from '@/types/screen-names';
 import {
   getCertificateCardId,
   isSupportedCertificateFile,
   isLockedCertificate,
+  isPendingCertificate,
   pickCertificateType,
   resolveCertificateWorkerSkillIds,
-  titleCase,
   toWorkerCertificateWriteItem,
 } from '@/utils';
 import { APP_TEXT } from '@/utils/appText';
 import { APP_LAYOUT } from '@/utils/layout';
-import { palette, theme, uiColors } from '@/utils/theme';
+import { theme, uiColors } from '@/utils/theme';
 import { showError } from '@/utils/toast';
 
 export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertificateManagerScreenProps) {
@@ -41,6 +40,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
   const [requiredCertificates, setRequiredCertificates] = useState<WorkerCertificateCard[]>([]);
   const [selectedTypeByCard, setSelectedTypeByCard] = useState<Record<string, string>>({});
   const [selectedFileByCard, setSelectedFileByCard] = useState<Record<string, SelectedCertificateFile>>({});
+  const [showTypeErrors, setShowTypeErrors] = useState(false);
 
   const loadCertificates = useCallback(async (options?: { showFullScreenLoader?: boolean }) => {
     const showFullScreenLoader = options?.showFullScreenLoader ?? true;
@@ -66,10 +66,6 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
           const existing = prev[cardId];
           if (existing && allowedTypes.includes(existing)) {
             next[cardId] = existing;
-            return;
-          }
-          if (!existing && allowedTypes.length === 1) {
-            next[cardId] = allowedTypes[0];
           }
         });
         return next;
@@ -88,12 +84,14 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
 
   const refreshCertificates = useCallback(async () => {
     if (screenLoading || isSubmitting) return;
+    setShowTypeErrors(false);
     await loadCertificates({ showFullScreenLoader: false });
   }, [isSubmitting, loadCertificates, screenLoading]);
   const { refreshing, onRefresh } = usePullToRefresh(refreshCertificates);
 
   const onPickFile = async (card: WorkerCertificateCard) => {
     const cardId = getCertificateCardId(card);
+    setPickingCardId(cardId);
     try {
       const picked = await DocumentPicker.getDocumentAsync({
         multiple: false,
@@ -110,7 +108,6 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
         return;
       }
       const fileType = asset.mimeType ?? (asset.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-      setPickingCardId(cardId);
       setSelectedFileByCard(prev => ({
         ...prev,
         [cardId]: {
@@ -148,10 +145,26 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
     .filter((item): item is WorkerCertificateWriteItem => Boolean(item));
 
   const allCardsLocked = requiredCertificates.length > 0 && cardsNeedingUpload.length === 0;
+  const hasCertificatesUnderReview = requiredCertificates.some(isPendingCertificate);
   const canSaveCertificates = readyCertificates.length > 0;
 
   const onSaveCertificates = async () => {
-    if (isSubmitting || !canSaveCertificates) return;
+    if (isSubmitting) return;
+
+    const missingType = cardsNeedingUpload.some(card => {
+      const cardId = getCertificateCardId(card);
+      return !selectedTypeByCard[cardId] && Boolean(selectedFileByCard[cardId]);
+    });
+    if (missingType) {
+      setShowTypeErrors(true);
+      showError(APP_TEXT.profile.certificates.card.typeRequiredHint);
+      return;
+    }
+    if (!canSaveCertificates) {
+      setShowTypeErrors(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const updateItems = readyCertificates.filter(item => typeof item.certificateId === 'string' && item.certificateId.trim().length > 0);
@@ -165,6 +178,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
       }
       setSelectedFileByCard({});
       setSelectedTypeByCard({});
+      setShowTypeErrors(false);
       await loadCertificates({ showFullScreenLoader: false });
     } catch {
       // Backend toast is shown by action layer.
@@ -195,16 +209,6 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
           showSparkle={false}
         />
       </View>
-      <Pressable
-        onPress={() => navigation.navigate(PROFILE_SCREENS.skillManager)}
-        className="mt-3 flex-row items-center justify-center rounded-xl px-3 py-2.5"
-        style={{ backgroundColor: theme.colors.primary }}
-      >
-        <Ionicons name="add-circle-outline" size={15} color={theme.colors.onPrimary} />
-        <Text className="ml-1.5 text-sm font-semibold" style={{ color: theme.colors.onPrimary }}>
-          {APP_TEXT.profile.certificates.addSkillButton}
-        </Text>
-      </Pressable>
 
       {screenLoading ? (
         <View className="mt-8 items-center justify-center">
@@ -213,8 +217,8 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
       ) : certificatesLoadError ? (
         <ListErrorState
           containerClassName="mt-4"
-          title="Could not load certificates"
-          description="Pull to refresh or tap retry."
+          title={APP_TEXT.profile.certificates.loadErrorTitle}
+          description={APP_TEXT.profile.certificates.loadErrorDescription}
           onAction={() => {
             void loadCertificates({ showFullScreenLoader: false });
           }}
@@ -224,13 +228,11 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
           containerClassName="mt-4"
           icon="ribbon-outline"
           title={APP_TEXT.profile.certificates.emptyState}
-          description="Add a new skill to see certificate requirements."
-          actionLabel={APP_TEXT.profile.certificates.addSkillButton}
-          onAction={() => navigation.navigate(PROFILE_SCREENS.skillManager)}
+          description={APP_TEXT.profile.certificates.emptyDescription}
         />
       ) : (
         <View className="mt-4 gap-3">
-          {allCardsLocked ? (
+          {hasCertificatesUnderReview ? (
             <View className="rounded-2xl border px-4 py-3" style={{ borderColor: theme.colors.accent, backgroundColor: uiColors.surface.accentSoft20 }}>
               <View className="flex-row items-start">
                 <View className="mr-2 mt-0.5 h-7 w-7 items-center justify-center rounded-full" style={{ backgroundColor: theme.colors.onPrimary }}>
@@ -250,117 +252,25 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
 
           {requiredCertificates.map(item => {
             const cardId = getCertificateCardId(item);
-            const selectedType = selectedTypeByCard[cardId] ?? '';
-            const isViewOnly = isLockedCertificate(item);
-            const isPicking = pickingCardId === cardId;
-            const selectedFile = selectedFileByCard[cardId];
-            const cardBusy = isSubmitting || isPicking;
-
             return (
-              <View
+              <CertificateUploadCard
                 key={cardId}
-                className="rounded-2xl border p-4"
-                style={{
-                  borderColor: isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight,
-                  backgroundColor: isDark ? uiColors.surface.cardMutedDark : palette.light.card,
+                card={item}
+                selectedType={selectedTypeByCard[cardId] ?? ''}
+                selectedFile={selectedFileByCard[cardId]}
+                isViewOnly={isLockedCertificate(item)}
+                isPicking={pickingCardId === cardId}
+                disabled={isSubmitting}
+                isDark={isDark}
+                showTypeError={showTypeErrors}
+                onSelectType={type => {
+                  setShowTypeErrors(false);
+                  setSelectedTypeByCard(prev => ({ ...prev, [cardId]: type }));
                 }}
-              >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-base font-bold text-baseDark dark:text-white">{item.title ?? 'Certificate'}</Text>
-                    {!!item.description ? (
-                      <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                        {item.description}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Ionicons name="shield-checkmark-outline" size={18} color={theme.colors.primary} />
-                </View>
-
-                <Text className="mt-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                  Linked Skills
-                </Text>
-                <View className="mt-2 flex-row flex-wrap gap-2">
-                  {(item.serviceNames ?? []).map((serviceName, chipIndex) => (
-                    <View key={`${cardId}-service-${chipIndex}`} className="rounded-full px-2.5 py-1" style={{ backgroundColor: uiColors.surface.accentSoft20 }}>
-                      <Text className="text-[10px] font-semibold" style={{ color: theme.colors.primary }}>{titleCase(serviceName)}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {!isViewOnly ? (
-                  <>
-                    <View className="mt-3 flex-row items-center">
-                      <Text className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: isDark ? uiColors.text.captionDark : uiColors.text.captionLight }}>
-                        Certificate Type
-                      </Text>
-                      <Text className="ml-1 text-[10px] font-semibold" style={{ color: theme.colors.negative }}>*</Text>
-                    </View>
-                    <View className="mt-2 flex-row flex-wrap gap-2">
-                      {(item.allowedCertificateTypes ?? []).map((type, typeIndex) => {
-                        const isSelected = selectedType === type;
-                        return (
-                          <Pressable
-                            key={`${cardId}-type-${typeIndex}`}
-                            onPress={() => {
-                              if (cardBusy) return;
-                              setSelectedTypeByCard(prev => ({ ...prev, [cardId]: type }));
-                            }}
-                            disabled={cardBusy}
-                            className="rounded-full border px-2.5 py-1"
-                            style={{
-                              borderColor: isSelected
-                                ? theme.colors.primary
-                                : (isDark ? uiColors.surface.borderNeutralDark : uiColors.surface.borderNeutralLight),
-                              backgroundColor: isSelected
-                                ? uiColors.surface.accentSoft20
-                                : (isDark ? uiColors.surface.overlayDark10 : uiColors.surface.trackLight),
-                            }}
-                          >
-                            <Text className="text-[10px] font-semibold" style={{ color: isSelected ? theme.colors.primary : (isDark ? palette.dark.text : palette.light.text) }}>
-                              {titleCase(type)}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <FileUploadCard
-                      files={selectedFile ? [selectedFile] : []}
-                      onPress={() => {
-                        void onPickFile(item);
-                      }}
-                      disabled={cardBusy}
-                      isPicking={isPicking}
-                      isDark={isDark}
-                      multiple={false}
-                      isRequired
-                    />
-                  </>
-                ) : (
-                  <View className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: theme.colors.accent, backgroundColor: uiColors.surface.accentSoft20 }}>
-                    <View className="flex-row items-start">
-                      <View className="mr-2 mt-0.5 h-7 w-7 items-center justify-center rounded-full" style={{ backgroundColor: theme.colors.onPrimary }}>
-                        <Ionicons
-                          name={item.certificateStatus === 'APPROVED' ? 'checkmark-circle-outline' : 'time-outline'}
-                          size={15}
-                          color={theme.colors.primary}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-semibold" style={{ color: theme.colors.primary }}>
-                          {item.certificateStatus === 'APPROVED' ? 'Certificate verified' : 'Verification pending'}
-                        </Text>
-                        <Text className="mt-1 text-xs" style={{ color: isDark ? uiColors.text.subtitleDark : uiColors.text.subtitleLight }}>
-                          {item.certificateStatus === 'APPROVED'
-                            ? 'Your certificate is approved.'
-                            : 'Certificate submitted successfully. Admin review is in progress.'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </View>
+                onPickFile={() => {
+                  void onPickFile(item);
+                }}
+              />
             );
           })}
         </View>
@@ -372,7 +282,7 @@ export function ProfileCertificateAddAndEditScreen({ navigation }: ProfileCertif
             label={APP_TEXT.profile.certificates.saveButton}
             onPress={onSaveCertificates}
             loading={isSubmitting}
-            disabled={!canSaveCertificates || isSubmitting}
+            disabled={isSubmitting}
           />
         </View>
       ) : null}

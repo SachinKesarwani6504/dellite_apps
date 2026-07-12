@@ -23,6 +23,7 @@ import {
   WorkerProfilePayload,
 } from '@/types/auth';
 import { useLocationController } from '@/hooks/useLocationController';
+import { isAuthSessionInvalidStatusCode } from '@/utils/api-error';
 import { clearFirebaseAuthSession, ensureFirebaseSessionWithCustomToken } from '@/utils/firebase-session';
 import { buildDeviceSessionPayload, clearStableDeviceId } from '@/utils/device-session';
 import {
@@ -250,13 +251,14 @@ export function useAuthController(): AuthContextType {
           await clearOnboardingPhoneToken();
           setStatus(AuthStatus.AUTHENTICATED);
         } catch (error) {
-          if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+          if (error instanceof ApiError && isAuthSessionInvalidStatusCode(error.statusCode)) {
             await logout();
             return;
           }
           if (!mounted) {
             return;
           }
+          // Keep tokens on network/5xx/429; AppNavigator treats missing me as recoverable bootstrap.
           setStatus(AuthStatus.AUTHENTICATED);
         }
       } catch {

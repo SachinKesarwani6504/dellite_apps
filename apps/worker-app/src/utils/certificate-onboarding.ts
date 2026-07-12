@@ -18,8 +18,12 @@ export function getCertificateCardId(card: WorkerCertificateCard) {
     ?? `${card.title ?? 'certificate'}-${card.serviceName ?? 'service'}`;
 }
 
+export function isPendingCertificate(card: WorkerCertificateCard) {
+  return card.certificateStatus === 'PENDING';
+}
+
 export function isLockedCertificate(card: WorkerCertificateCard) {
-  return card.certificateStatus === 'PENDING' || card.certificateStatus === 'APPROVED';
+  return isPendingCertificate(card) || card.certificateStatus === 'APPROVED';
 }
 
 export function resolveCertificateWorkerSkillIds(card: WorkerCertificateCard): string[] {
